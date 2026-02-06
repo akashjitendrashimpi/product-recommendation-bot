@@ -7,8 +7,8 @@ const _geist = Geist({ subsets: ["latin"] })
 const _geistMono = Geist_Mono({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "QrBot - Product Recommendations & Daily Tasks",
-  description: "QR-powered product recommendation chatbot with affiliate links and daily task rewards",
+  title: "Qyantra",
+  description: "Qyantra helps you scan QR codes for smart product recommendations and earn money by completing daily tasks.",
 }
 
 export default function RootLayout({
