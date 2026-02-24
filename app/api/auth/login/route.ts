@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server"
 import { verifyUser } from "@/lib/db/users"
-import { createSession } from "@/lib/auth/session"
+import { rateLimit } from "@/lib/security/rate-limit"
 
 export async function POST(request: NextRequest) {
   try {
+    // Rate limiting
+    const rateLimitResponse = rateLimit(request, 5, 60000)
+    if (rateLimitResponse) return rateLimitResponse
+
     const { email, password } = await request.json()
 
     if (!email || !password) {

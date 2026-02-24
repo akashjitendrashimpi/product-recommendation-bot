@@ -1,31 +1,18 @@
-import mysql from "mysql2/promise"
+﻿import { Pool } from 'pg'
 
-// Database connection configuration
-const dbConfig = {
-  host: process.env.DB_HOST || "localhost",
-  port: parseInt(process.env.DB_PORT || "3306"),
-  user: process.env.DB_USER || "root",
-  password: process.env.DB_PASSWORD || "",
-  // Default DB renamed to `qrbot` (matches schema.sql instructions)
-  database: process.env.DB_NAME || "qrbot",
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
-}
+// Create PostgreSQL connection pool
+let pool: Pool | null = null
 
-// Create connection pool
-let pool: mysql.Pool | null = null
-
-export function getPool(): mysql.Pool {
+export function getPool(): Pool {
   if (!pool) {
-    pool = mysql.createPool(dbConfig)
+    pool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: {
+        rejectUnauthorized: false
+      }
+    })
   }
   return pool
-}
-
-// Get a connection from the pool
-export async function getConnection() {
-  return getPool().getConnection()
 }
 
 // Execute a query
@@ -33,12 +20,16 @@ export async function query<T = any>(
   sql: string,
   params?: any[]
 ): Promise<T[]> {
-  const connection = await getConnection()
+  const client = await getPool().connect()
   try {
-    const [rows] = await connection.execute(sql, params)
-    return rows as T[]
+    // Convert MySQL ? placeholders to PostgreSQL $1, $2, etc.
+    let paramIndex = 1
+    const pgSql = sql.replace(/\?/g, () => `$${paramIndex++}`)
+    
+    const result = await client.query(pgSql, params)
+    return result.rows as T[]
   } finally {
-    connection.release()
+    client.release()
   }
 }
 
@@ -56,12 +47,18 @@ export async function execute(
   sql: string,
   params?: any[]
 ): Promise<{ affectedRows: number; insertId?: number }> {
-  const connection = await getConnection()
+  const client = await getPool().connect()
   try {
-    const [result] = await connection.execute(sql, params)
-    return result as any
+    // Convert MySQL ? placeholders to PostgreSQL $1, $2, etc.
+    let paramIndex = 1
+    const pgSql = sql.replace(/\?/g, () => `$${paramIndex++}`)
+    
+    const result = await client.query(pgSql, params)
+    return {
+      affectedRows: result.rowCount || 0,
+      insertId: result.rows[0]?.id
+    }
   } finally {
-    connection.release()
+    client.release()
   }
 }
-

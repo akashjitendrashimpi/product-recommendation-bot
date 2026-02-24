@@ -1,19 +1,39 @@
-import { query, queryOne, execute } from "./connection"
-import type { Category } from "@/lib/types"
+import { supabaseAdmin } from '@/lib/supabase/client'
+import type { Category } from '@/lib/types'
 
 // Get all categories
 export async function getAllCategories(): Promise<Category[]> {
-  return query<Category>(`SELECT * FROM categories ORDER BY name`)
+  const { data, error } = await supabaseAdmin
+    .from('categories')
+    .select('*')
+    .order('name', { ascending: true })
+
+  if (error) throw error
+  return (data || []) as Category[]
 }
 
 // Get category by ID
 export async function getCategoryById(id: number): Promise<Category | null> {
-  return queryOne<Category>(`SELECT * FROM categories WHERE id = ?`, [id])
+  const { data, error } = await supabaseAdmin
+    .from('categories')
+    .select('*')
+    .eq('id', id)
+    .single()
+
+  if (error && error.code !== 'PGRST116') throw error
+  return (data || null) as Category | null
 }
 
 // Get category by name
 export async function getCategoryByName(name: string): Promise<Category | null> {
-  return queryOne<Category>(`SELECT * FROM categories WHERE name = ?`, [name])
+  const { data, error } = await supabaseAdmin
+    .from('categories')
+    .select('*')
+    .eq('name', name)
+    .single()
+
+  if (error && error.code !== 'PGRST116') throw error
+  return (data || null) as Category | null
 }
 
 // Create category
@@ -22,18 +42,19 @@ export async function createCategory(data: {
   description?: string | null
   icon?: string | null
 }): Promise<Category> {
-  const result = await execute(
-    `INSERT INTO categories (name, description, icon) VALUES (?, ?, ?)`,
-    [data.name, data.description || null, data.icon || null]
-  )
+  const { data: category, error } = await supabaseAdmin
+    .from('categories')
+    .insert({
+      name: data.name,
+      description: data.description || null,
+      icon: data.icon || null,
+    })
+    .select()
+    .single()
 
-  if (!result.insertId) {
-    throw new Error("Failed to create category")
-  }
-
-  const category = await getCategoryById(result.insertId)
-  if (!category) throw new Error("Failed to create category")
-  return category
+  if (error) throw error
+  if (!category) throw new Error('Failed to create category')
+  return category as Category
 }
 
 // Update category
@@ -45,29 +66,28 @@ export async function updateCategory(
     icon?: string | null
   }
 ): Promise<void> {
-  const updates: string[] = []
-  const values: any[] = []
+  const updates: Record<string, any> = {}
 
-  if (data.name !== undefined) {
-    updates.push("name = ?")
-    values.push(data.name)
-  }
-  if (data.description !== undefined) {
-    updates.push("description = ?")
-    values.push(data.description)
-  }
-  if (data.icon !== undefined) {
-    updates.push("icon = ?")
-    values.push(data.icon)
-  }
+  if (data.name !== undefined) updates.name = data.name
+  if (data.description !== undefined) updates.description = data.description
+  if (data.icon !== undefined) updates.icon = data.icon
 
-  if (updates.length === 0) return
+  if (Object.keys(updates).length === 0) return
 
-  values.push(id)
-  await execute(`UPDATE categories SET ${updates.join(", ")} WHERE id = ?`, values)
+  const { error } = await supabaseAdmin
+    .from('categories')
+    .update(updates)
+    .eq('id', id)
+
+  if (error) throw error
 }
 
 // Delete category
 export async function deleteCategory(id: number): Promise<void> {
-  await execute("DELETE FROM categories WHERE id = ?", [id])
+  const { error } = await supabaseAdmin
+    .from('categories')
+    .delete()
+    .eq('id', id)
+
+  if (error) throw error
 }

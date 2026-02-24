@@ -1,111 +1,95 @@
-import { query, queryOne, execute } from "./connection"
-import type { UserEarning } from "@/lib/types"
+import { supabaseAdmin } from '@/lib/supabase/client'
+import type { UserEarning } from '@/lib/types'
 
-// Get user's daily earning for a specific date
-export async function getUserDailyEarning(
-  userId: number,
-  date: string
-): Promise<UserEarning | null> {
-  return queryOne<UserEarning>(
-    `SELECT * FROM user_earnings WHERE user_id = ? AND date = ?`,
-    [userId, date]
-  )
+export async function getUserDailyEarning(userId: number, date: string): Promise<UserEarning | null> {
+  const { data, error } = await supabaseAdmin
+    .from('user_earnings')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('date', date)
+    .single()
+  if (error && error.code !== 'PGRST116') throw error
+  return (data || null) as UserEarning | null
 }
 
-// Get user's monthly earnings
-export async function getUserMonthlyEarnings(
-  userId: number,
-  year: number,
-  month: number
-): Promise<UserEarning[]> {
-  return query<UserEarning>(
-    `SELECT * FROM user_earnings 
-     WHERE user_id = ? 
-     AND YEAR(date) = ? 
-     AND MONTH(date) = ?
-     ORDER BY date DESC`,
-    [userId, year, month]
-  )
+export async function getUserMonthlyEarnings(userId: number, year: number, month: number): Promise<UserEarning[]> {
+  const { data, error } = await supabaseAdmin
+    .from('user_earnings')
+    .select('*')
+    .eq('user_id', userId)
+    .gte('date', `${year}-${String(month).padStart(2, '0')}-01`)
+    .lt('date', `${year}-${String(month + 1).padStart(2, '0')}-01`)
+    .order('date', { ascending: false })
+  if (error) throw error
+  return (data || []) as UserEarning[]
 }
 
-// Get user's total lifetime earnings
 export async function getUserTotalEarnings(userId: number): Promise<number> {
-  const result = await queryOne<{ total: number | string }>(
-    `SELECT COALESCE(SUM(daily_earnings), 0) as total 
-     FROM user_earnings 
-     WHERE user_id = ?`,
-    [userId]
-  )
-  // Convert to number (MySQL DECIMAL returns as string)
-  return result?.total ? Number(result.total) : 0
+  const { data, error } = await supabaseAdmin
+    .from('user_earnings')
+    .select('daily_earnings')
+    .eq('user_id', userId)
+  if (error) throw error
+  return (data || []).reduce((sum, r) => sum + Number(r.daily_earnings || 0), 0)
 }
 
-// Update or create daily earning
-export async function updateDailyEarning(
-  userId: number,
-  date: string,
-  amount: number
-): Promise<void> {
-  // Check if record exists
+export async function updateDailyEarning(userId: number, date: string, amount: number): Promise<void> {
   const existing = await getUserDailyEarning(userId, date)
-
   if (existing) {
-    // Update existing
-    await execute(
-      `UPDATE user_earnings 
-       SET daily_earnings = daily_earnings + ?, 
-           tasks_completed = tasks_completed + 1,
-           updated_at = CURRENT_TIMESTAMP
-       WHERE user_id = ? AND date = ?`,
-      [amount, userId, date]
-    )
+    const { error } = await supabaseAdmin
+      .from('user_earnings')
+      .update({
+        daily_earnings: Number(existing.daily_earnings || 0) + amount,
+        tasks_completed: (existing.tasks_completed || 0) + 1,
+      })
+      .eq('user_id', userId)
+      .eq('date', date)
+    if (error) throw error
   } else {
-    // Create new
-    await execute(
-      `INSERT INTO user_earnings (user_id, date, daily_earnings, tasks_completed)
-       VALUES (?, ?, ?, 1)`,
-      [userId, date, amount]
-    )
+    const { error } = await supabaseAdmin
+      .from('user_earnings')
+      .insert({ user_id: userId, date, daily_earnings: amount, tasks_completed: 1 })
+    if (error) throw error
   }
 }
 
-// Get user's earnings summary (last 30 days)
 export async function getUserEarningsSummary(userId: number): Promise<{
   totalEarnings: number
   dailyEarnings: number
   monthlyEarnings: number
   tasksCompleted: number
 }> {
-  const today = new Date().toISOString().split("T")[0]
+  const today = new Date().toISOString().split('T')[0]
   const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
     .toISOString()
-    .split("T")[0]
+    .split('T')[0]
 
-  const [total, daily, monthly, tasks] = await Promise.all([
-    getUserTotalEarnings(userId),
+  const [{ data: monthlyData, error: monthlyError }, dailyEarning] = await Promise.all([
+    supabaseAdmin
+      .from('user_earnings')
+      .select('*')
+      .eq('user_id', userId)
+      .gte('date', startOfMonth)
+      .order('date', { ascending: false }),
     getUserDailyEarning(userId, today),
-    query<UserEarning>(
-      `SELECT * FROM user_earnings 
-       WHERE user_id = ? AND date >= ? 
-       ORDER BY date DESC`,
-      [userId, startOfMonth]
-    ),
-    query<{ count: number }>(
-      `SELECT COUNT(*) as count 
-       FROM task_completions 
-       WHERE user_id = ? AND status IN ('completed', 'verified')`,
-      [userId]
-    ),
   ])
 
-  const monthlyTotal =
-    monthly.reduce((sum, e) => sum + Number(e.daily_earnings || 0), 0) || 0
+  if (monthlyError) throw monthlyError
 
-  // Convert all values to numbers (MySQL DECIMAL returns as string)
+  const total = await getUserTotalEarnings(userId)
+  const monthlyTotal = (monthlyData || []).reduce((sum, e) => sum + Number(e.daily_earnings || 0), 0)
+  const { data: tasks, error: tasksError } = await supabaseAdmin
+    .from('task_completions')
+    .select('id', { count: 'exact' })
+    .eq('user_id', userId)
+    .in('status', ['completed', 'verified'])
+
+  if (tasksError) throw tasksError
+
   return {
-    totalEarnings: Number(total) || 0,
-    dailyEarnings: daily?.daily_earnings ? Number(daily.daily_earnings) : 0,
-    monthlyEarnings: Number(monthlyTotal) || 0,
-    tasksCompleted: tasks[0]?.count ? Number(tasks[0].count) : 0,
+    totalEarnings: total,
+    dailyEarnings: dailyEarning ? Number(dailyEarning.daily_earnings || 0) : 0,
+    monthlyEarnings: monthlyTotal,
+    tasksCompleted: tasks?.length || 0,
   }
 }

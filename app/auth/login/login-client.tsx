@@ -45,21 +45,14 @@ export default function LoginPageClient() {
         throw new Error(data.error || "Login failed")
       }
 
-      // Fetch logged-in user profile to decide where to go
-      const profileRes = await fetch("/api/user/profile")
-      const profileData = await profileRes.json()
-
+      // Check if there's a return URL, otherwise go to dashboard
       const returnUrl = searchParams.get("return") || searchParams.get("redirect")
-
-      if (profileData.user?.is_admin) {
-        // Admins always go to dashboard
-        router.push("/dashboard")
-      } else if (returnUrl) {
-        // Normal users go back to where they came from (chat/[code])
+      
+      if (returnUrl) {
         router.push(returnUrl)
       } else {
-        // Fallback for normal users
-        router.push("/")
+        // Default: Always go to dashboard after login
+        router.push("/dashboard")
       }
 
       router.refresh()
@@ -106,7 +99,7 @@ export default function LoginPageClient() {
                 <div className="flex flex-col gap-4">
                   {/* Email Field */}
                   <div className="grid gap-2">
-                    <Label htmlFor="email" className="text-gray-700 font-medium flex items-center gap-2">
+                    <Label htmlFor="email" className="text-gray-700 font-medium flex items-center gap-2">     
                       <Mail className="w-4 h-4 text-blue-500" />
                       Email Address
                     </Label>
@@ -117,13 +110,13 @@ export default function LoginPageClient() {
                       required
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className="border-gray-300 focus:border-blue-500 focus:ring-blue-500 h-12 text-base"
+                      className="border-gray-300 focus:border-blue-500 focus:ring-blue-500 h-12 text-base"    
                     />
                   </div>
 
                   {/* Password Field */}
                   <div className="grid gap-2">
-                    <Label htmlFor="password" className="text-gray-700 font-medium flex items-center gap-2">
+                    <Label htmlFor="password" className="text-gray-700 font-medium flex items-center gap-2">  
                       <Lock className="w-4 h-4 text-blue-500" />
                       Password
                     </Label>
@@ -134,14 +127,14 @@ export default function LoginPageClient() {
                       required
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="border-gray-300 focus:border-blue-500 focus:ring-blue-500 h-12 text-base"
+                      className="border-gray-300 focus:border-blue-500 focus:ring-blue-500 h-12 text-base"    
                     />
                   </div>
 
                   {/* Forgot Password Link */}
                   <div className="flex justify-end">
-                    <Link 
-                      href="/auth/forgot-password" 
+                    <Link
+                      href="/auth/forgot-password"
                       className="text-sm font-medium text-blue-600 hover:text-green-600 underline underline-offset-4 transition-colors"
                     >
                       Forgot password?
@@ -164,9 +157,9 @@ export default function LoginPageClient() {
                   )}
 
                   {/* Submit Button */}
-                  <Button 
-                    type="submit" 
-                    className="w-full h-12 text-base font-semibold bg-gradient-to-r from-blue-500 to-green-500 hover:from-blue-600 hover:to-green-600 shadow-lg hover:shadow-xl transition-all mt-2" 
+                  <Button
+                    type="submit"
+                    className="w-full h-12 text-base font-semibold bg-gradient-to-r from-blue-500 to-green-500 hover:from-blue-600 hover:to-green-600 shadow-lg hover:shadow-xl transition-all mt-2"
                     disabled={isLoading}
                   >
                     {isLoading ? (
@@ -206,8 +199,8 @@ export default function LoginPageClient() {
                 <div className="mt-6 text-center">
                   <p className="text-sm text-gray-600">
                     Don't have an account?{" "}
-                    <Link 
-                      href="/auth/sign-up" 
+                    <Link
+                      href="/auth/sign-up"
                       className="font-semibold text-blue-600 hover:text-green-600 underline underline-offset-4 transition-colors"
                     >
                       Sign up free

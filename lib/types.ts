@@ -56,6 +56,7 @@ export interface UserProfile {
   is_admin: boolean
   upi_id: string | null
   phone: string | null
+  email_verified: boolean
   created_at: string
   updated_at: string
 }

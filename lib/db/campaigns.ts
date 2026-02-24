@@ -1,37 +1,46 @@
-import { query, queryOne, execute } from "./connection"
-import type { QRCampaign } from "@/lib/types"
+import { supabaseAdmin } from '@/lib/supabase/client'
+import type { QRCampaign } from '@/lib/types'
 
-// Get all campaigns
 export async function getAllCampaigns(): Promise<QRCampaign[]> {
-  return query<QRCampaign>(
-    `SELECT * FROM qr_campaigns ORDER BY created_at DESC`
-  )
+  const { data, error } = await supabaseAdmin
+    .from('qr_campaigns')
+    .select('*')
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return (data || []) as QRCampaign[]
 }
 
-// Get campaigns by user ID
 export async function getCampaignsByUserId(userId: number): Promise<QRCampaign[]> {
-  return query<QRCampaign>(
-    `SELECT * FROM qr_campaigns WHERE user_id = ? ORDER BY created_at DESC`,
-    [userId]
-  )
+  const { data, error } = await supabaseAdmin
+    .from('qr_campaigns')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return (data || []) as QRCampaign[]
 }
 
-// Get campaign by ID
 export async function getCampaignById(id: number): Promise<QRCampaign | null> {
-  return queryOne<QRCampaign>(`SELECT * FROM qr_campaigns WHERE id = ?`, [id])
+  const { data, error } = await supabaseAdmin
+    .from('qr_campaigns')
+    .select('*')
+    .eq('id', id)
+    .single()
+  if (error && error.code !== 'PGRST116') throw error
+  return (data || null) as QRCampaign | null
 }
 
-// Get campaign by code
-export async function getCampaignByCode(
-  code: string
-): Promise<QRCampaign | null> {
-  return queryOne<QRCampaign>(
-    `SELECT * FROM qr_campaigns WHERE campaign_code = ? AND is_active = TRUE`,
-    [code]
-  )
+export async function getCampaignByCode(code: string): Promise<QRCampaign | null> {
+  const { data, error } = await supabaseAdmin
+    .from('qr_campaigns')
+    .select('*')
+    .eq('campaign_code', code)
+    .eq('is_active', true)
+    .single()
+  if (error && error.code !== 'PGRST116') throw error
+  return (data || null) as QRCampaign | null
 }
 
-// Create campaign
 export async function createCampaign(data: {
   campaign_name: string
   campaign_code: string
@@ -39,83 +48,47 @@ export async function createCampaign(data: {
   location?: string | null
   user_id: number
 }): Promise<QRCampaign> {
-  const result = await execute(
-    `INSERT INTO qr_campaigns (
-      campaign_name, campaign_code, description, location, user_id
-    ) VALUES (?, ?, ?, ?, ?)`,
-    [
-      data.campaign_name,
-      data.campaign_code,
-      data.description || null,
-      data.location || null,
-      data.user_id,
-    ]
-  )
-
-  if (!result.insertId) {
-    throw new Error("Failed to create campaign")
-  }
-
-  const campaign = await getCampaignById(result.insertId)
-  if (!campaign) throw new Error("Failed to create campaign")
-  return campaign
+  const { data: campaign, error } = await supabaseAdmin
+    .from('qr_campaigns')
+    .insert(data)
+    .select()
+    .single()
+  if (error) throw error
+  return campaign as QRCampaign
 }
 
-// Update campaign
 export async function updateCampaign(
   id: number,
-  data: {
-    campaign_name?: string
-    campaign_code?: string
-    description?: string | null
-    location?: string | null
-    is_active?: boolean
-    scan_count?: number
-  }
+  data: Partial<QRCampaign>
 ): Promise<void> {
-  const updates: string[] = []
-  const values: any[] = []
-
-  if (data.campaign_name !== undefined) {
-    updates.push("campaign_name = ?")
-    values.push(data.campaign_name)
-  }
-  if (data.campaign_code !== undefined) {
-    updates.push("campaign_code = ?")
-    values.push(data.campaign_code)
-  }
-  if (data.description !== undefined) {
-    updates.push("description = ?")
-    values.push(data.description)
-  }
-  if (data.location !== undefined) {
-    updates.push("location = ?")
-    values.push(data.location)
-  }
-  if (data.is_active !== undefined) {
-    updates.push("is_active = ?")
-    values.push(data.is_active)
-  }
-  if (data.scan_count !== undefined) {
-    updates.push("scan_count = ?")
-    values.push(data.scan_count)
-  }
-
-  if (updates.length === 0) return
-
-  values.push(id)
-  await execute(`UPDATE qr_campaigns SET ${updates.join(", ")} WHERE id = ?`, values)
+  const updates: Record<string, any> = {}
+  Object.keys(data).forEach(key => {
+    if (data[key as keyof QRCampaign] !== undefined) {
+      updates[key] = data[key as keyof QRCampaign]
+    }
+  })
+  if (Object.keys(updates).length === 0) return
+  const { error } = await supabaseAdmin
+    .from('qr_campaigns')
+    .update(updates)
+    .eq('id', id)
+  if (error) throw error
 }
 
-// Increment scan count
 export async function incrementScanCount(id: number): Promise<void> {
-  await execute(
-    `UPDATE qr_campaigns SET scan_count = scan_count + 1 WHERE id = ?`,
-    [id]
-  )
+  const campaign = await getCampaignById(id)
+  if (!campaign) throw new Error('Campaign not found')
+  const { error } = await supabaseAdmin
+    .from('qr_campaigns')
+    .update({ scan_count: (campaign.scan_count || 0) + 1 })
+    .eq('id', id)
+  if (error) throw error
 }
 
-// Delete campaign
 export async function deleteCampaign(id: number): Promise<void> {
-  await execute("DELETE FROM qr_campaigns WHERE id = ?", [id])
+  const { error } = await supabaseAdmin
+    .from('qr_campaigns')
+    .delete()
+    .eq('id', id)
+  if (error) throw error
 }

@@ -1,83 +1,76 @@
-import { query, queryOne, execute } from "./connection"
-import type { Payment } from "@/lib/types"
+import { supabaseAdmin } from '@/lib/supabase/client'
+import type { Payment } from '@/lib/types'
 
-// Get user's payments
 export async function getUserPayments(userId: number): Promise<Payment[]> {
-  return query<Payment>(
-    `SELECT * FROM payments WHERE user_id = ? ORDER BY created_at DESC`,
-    [userId]
-  )
+  const { data, error } = await supabaseAdmin
+    .from('payments')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return (data || []) as Payment[]
 }
 
-// Get payment by ID
 export async function getPaymentById(id: number): Promise<Payment | null> {
-  return queryOne<Payment>(`SELECT * FROM payments WHERE id = ?`, [id])
+  const { data, error } = await supabaseAdmin
+    .from('payments')
+    .select('*')
+    .eq('id', id)
+    .single()
+  if (error && error.code !== 'PGRST116') throw error
+  return (data || null) as Payment | null
 }
 
-// Create payment record
 export async function createPayment(data: {
   user_id: number
   amount: number
   upi_id: string
   payment_date: string
 }): Promise<Payment> {
-  const result = await execute(
-    `INSERT INTO payments (user_id, amount, upi_id, payment_date, status)
-     VALUES (?, ?, ?, ?, 'pending')`,
-    [data.user_id, data.amount, data.upi_id, data.payment_date]
-  )
-
-  if (!result.insertId) {
-    throw new Error("Failed to create payment")
-  }
-
-  const payment = await getPaymentById(result.insertId)
-  if (!payment) throw new Error("Failed to create payment")
-  return payment
+  const { data: payment, error } = await supabaseAdmin
+    .from('payments')
+    .insert({ ...data, status: 'pending' })
+    .select()
+    .single()
+  if (error) throw error
+  return payment as Payment
 }
 
-// Update payment status
 export async function updatePaymentStatus(
   id: number,
-  status: "processing" | "completed" | "failed",
+  status: 'processing' | 'completed' | 'failed',
   paymentReference?: string | null,
   errorMessage?: string | null
 ): Promise<void> {
-  const updates: string[] = []
-  const values: any[] = []
-
-  updates.push("status = ?")
-  values.push(status)
-
-  if (paymentReference !== undefined) {
-    updates.push("payment_reference = ?")
-    values.push(paymentReference)
+  const updates: Record<string, any> = { status }
+  if (paymentReference !== undefined) updates.payment_reference = paymentReference
+  if (errorMessage !== undefined) updates.error_message = errorMessage
+  if (status === 'completed' || status === 'failed') {
+    updates.processed_at = new Date().toISOString()
   }
-  if (errorMessage !== undefined) {
-    updates.push("error_message = ?")
-    values.push(errorMessage)
-  }
-  if (status === "completed" || status === "failed") {
-    updates.push("processed_at = NOW()")
-  }
-
-  updates.push("updated_at = CURRENT_TIMESTAMP")
-  values.push(id)
-
-  await execute(`UPDATE payments SET ${updates.join(", ")} WHERE id = ?`, values)
+  const { error } = await supabaseAdmin
+    .from('payments')
+    .update(updates)
+    .eq('id', id)
+  if (error) throw error
 }
 
-// Get pending payments
 export async function getPendingPayments(): Promise<Payment[]> {
-  return query<Payment>(
-    `SELECT * FROM payments WHERE status = 'pending' ORDER BY payment_date ASC, created_at ASC`
-  )
+  const { data, error } = await supabaseAdmin
+    .from('payments')
+    .select('*')
+    .eq('status', 'pending')
+    .order('payment_date', { ascending: true })
+  if (error) throw error
+  return (data || []) as Payment[]
 }
 
-// Get payments by date
 export async function getPaymentsByDate(date: string): Promise<Payment[]> {
-  return query<Payment>(
-    `SELECT * FROM payments WHERE payment_date = ? ORDER BY created_at DESC`,
-    [date]
-  )
+  const { data, error } = await supabaseAdmin
+    .from('payments')
+    .select('*')
+    .eq('payment_date', date)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return (data || []) as Payment[]
 }
