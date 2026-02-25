@@ -2,9 +2,10 @@ import { Resend } from "resend"
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY
 
-if (!RESEND_API_KEY) {
-  console.warn("⚠️ RESEND_API_KEY is not set in environment variables. Email functionality will not work.")
-}
+// Resend integration disabled - email functionality not in use
+// if (!RESEND_API_KEY) {
+//   console.warn("⚠️ RESEND_API_KEY is not set in environment variables. Email functionality will not work.")
+// }
 
 const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null
 
