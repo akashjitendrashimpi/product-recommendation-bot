@@ -78,28 +78,33 @@ const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
     return null
   }
 
-  return (
-    <style
-      dangerouslySetInnerHTML={{
-        __html: Object.entries(THEMES)
-          .map(
-            ([theme, prefix]) => `
-${prefix} [data-chart=${id}] {
-${colorConfig
-  .map(([key, itemConfig]) => {
-    const color =
-      itemConfig.theme?.[theme as keyof typeof itemConfig.theme] ||
-      itemConfig.color
-    return color ? `  --color-${key}: ${color};` : null
-  })
-  .join('\n')}
-}
-`,
-          )
-          .join('\n'),
-      }}
-    />
-  )
+  function sanitizeColor(value?: string | undefined | null) {
+    if (!value) return null
+    const v = value.trim()
+    // Allow hex colors (#RGB, #RRGGBB, #RRGGBBAA) or CSS vars like var(--name)
+    if (/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(v)) return v
+    if (/^var\(--[a-zA-Z0-9-_]+\)$/.test(v)) return v
+    return null
+  }
+
+  const css = Object.entries(THEMES)
+    .map(([theme, prefix]) => {
+      const body = colorConfig
+        .map(([key, itemConfig]) => {
+          const raw =
+            itemConfig.theme?.[theme as keyof typeof itemConfig.theme] ||
+            itemConfig.color
+          const safe = sanitizeColor(raw as any)
+          return safe ? `  --color-${key}: ${safe};` : null
+        })
+        .filter(Boolean)
+        .join('\n')
+
+      return `${prefix} [data-chart=${id}] {\n${body}\n}`
+    })
+    .join('\n')
+
+  return <style dangerouslySetInnerHTML={{ __html: css }} />
 }
 
 const ChartTooltip = RechartsPrimitive.Tooltip

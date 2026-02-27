@@ -76,7 +76,7 @@ ADD INDEX idx_password_reset_token (password_reset_token);
 
 Make sure `.env.local` has:
 ```env
-RESEND_API_KEY=re_5p4WQ7gb_9NMKLq1TbpVZbfMcwcfNFKt4
+RESEND_API_KEY=re_xxxxxxxxxxxxx
 NEXT_PUBLIC_APP_URL=http://localhost:3000  # Add this for production
 ```
 

@@ -1,4 +1,5 @@
 import { Resend } from "resend"
+import { escapeHtml } from '@/lib/utils'
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY
 
@@ -20,6 +21,7 @@ export async function sendVerificationEmail(email: string, token: string, displa
   }
   
   const verificationUrl = `${APP_URL}/auth/verify-email?token=${token}`
+  const safeDisplayName = escapeHtml(displayName)
   
   try {
     console.log(`📧 Sending verification email to: ${email}`)
@@ -39,13 +41,13 @@ export async function sendVerificationEmail(email: string, token: string, displa
               <h1 style="color: white; margin: 0;">QrBot</h1>
             </div>
             <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px;">
-              <h2 style="color: #333; margin-top: 0;">Welcome${displayName ? `, ${displayName}` : ""}!</h2>
+              <h2 style="color: #333; margin-top: 0;">Welcome${displayName ? `, ${safeDisplayName}` : ""}!</h2>
               <p>Thank you for signing up for QrBot. Please verify your email address to complete your registration.</p>
               <div style="text-align: center; margin: 30px 0;">
                 <a href="${verificationUrl}" style="background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">Verify Email Address</a>
               </div>
               <p style="color: #666; font-size: 14px;">Or copy and paste this link into your browser:</p>
-              <p style="color: #667eea; font-size: 12px; word-break: break-all;">${verificationUrl}</p>
+              <p style="color: #667eea; font-size: 12px; word-break: break-all;">${escapeHtml(verificationUrl)}</p>
               <p style="color: #666; font-size: 14px; margin-top: 30px;">This link will expire in 24 hours.</p>
               <p style="color: #666; font-size: 14px;">If you didn't create an account, you can safely ignore this email.</p>
             </div>
@@ -78,6 +80,7 @@ export async function sendPasswordResetEmail(email: string, token: string, displ
   }
   
   const resetUrl = `${APP_URL}/auth/reset-password?token=${token}`
+  const safeDisplayName2 = escapeHtml(displayName)
   
   try {
     console.log(`📧 Sending password reset email to: ${email}`)
@@ -98,13 +101,13 @@ export async function sendPasswordResetEmail(email: string, token: string, displ
             </div>
             <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px;">
               <h2 style="color: #333; margin-top: 0;">Password Reset Request</h2>
-              <p>Hello${displayName ? ` ${displayName}` : ""},</p>
+              <p>Hello${displayName ? ` ${safeDisplayName2}` : ""},</p>
               <p>We received a request to reset your password. Click the button below to create a new password:</p>
               <div style="text-align: center; margin: 30px 0;">
                 <a href="${resetUrl}" style="background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">Reset Password</a>
               </div>
               <p style="color: #666; font-size: 14px;">Or copy and paste this link into your browser:</p>
-              <p style="color: #667eea; font-size: 12px; word-break: break-all;">${resetUrl}</p>
+              <p style="color: #667eea; font-size: 12px; word-break: break-all;">${escapeHtml(resetUrl)}</p>
               <p style="color: #666; font-size: 14px; margin-top: 30px;">This link will expire in 1 hour.</p>
               <p style="color: #d32f2f; font-size: 14px; font-weight: bold;">If you didn't request a password reset, please ignore this email. Your password will remain unchanged.</p>
             </div>
@@ -147,6 +150,8 @@ export async function sendTaskCompletionEmail(
     const formattedAmount = isNaN(amountNum) ? '0.00' : amountNum.toFixed(2)
     
     console.log(`📧 Sending task completion email to: ${email}`)
+    const safeDisplayName3 = escapeHtml(displayName)
+    const safeTaskTitle = escapeHtml(taskTitle)
     const { data, error } = await resend.emails.send({
       from: FROM_EMAIL,
       to: email,
@@ -167,7 +172,7 @@ export async function sendTaskCompletionEmail(
               <p>Hello${displayName ? ` ${displayName}` : ""},</p>
               <p>Great news! Your task completion has been verified:</p>
               <div style="background: white; padding: 20px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #667eea;">
-                <p style="margin: 0; font-size: 18px; font-weight: bold; color: #333;">${taskTitle}</p>
+                <p style="margin: 0; font-size: 18px; font-weight: bold; color: #333;">${safeTaskTitle}</p>
                 <p style="margin: 10px 0 0 0; font-size: 24px; color: #667eea; font-weight: bold;">₹${formattedAmount}</p>
               </div>
               <p>The amount has been added to your earnings. You can view your balance and request a payout from your dashboard.</p>
@@ -215,6 +220,9 @@ export async function sendPaymentConfirmationEmail(
     const formattedAmount = isNaN(amountNum) ? '0.00' : amountNum.toFixed(2)
     
     console.log(`📧 Sending payment confirmation email to: ${email}`)
+    const safeDisplayName4 = escapeHtml(displayName)
+    const safeUpiId = escapeHtml(upiId)
+    const safeTransactionId = transactionId ? escapeHtml(transactionId) : ''
     const { data, error } = await resend.emails.send({
       from: FROM_EMAIL,
       to: email,
@@ -238,8 +246,8 @@ export async function sendPaymentConfirmationEmail(
                 <p style="margin: 0; color: #666;">Amount</p>
                 <p style="margin: 5px 0; font-size: 24px; color: #667eea; font-weight: bold;">₹${formattedAmount}</p>
                 <p style="margin: 15px 0 0 0; color: #666;">UPI ID</p>
-                <p style="margin: 5px 0; font-size: 16px; color: #333; font-weight: bold;">${upiId}</p>
-                ${transactionId ? `<p style="margin: 15px 0 0 0; color: #666;">Transaction ID</p><p style="margin: 5px 0; font-size: 14px; color: #333; font-family: monospace;">${transactionId}</p>` : ""}
+                <p style="margin: 5px 0; font-size: 16px; color: #333; font-weight: bold;">${safeUpiId}</p>
+                ${transactionId ? `<p style="margin: 15px 0 0 0; color: #666;">Transaction ID</p><p style="margin: 5px 0; font-size: 14px; color: #333; font-family: monospace;">${safeTransactionId}</p>` : ""}
               </div>
               <p>The payment has been sent to your UPI ID. Please check your UPI app for confirmation.</p>
               <div style="text-align: center; margin: 30px 0;">

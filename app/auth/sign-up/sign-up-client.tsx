@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useState } from "react"
+import { isSafeReturnUrl } from '@/lib/utils'
 import { Sparkles, User, Phone, Wallet, Mail, Lock, ShieldCheck, ArrowRight } from "lucide-react"
 
 export default function SignUpPage() {
@@ -55,7 +56,7 @@ export default function SignUpPage() {
 
       // Check if there's a return URL
       const returnUrl = searchParams.get("return")
-      if (returnUrl) {
+      if (returnUrl && isSafeReturnUrl(returnUrl)) {
         router.push(returnUrl)
       } else {
         router.push("/auth/sign-up-success")

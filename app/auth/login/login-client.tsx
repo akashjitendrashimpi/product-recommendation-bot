@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useState, useEffect } from "react"
+import { isSafeReturnUrl } from '@/lib/utils'
 import { Sparkles, Mail, Lock, ArrowRight, ShieldCheck, CheckCircle2 } from "lucide-react"
 
 export default function LoginPageClient() {
@@ -48,7 +49,7 @@ export default function LoginPageClient() {
       // Check if there's a return URL, otherwise go to dashboard
       const returnUrl = searchParams.get("return") || searchParams.get("redirect")
       
-      if (returnUrl) {
+      if (returnUrl && isSafeReturnUrl(returnUrl)) {
         router.push(returnUrl)
       } else {
         // Default: Always go to dashboard after login

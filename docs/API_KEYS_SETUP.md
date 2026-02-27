@@ -40,11 +40,11 @@ DB_NAME=qrbot
 NODE_ENV=development
 
 # Email Service
-RESEND_API_KEY=re_5p4WQ7gb_9NMKLq1TbpVZbfMcwcfNFKt4
+RESEND_API_KEY=re_xxxxxxxxxxxxx
 
 # CPA Network - AdGate Media (BitLabs)
-ADGATE_API_KEY=08d76ea7-e607-49ff-8927-fbd34338a843
-ADGATE_API_SECRET=qFM7grnZ4cR3UrhJwowPmBQ5DzNEtCbE
+ADGATE_API_KEY=your_adgate_api_key
+ADGATE_API_SECRET=your_adgate_api_secret
 ```
 
 ---
