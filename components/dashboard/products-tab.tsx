@@ -357,6 +357,8 @@ export function ProductsTab({ products, setProducts, categories, userId }: Produ
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-orange-500 hover:text-orange-600"
+                            title={`Open ${product.name} on Amazon`}
+                            aria-label={`Open ${product.name} on Amazon`}
                           >
                             <ExternalLink className="w-4 h-4" />
                           </a>
@@ -367,6 +369,8 @@ export function ProductsTab({ products, setProducts, categories, userId }: Produ
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-blue-500 hover:text-blue-600"
+                            title={`Open ${product.name} on Flipkart`}
+                            aria-label={`Open ${product.name} on Flipkart`}
                           >
                             <ExternalLink className="w-4 h-4" />
                           </a>

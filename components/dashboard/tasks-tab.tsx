@@ -6,7 +6,18 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { CheckCircle2, Circle, ExternalLink, IndianRupee, TrendingUp, Calendar, Wallet } from "lucide-react"
+import { 
+  CheckCircle2, 
+  Circle, 
+  ExternalLink, 
+  IndianRupee, 
+  TrendingUp, 
+  Calendar, 
+  Wallet,
+  Clock,
+  Target,
+  AlertCircle
+} from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -36,6 +47,7 @@ export function TasksTab({ userId }: TasksTabProps) {
   const [upiDialogOpen, setUpiDialogOpen] = useState(false)
   const [upiId, setUpiId] = useState("")
   const [isSavingUpi, setIsSavingUpi] = useState(false)
+  const [selectedCategory, setSelectedCategory] = useState<string>("all")
 
   useEffect(() => {
     loadData()
@@ -54,8 +66,7 @@ export function TasksTab({ userId }: TasksTabProps) {
 
       setTasks(tasksData.tasks || [])
       setCompletions(earningsData.recentCompletions || [])
-      
-      // Ensure all earnings values are numbers
+
       const summary = earningsData.summary || earnings
       setEarnings({
         totalEarnings: Number(summary.totalEarnings) || 0,
@@ -73,13 +84,10 @@ export function TasksTab({ userId }: TasksTabProps) {
   const handleCompleteTask = async (task: Task) => {
     if (completingTaskId) return
 
-    // Open task URL in new window
     window.open(task.task_url, "_blank", "noopener,noreferrer")
 
     setCompletingTaskId(task.id)
     try {
-      // Mark as completed after a delay (to allow user to complete the task)
-      // In production, this would be verified by the CPA network callback
       setTimeout(async () => {
         const response = await fetch(`/api/tasks/${task.id}/complete`, {
           method: "POST",
@@ -89,17 +97,18 @@ export function TasksTab({ userId }: TasksTabProps) {
 
         if (!response.ok) {
           console.error("Failed to mark task as completed:", data.error)
+          alert(data.error || "Failed to complete task")
           setCompletingTaskId(null)
           return
         }
 
-        // Reload data
         await loadData()
-        alert(`Task completed! You earned ₹${Number(task.user_payout).toFixed(2)}. Please complete the task in the opened window.`)
+        alert(`Task completed! You earned ₹${Number(task.user_payout).toFixed(2)}`)
         setCompletingTaskId(null)
-      }, 2000) // Give user 2 seconds to start the task
+      }, 2000)
     } catch (error) {
       console.error("Error completing task:", error)
+      alert("Failed to complete task. Please try again.")
       setCompletingTaskId(null)
     }
   }
@@ -126,7 +135,6 @@ export function TasksTab({ userId }: TasksTabProps) {
       setUpiDialogOpen(false)
       setUpiId("")
       alert("UPI ID saved successfully!")
-      window.location.reload()
     } catch (error) {
       console.error("Error saving UPI:", error)
       alert(error instanceof Error ? error.message : "Failed to save UPI ID")
@@ -146,158 +154,227 @@ export function TasksTab({ userId }: TasksTabProps) {
   const availableTasks = tasks.filter((t) => !isTaskCompleted(t.id))
   const completedTasks = tasks.filter((t) => isTaskCompleted(t.id))
 
+  // Get unique categories
+  const categories = ["all", ...new Set(tasks.map(t => t.action_type || "Other"))]
+
+  // Filter tasks by category
+  const filteredTasks = selectedCategory === "all" 
+    ? availableTasks 
+    : availableTasks.filter(t => t.action_type === selectedCategory)
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="text-muted-foreground">Loading tasks...</div>
+        <div className="animate-pulse space-y-6 w-full">
+          <div className="grid gap-4 md:grid-cols-4">
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} className="h-24 bg-gray-200 rounded-lg"></div>
+            ))}
+          </div>
+          <div className="h-64 bg-gray-200 rounded-lg"></div>
+        </div>
       </div>
     )
   }
 
   return (
     <div className="space-y-6">
-      {/* Earnings Summary */}
+      {/* Earnings Summary - Professional Design */}
       <div className="grid gap-4 md:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Earnings</CardTitle>
-            <IndianRupee className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">₹{earnings.totalEarnings.toFixed(2)}</div>
+        <Card className="border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
+                <IndianRupee className="w-5 h-5 text-blue-600" />
+              </div>
+              <TrendingUp className="w-4 h-4 text-green-600" />
+            </div>
+            <p className="text-sm font-medium text-gray-600 mb-1">Total Earnings</p>
+            <p className="text-3xl font-bold text-gray-900">₹{earnings.totalEarnings.toFixed(2)}</p>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Today</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">₹{earnings.dailyEarnings.toFixed(2)}</div>
+
+        <Card className="border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
+                <Calendar className="w-5 h-5 text-green-600" />
+              </div>
+            </div>
+            <p className="text-sm font-medium text-gray-600 mb-1">Today</p>
+            <p className="text-3xl font-bold text-gray-900">₹{earnings.dailyEarnings.toFixed(2)}</p>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">This Month</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">₹{earnings.monthlyEarnings.toFixed(2)}</div>
+
+        <Card className="border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
+                <TrendingUp className="w-5 h-5 text-purple-600" />
+              </div>
+            </div>
+            <p className="text-sm font-medium text-gray-600 mb-1">This Month</p>
+            <p className="text-3xl font-bold text-gray-900">₹{earnings.monthlyEarnings.toFixed(2)}</p>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tasks Done</CardTitle>
-            <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{earnings.tasksCompleted}</div>
+
+        <Card className="border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center">
+                <CheckCircle2 className="w-5 h-5 text-orange-600" />
+              </div>
+            </div>
+            <p className="text-sm font-medium text-gray-600 mb-1">Completed</p>
+            <p className="text-3xl font-bold text-gray-900">{earnings.tasksCompleted}</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* UPI Setup */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Wallet className="w-5 h-5" />
-            Payment Setup
-          </CardTitle>
-          <CardDescription>Add your UPI ID to receive daily payments</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Dialog open={upiDialogOpen} onOpenChange={setUpiDialogOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline">Add/Update UPI ID</Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Enter Your UPI ID</DialogTitle>
-                <DialogDescription>Your earnings will be sent to this UPI ID daily</DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label htmlFor="upi">UPI ID</Label>
-                  <Input
-                    id="upi"
-                    placeholder="yourname@paytm or yourname@upi"
-                    value={upiId}
-                    onChange={(e) => setUpiId(e.target.value)}
-                  />
-                </div>
-                <Button onClick={handleSaveUpi} disabled={isSavingUpi} className="w-full">
-                  {isSavingUpi ? "Saving..." : "Save UPI ID"}
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
+      {/* UPI Setup Alert */}
+      <Card className="border-2 border-blue-100 bg-blue-50/50">
+        <CardContent className="p-6">
+          <div className="flex items-start gap-4">
+            <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
+              <Wallet className="w-5 h-5 text-blue-600" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-semibold text-gray-900 mb-1">Payment Setup Required</h3>
+              <p className="text-sm text-gray-600 mb-4">
+                Add your UPI ID to receive daily payments directly to your account
+              </p>
+              <Dialog open={upiDialogOpen} onOpenChange={setUpiDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm" className="bg-blue-600 hover:bg-blue-700">
+                    <Wallet className="w-4 h-4 mr-2" />
+                    Add UPI ID
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Enter Your UPI ID</DialogTitle>
+                    <DialogDescription>
+                      Your earnings will be sent to this UPI ID daily
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="upi">UPI ID</Label>
+                      <Input
+                        id="upi"
+                        placeholder="yourname@paytm or yourname@upi"
+                        value={upiId}
+                        onChange={(e) => setUpiId(e.target.value)}
+                      />
+                    </div>
+                    <Button 
+                      onClick={handleSaveUpi} 
+                      disabled={isSavingUpi} 
+                      className="w-full bg-blue-600 hover:bg-blue-700"
+                    >
+                      {isSavingUpi ? "Saving..." : "Save UPI ID"}
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
-      {/* Tasks Tabs */}
-      <Tabs defaultValue="available" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="available">
-            Available Tasks ({availableTasks.length})
-          </TabsTrigger>
-          <TabsTrigger value="completed">
-            Completed ({completedTasks.length})
-          </TabsTrigger>
-        </TabsList>
+      {/* Tasks Section */}
+      <Tabs defaultValue="available" className="space-y-6">
+        <div className="flex items-center justify-between">
+          <TabsList className="bg-white border border-gray-200">
+            <TabsTrigger value="available" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white">
+              Available ({availableTasks.length})
+            </TabsTrigger>
+            <TabsTrigger value="completed" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white">
+              Completed ({completedTasks.length})
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Category Filter */}
+          {categories.length > 1 && (
+            <div className="flex gap-2">
+              {categories.map(cat => (
+                <Button
+                  key={cat}
+                  variant={selectedCategory === cat ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setSelectedCategory(cat)}
+                  className={selectedCategory === cat ? "bg-blue-600" : ""}
+                >
+                  {cat === "all" ? "All" : cat}
+                </Button>
+              ))}
+            </div>
+          )}
+        </div>
 
         <TabsContent value="available" className="space-y-4">
-          {availableTasks.length === 0 ? (
-            <Card>
-              <CardContent className="py-12 text-center text-muted-foreground">
-                <CheckCircle2 className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                <p>No available tasks at the moment. Check back later!</p>
+          {filteredTasks.length === 0 ? (
+            <Card className="border border-gray-200">
+              <CardContent className="py-12 text-center">
+                <Target className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">No tasks available</h3>
+                <p className="text-gray-600">Check back later for new earning opportunities!</p>
               </CardContent>
             </Card>
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
-              {availableTasks.map((task) => (
-                <Card key={task.id}>
-                  <CardHeader>
-                    <div className="flex items-start justify-between">
+              {filteredTasks.map((task) => (
+                <Card key={task.id} className="border border-gray-200 shadow-sm hover:shadow-md transition-all">
+                  <CardHeader className="pb-4">
+                    <div className="flex items-start justify-between gap-4">
                       <div className="flex-1">
-                        <CardTitle className="text-lg">{task.title}</CardTitle>
+                        <CardTitle className="text-base font-semibold text-gray-900">
+                          {task.title}
+                        </CardTitle>
                         {task.app_name && (
-                          <CardDescription className="mt-1">{task.app_name}</CardDescription>
+                          <p className="text-sm text-gray-600 mt-1">{task.app_name}</p>
                         )}
                       </div>
                       {task.app_icon_url && (
                         <img
                           src={task.app_icon_url}
                           alt={task.app_name || task.title}
-                          className="w-12 h-12 rounded-lg object-cover"
+                          className="w-14 h-14 rounded-lg object-cover border border-gray-200"
                         />
                       )}
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     {task.description && (
-                      <p className="text-sm text-muted-foreground">{task.description}</p>
+                      <p className="text-sm text-gray-600 line-clamp-2">{task.description}</p>
                     )}
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <Badge variant="secondary" className="mr-2">
+                    <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+                      <div className="flex items-center gap-3">
+                        <Badge variant="secondary" className="font-medium">
                           {task.action_type}
                         </Badge>
-                        <span className="text-lg font-bold text-green-600">
-                          ₹{Number(task.user_payout).toFixed(2)}
-                        </span>
+                        <div className="flex items-center gap-1">
+                          <IndianRupee className="w-4 h-4 text-green-600" />
+                          <span className="text-lg font-bold text-green-600">
+                            {Number(task.user_payout).toFixed(2)}
+                          </span>
+                        </div>
                       </div>
                       <Button
                         onClick={() => handleCompleteTask(task)}
                         disabled={completingTaskId === task.id}
                         size="sm"
+                        className="bg-blue-600 hover:bg-blue-700"
                       >
                         {completingTaskId === task.id ? (
-                          "Processing..."
+                          <>
+                            <Clock className="w-4 h-4 mr-2 animate-spin" />
+                            Processing
+                          </>
                         ) : (
                           <>
                             <ExternalLink className="w-4 h-4 mr-2" />
-                            Start Task
+                            Start
                           </>
                         )}
                       </Button>
@@ -311,51 +388,46 @@ export function TasksTab({ userId }: TasksTabProps) {
 
         <TabsContent value="completed" className="space-y-4">
           {completedTasks.length === 0 ? (
-            <Card>
-              <CardContent className="py-12 text-center text-muted-foreground">
-                <Circle className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                <p>You haven't completed any tasks yet.</p>
+            <Card className="border border-gray-200">
+              <CardContent className="py-12 text-center">
+                <Circle className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">No completed tasks yet</h3>
+                <p className="text-gray-600">Start completing tasks to see them here</p>
               </CardContent>
             </Card>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-3">
               {completedTasks.map((task) => {
                 const completion = getTaskCompletion(task.id)
                 return (
-                  <Card key={task.id}>
-                    <CardContent className="pt-6">
+                  <Card key={task.id} className="border border-gray-200 shadow-sm">
+                    <CardContent className="p-6">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4">
                           {task.app_icon_url && (
                             <img
                               src={task.app_icon_url}
                               alt={task.app_name || task.title}
-                              className="w-12 h-12 rounded-lg object-cover"
+                              className="w-12 h-12 rounded-lg object-cover border border-gray-200"
                             />
                           )}
                           <div>
-                            <h3 className="font-semibold">{task.title}</h3>
+                            <h3 className="font-semibold text-gray-900">{task.title}</h3>
                             {task.app_name && (
-                              <p className="text-sm text-muted-foreground">{task.app_name}</p>
+                              <p className="text-sm text-gray-600">{task.app_name}</p>
                             )}
                           </div>
                         </div>
                         <div className="text-right">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 mb-2">
                             <CheckCircle2 className="w-5 h-5 text-green-600" />
-                            <span className="font-bold text-green-600">
+                            <span className="text-lg font-bold text-green-600">
                               ₹{Number(task.user_payout).toFixed(2)}
                             </span>
                           </div>
                           <Badge
-                            variant={
-                              completion?.status === "verified"
-                                ? "default"
-                                : completion?.status === "completed"
-                                  ? "secondary"
-                                  : "outline"
-                            }
-                            className="mt-1"
+                            variant={completion?.status === "verified" ? "default" : "secondary"}
+                            className={completion?.status === "verified" ? "bg-green-600" : ""}
                           >
                             {completion?.status || "completed"}
                           </Badge>

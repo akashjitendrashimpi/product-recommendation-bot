@@ -12,8 +12,33 @@ function initializeSupabaseAdmin() {
   const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
   if (!supabaseUrl || !supabaseServiceKey) {
-    console.warn('[Supabase] Missing environment variables. Supabase client not initialized.')
-    return null
+    console.warn('[Supabase] Missing environment variables. Supabase client not initialized. Using mock client for dev.\nSet NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY to enable real DB calls.')
+
+    // Minimal mock client to avoid runtime 500s in development when env is not configured.
+    class MockQuery {
+      _result: any
+      constructor(result: any = { data: [], error: null }) {
+        this._result = result
+      }
+      select() { return this }
+      eq() { return this }
+      gte() { return this }
+      lt() { return this }
+      order() { return this }
+      or() { return this }
+      insert() { return this }
+      update() { return this }
+      delete() { return this }
+      single() { return this }
+      // Make the object awaitable / thenable like Supabase responses
+      then(resolve: any) { resolve(this._result); return Promise.resolve(this._result) }
+      catch() { return this }
+    }
+
+    _supabaseAdmin = {
+      from: (_tableName: string) => new MockQuery(),
+    }
+    return _supabaseAdmin
   }
 
   _supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
