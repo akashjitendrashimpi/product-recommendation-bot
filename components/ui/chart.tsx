@@ -34,6 +34,79 @@ function useChart() {
   return context
 }
 
+// ─── DynamicStyle: sets CSS custom properties via a ref (no inline styles) ───
+interface DynamicStyleProps {
+  className?: string
+  cssVars: Record<string, string | undefined>
+  children?: React.ReactNode
+  indicatorType?: 'dot' | 'line' | 'dashed'
+  nestLabel?: boolean
+}
+
+const DynamicStyleDiv = React.forwardRef<HTMLDivElement, DynamicStyleProps>(
+  ({ className, cssVars, children, indicatorType, nestLabel }, ref) => {
+    const innerRef = React.useRef<HTMLDivElement>(null)
+    const combinedRef = (ref as React.RefObject<HTMLDivElement>) ?? innerRef
+
+    React.useEffect(() => {
+      const el = combinedRef.current
+      if (!el) return
+      for (const [key, value] of Object.entries(cssVars)) {
+        if (value !== undefined) {
+          el.style.setProperty(key, value)
+        } else {
+          el.style.removeProperty(key)
+        }
+      }
+    }, [cssVars, combinedRef])
+
+    return (
+      <div
+        ref={combinedRef}
+        className={cn(
+          'shrink-0 rounded-[2px] border-(--color-border) bg-(--color-bg)',
+          {
+            'h-2.5 w-2.5': indicatorType === 'dot',
+            'w-1': indicatorType === 'line',
+            'w-0 border-[1.5px] border-dashed bg-transparent':
+              indicatorType === 'dashed',
+            'my-0.5': nestLabel && indicatorType === 'dashed',
+          },
+          className,
+        )}
+      >
+        {children}
+      </div>
+    )
+  },
+)
+DynamicStyleDiv.displayName = 'DynamicStyleDiv'
+
+// ─── ColorSwatchDiv: renders a legend color dot via a ref (no inline styles) ──
+interface ColorSwatchProps {
+  color: string | undefined
+  className?: string
+}
+
+function ColorSwatch({ color, className }: ColorSwatchProps) {
+  const ref = React.useRef<HTMLDivElement>(null)
+
+  React.useEffect(() => {
+    if (ref.current && color) {
+      ref.current.style.backgroundColor = color
+    }
+  }, [color])
+
+  return (
+    <div
+      ref={ref}
+      className={cn('h-2 w-2 shrink-0 rounded-[2px]', className)}
+    />
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 function ChartContainer({
   id,
   className,
@@ -94,7 +167,7 @@ const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
           const raw =
             itemConfig.theme?.[theme as keyof typeof itemConfig.theme] ||
             itemConfig.color
-          const safe = sanitizeColor(raw as any)
+          const safe = sanitizeColor(raw as string | undefined | null)
           return safe ? `  --color-${key}: ${safe};` : null
         })
         .filter(Boolean)
@@ -205,23 +278,13 @@ function ChartTooltipContent({
                     <itemConfig.icon />
                   ) : (
                     !hideIndicator && (
-                      <div
-                        className={cn(
-                          'shrink-0 rounded-[2px] border-(--color-border) bg-(--color-bg)',
-                          {
-                            'h-2.5 w-2.5': indicator === 'dot',
-                            'w-1': indicator === 'line',
-                            'w-0 border-[1.5px] border-dashed bg-transparent':
-                              indicator === 'dashed',
-                            'my-0.5': nestLabel && indicator === 'dashed',
-                          },
-                        )}
-                        style={
-                          {
-                            '--color-bg': indicatorColor,
-                            '--color-border': indicatorColor,
-                          } as React.CSSProperties
-                        }
+                      <DynamicStyleDiv
+                        indicatorType={indicator}
+                        nestLabel={nestLabel}
+                        cssVars={{
+                          '--color-bg': indicatorColor,
+                          '--color-border': indicatorColor,
+                        }}
                       />
                     )
                   )}
@@ -294,12 +357,7 @@ function ChartLegendContent({
             {itemConfig?.icon && !hideIcon ? (
               <itemConfig.icon />
             ) : (
-              <div
-                className="h-2 w-2 shrink-0 rounded-[2px]"
-                style={{
-                  backgroundColor: item.color,
-                }}
-              />
+              <ColorSwatch color={item.color} />
             )}
             {itemConfig?.label}
           </div>
