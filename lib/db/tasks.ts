@@ -7,7 +7,7 @@ export async function getAllTasks(country: string = 'IN'): Promise<Task[]> {
     .from('tasks')
     .select('*')
     .eq('is_active', true)
-    .eq('country', country)
+    .eq('country_code', country)
     .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
     .order('created_at', { ascending: false })
 
