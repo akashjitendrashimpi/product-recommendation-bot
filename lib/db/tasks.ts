@@ -3,7 +3,7 @@ import type { Task, TaskCompletion } from '@/lib/types'
 
 // Get all active tasks
 export async function getAllTasks(country: string = 'IN'): Promise<Task[]> {
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await (supabaseAdmin as any)
     .from('tasks')
     .select('*')
     .eq('is_active', true)
@@ -17,7 +17,7 @@ export async function getAllTasks(country: string = 'IN'): Promise<Task[]> {
 
 // Get task by ID
 export async function getTaskById(id: number): Promise<Task | null> {
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await (supabaseAdmin as any)
     .from('tasks')
     .select('*')
     .eq('id', id)
@@ -29,7 +29,7 @@ export async function getTaskById(id: number): Promise<Task | null> {
 
 // Get tasks by network
 export async function getTasksByNetwork(networkId: number): Promise<Task[]> {
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await (supabaseAdmin as any)
     .from('tasks')
     .select('*')
     .eq('network_id', networkId)
@@ -41,7 +41,7 @@ export async function getTasksByNetwork(networkId: number): Promise<Task[]> {
 
 // Get task by network ID and task ID (for syncing)
 export async function getTaskByNetworkId(networkId: number, taskId: string): Promise<Task | null> {
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await (supabaseAdmin as any)
     .from('tasks')
     .select('*')
     .eq('network_id', networkId)
@@ -69,7 +69,7 @@ export async function createTask(data: {
   requirements?: string | null
   expires_at?: string | null
 }): Promise<Task> {
-  const { data: task, error } = await supabaseAdmin
+  const { data: task, error } = await (supabaseAdmin as any)
     .from('tasks')
     .insert({
       network_id: data.network_id || null,
@@ -81,11 +81,12 @@ export async function createTask(data: {
       app_icon_url: data.app_icon_url || null,
       task_url: data.task_url,
       network_payout: data.network_payout,
-      user_payout: data.user_payout,
+      reward: data.user_payout,
       currency: data.currency || 'INR',
-      country: data.country || 'IN',
+      country_code: data.country || 'IN',
       requirements: data.requirements || null,
       expires_at: data.expires_at || null,
+      is_active: true,
     })
     .select()
     .single()
@@ -95,10 +96,7 @@ export async function createTask(data: {
 }
 
 // Update task
-export async function updateTask(
-  id: number,
-  data: Partial<Task>
-): Promise<void> {
+export async function updateTask(id: number, data: Partial<Task>): Promise<void> {
   const updates: Record<string, any> = {}
   Object.keys(data).forEach(key => {
     if (data[key as keyof Task] !== undefined) {
@@ -108,7 +106,7 @@ export async function updateTask(
 
   if (Object.keys(updates).length === 0) return
 
-  const { error } = await supabaseAdmin
+  const { error } = await (supabaseAdmin as any)
     .from('tasks')
     .update(updates)
     .eq('id', id)
@@ -118,13 +116,17 @@ export async function updateTask(
 
 // Delete task
 export async function deleteTask(id: number): Promise<void> {
-  const { error } = await supabaseAdmin.from('tasks').delete().eq('id', id)
+  const { error } = await (supabaseAdmin as any)
+    .from('tasks')
+    .delete()
+    .eq('id', id)
+
   if (error) throw error
 }
 
 // Get user's task completions
 export async function getUserTaskCompletions(userId: number): Promise<TaskCompletion[]> {
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await (supabaseAdmin as any)
     .from('task_completions')
     .select('*')
     .eq('user_id', userId)
@@ -136,7 +138,7 @@ export async function getUserTaskCompletions(userId: number): Promise<TaskComple
 
 // Check if user has completed a task
 export async function hasUserCompletedTask(userId: number, taskId: number): Promise<TaskCompletion | null> {
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await (supabaseAdmin as any)
     .from('task_completions')
     .select('*')
     .eq('user_id', userId)
@@ -156,7 +158,7 @@ export async function createTaskCompletion(data: {
   completion_proof?: string | null
   network_response?: Record<string, any> | null
 }): Promise<TaskCompletion> {
-  const { data: completion, error } = await supabaseAdmin
+  const { data: completion, error } = await (supabaseAdmin as any)
     .from('task_completions')
     .insert({
       user_id: data.user_id,
@@ -177,7 +179,7 @@ export async function createTaskCompletion(data: {
 
 // Verify task completion
 export async function verifyTaskCompletion(id: number, status: 'verified' | 'rejected'): Promise<void> {
-  const { error } = await supabaseAdmin
+  const { error } = await (supabaseAdmin as any)
     .from('task_completions')
     .update({ status, verified_at: new Date().toISOString() })
     .eq('id', id)

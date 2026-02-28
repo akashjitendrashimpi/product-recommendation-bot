@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from "next/server"
 import { getSession } from "@/lib/auth/session"
 import { supabaseAdmin } from "@/lib/supabase/client"
 
-export async function DELETE(
+export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
     const session = await getSession()
@@ -12,18 +12,17 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { id } = await params
-
+    const { status } = await request.json()
     const { error } = await supabaseAdmin
-      .from('tasks')
-      .delete()
-      .eq('id', parseInt(id))
+      .from('payments')
+      .update({ status, updated_at: new Date().toISOString() })
+      .eq('id', parseInt(params.id))
 
     if (error) throw error
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error('Error deleting task:', error)
-    return NextResponse.json({ error: 'Failed to delete task' }, { status: 500 })
+    console.error('Error updating payment:', error)
+    return NextResponse.json({ error: 'Failed to update payment' }, { status: 500 })
   }
 }

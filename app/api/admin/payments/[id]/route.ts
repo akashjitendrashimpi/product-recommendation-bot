@@ -4,7 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase/client"
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
     const session = await getSession()
@@ -12,12 +12,10 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { id } = await params
-
     const { error } = await supabaseAdmin
       .from('tasks')
       .delete()
-      .eq('id', parseInt(id))
+      .eq('id', parseInt(params.id))
 
     if (error) throw error
 
