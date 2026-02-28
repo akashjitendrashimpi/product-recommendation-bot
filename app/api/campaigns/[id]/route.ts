@@ -1,108 +1,69 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getSession } from "@/lib/auth/session"
-import { getCampaignById, updateCampaign, deleteCampaign } from "@/lib/db/campaigns"
-import { getUserById } from "@/lib/db/users"
+import { supabaseAdmin } from "@/lib/supabase/client"
 
-interface RouteContext {
-  params: Promise<{ id: string }>
-}
-
-export async function GET(request: NextRequest, context: RouteContext) {
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    const { id } = await context.params
-    const campaignId = parseInt(id, 10)
-    if (isNaN(campaignId)) {
-      return NextResponse.json({ error: "Invalid campaign ID" }, { status: 400 })
-    }
-    const campaign = await getCampaignById(campaignId)
+    const { id } = await params
+    const { data, error } = await (supabaseAdmin as any)
+      .from('qr_campaigns')
+      .select('*')
+      .eq('id', parseInt(id))
+      .single()
 
-    if (!campaign) {
-      return NextResponse.json({ error: "Campaign not found" }, { status: 404 })
-    }
-
-    return NextResponse.json({ campaign })
+    if (error) throw error
+    return NextResponse.json({ campaign: data })
   } catch (error) {
-    console.error("Error fetching campaign:", error)
-    return NextResponse.json(
-      { error: "Failed to fetch campaign" },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Failed to fetch campaign' }, { status: 500 })
   }
 }
 
-export async function PUT(request: NextRequest, context: RouteContext) {
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
     const session = await getSession()
-    if (!session) {
+    if (!session || !session.isAdmin) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { id } = await context.params
-    const campaignId = parseInt(id, 10)
-    if (isNaN(campaignId)) {
-      return NextResponse.json({ error: "Invalid campaign ID" }, { status: 400 })
-    }
-    const campaign = await getCampaignById(campaignId)
+    const { id } = await params
+    const { error } = await (supabaseAdmin as any)
+      .from('qr_campaigns')
+      .delete()
+      .eq('id', parseInt(id))
 
-    if (!campaign) {
-      return NextResponse.json({ error: "Campaign not found" }, { status: 404 })
-    }
-
-    // Check ownership or admin
-    if (campaign.user_id !== session.userId) {
-      const user = await getUserById(session.userId)
-      if (!user?.is_admin) {
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-      }
-    }
-
-    const data = await request.json()
-    await updateCampaign(campaignId, data)
-
-    const updated = await getCampaignById(campaignId)
-    return NextResponse.json({ campaign: updated })
-  } catch (error) {
-    console.error("Error updating campaign:", error)
-    return NextResponse.json(
-      { error: "Failed to update campaign" },
-      { status: 500 }
-    )
-  }
-}
-
-export async function DELETE(request: NextRequest, context: RouteContext) {
-  try {
-    const session = await getSession()
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
-    const { id } = await context.params
-    const campaignId = parseInt(id, 10)
-    if (isNaN(campaignId)) {
-      return NextResponse.json({ error: "Invalid campaign ID" }, { status: 400 })
-    }
-    const campaign = await getCampaignById(campaignId)
-
-    if (!campaign) {
-      return NextResponse.json({ error: "Campaign not found" }, { status: 404 })
-    }
-
-    // Check ownership or admin
-    if (campaign.user_id !== session.userId) {
-      const user = await getUserById(session.userId)
-      if (!user?.is_admin) {
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-      }
-    }
-
-    await deleteCampaign(campaignId)
+    if (error) throw error
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error("Error deleting campaign:", error)
-    return NextResponse.json(
-      { error: "Failed to delete campaign" },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Failed to delete campaign' }, { status: 500 })
+  }
+}
+
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await getSession()
+    if (!session || !session.isAdmin) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const { id } = await params
+    const data = await request.json()
+    const { error } = await (supabaseAdmin as any)
+      .from('qr_campaigns')
+      .update(data)
+      .eq('id', parseInt(id))
+
+    if (error) throw error
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    return NextResponse.json({ error: 'Failed to update campaign' }, { status: 500 })
   }
 }
