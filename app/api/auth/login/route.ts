@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { verifyUser } from "@/lib/db/users"
 import { rateLimit } from "@/lib/security/rate-limit"
+import { createSession } from "@/lib/auth/session"
 
 export async function POST(request: NextRequest) {
   try {
@@ -18,7 +19,6 @@ export async function POST(request: NextRequest) {
     }
 
     const user = await verifyUser(email, password)
-
     if (!user) {
       return NextResponse.json(
         { error: "Invalid email or password" },
@@ -26,26 +26,18 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const response = NextResponse.json({ success: true, user: { id: user.id, email: user.email } })
-
-    // Set session cookie
-    const sessionValue = encodeURIComponent(
-      JSON.stringify({
-        userId: user.id,
-        email: user.email,
-        isAdmin: user.is_admin,
-      })
-    )
-
-    response.cookies.set("auth_session", sessionValue, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 60 * 60 * 24 * 7, // 7 days
-      path: "/",
+    // Create properly signed session
+    await createSession({
+      userId: user.id,
+      email: user.email,
+      isAdmin: user.is_admin,
     })
 
-    return response
+    return NextResponse.json({ 
+      success: true, 
+      user: { id: user.id, email: user.email } 
+    })
+
   } catch (error) {
     console.error("Login error:", error)
     return NextResponse.json(

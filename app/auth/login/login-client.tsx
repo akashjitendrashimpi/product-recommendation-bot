@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -10,11 +9,12 @@ import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useState, useEffect } from "react"
 import { isSafeReturnUrl } from '@/lib/utils'
-import { Sparkles, Mail, Lock, ArrowRight, ShieldCheck, CheckCircle2 } from "lucide-react"
+import { Sparkles, Mail, Lock, ArrowRight, ShieldCheck, CheckCircle2, Eye, EyeOff } from "lucide-react"
 
 export default function LoginPageClient() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -46,21 +46,15 @@ export default function LoginPageClient() {
         throw new Error(data.error || "Login failed")
       }
 
-      // Check if there's a return URL, otherwise go to dashboard
+      // Use return URL if safe, otherwise go to dashboard
       const returnUrl = searchParams.get("return") || searchParams.get("redirect")
-      
-      if (returnUrl && isSafeReturnUrl(returnUrl)) {
-        router.push(returnUrl)
-      } else {
-        // Default: Always go to dashboard after login
-        router.push("/dashboard")
-      }
+      const destination = (returnUrl && isSafeReturnUrl(returnUrl)) ? returnUrl : "/dashboard"
 
-      router.refresh()
+      // Use replace instead of push to prevent back-button loop
+      router.replace(destination)
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : "An error occurred"
+      const errorMessage = error instanceof Error ? error.message : "An error occurred during login"
       setError(errorMessage)
-    } finally {
       setIsLoading(false)
     }
   }
@@ -100,7 +94,7 @@ export default function LoginPageClient() {
                 <div className="flex flex-col gap-4">
                   {/* Email Field */}
                   <div className="grid gap-2">
-                    <Label htmlFor="email" className="text-gray-700 font-medium flex items-center gap-2">     
+                    <Label htmlFor="email" className="text-gray-700 font-medium flex items-center gap-2">
                       <Mail className="w-4 h-4 text-blue-500" />
                       Email Address
                     </Label>
@@ -111,25 +105,37 @@ export default function LoginPageClient() {
                       required
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className="border-gray-300 focus:border-blue-500 focus:ring-blue-500 h-12 text-base"    
+                      className="border-gray-300 focus:border-blue-500 focus:ring-blue-500 h-12 text-base"
+                      autoComplete="email"
                     />
                   </div>
 
                   {/* Password Field */}
                   <div className="grid gap-2">
-                    <Label htmlFor="password" className="text-gray-700 font-medium flex items-center gap-2">  
+                    <Label htmlFor="password" className="text-gray-700 font-medium flex items-center gap-2">
                       <Lock className="w-4 h-4 text-blue-500" />
                       Password
                     </Label>
-                    <Input
-                      id="password"
-                      type="password"
-                      placeholder="Enter your password"
-                      required
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="border-gray-300 focus:border-blue-500 focus:ring-blue-500 h-12 text-base"    
-                    />
+                    <div className="relative">
+                      <Input
+                        id="password"
+                        type={showPassword ? "text" : "password"}
+                        placeholder="Enter your password"
+                        required
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="border-gray-300 focus:border-blue-500 focus:ring-blue-500 h-12 text-base pr-12"
+                        autoComplete="current-password"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                        tabIndex={-1}
+                      >
+                        {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                      </button>
+                    </div>
                   </div>
 
                   {/* Forgot Password Link */}

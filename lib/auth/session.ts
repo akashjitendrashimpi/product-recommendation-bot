@@ -13,7 +13,7 @@ export interface Session {
 
 const SESSION_SECRET = process.env.SESSION_SECRET || 'dev-session-secret-please-change'
 
-function signPayload(payload: string) {
+function signPayload(payload: string): string {
   const base = Buffer.from(payload).toString('base64')
   const sig = crypto.createHmac('sha256', SESSION_SECRET).update(base).digest('hex')
   return `${base}.${sig}`
@@ -21,62 +21,52 @@ function signPayload(payload: string) {
 
 function verifyAndExtract(signed: string): string | null {
   try {
-    const parts = signed.split('.')
-    if (parts.length !== 2) return null
-    const [base, sig] = parts
+    const dotIndex = signed.lastIndexOf('.')
+    if (dotIndex === -1) return null
+    const base = signed.substring(0, dotIndex)
+    const sig = signed.substring(dotIndex + 1)
     const expected = crypto.createHmac('sha256', SESSION_SECRET).update(base).digest('hex')
     const sigBuf = Buffer.from(sig, 'hex')
     const expectedBuf = Buffer.from(expected, 'hex')
     if (sigBuf.length !== expectedBuf.length) return null
     if (!crypto.timingSafeEqual(sigBuf, expectedBuf)) return null
     return Buffer.from(base, 'base64').toString()
-  } catch (e) {
+  } catch {
     return null
   }
 }
 
+function parseSession(raw: string): Session | null {
+  // Try signed format first (new secure format)
+  const verified = verifyAndExtract(raw)
+  if (verified) {
+    try {
+      const session = JSON.parse(verified)
+      if (session?.userId && session?.email) {
+        return {
+          userId: session.userId,
+          email: session.email,
+          isAdmin: session.isAdmin || false,
+        }
+      }
+    } catch {
+      return null
+    }
+  }
+  return null
+}
+
 // Get session from cookies (server-side)
 export async function getSession(): Promise<Session | null> {
-  const cookieStore = await cookies()
-  const sessionCookie = cookieStore.get(SESSION_COOKIE_NAME)
-
-  if (!sessionCookie?.value) {
+  try {
+    const cookieStore = await cookies()
+    const sessionCookie = cookieStore.get(SESSION_COOKIE_NAME)
+    if (!sessionCookie?.value) return null
+    return parseSession(sessionCookie.value)
+  } catch (error) {
+    console.error("Error getting session:", error)
     return null
   }
-
-  try {
-    // Verify signed session cookie
-    const raw = sessionCookie.value
-    let jsonStr: string | null = null
-    // Try signed format first
-    const verified = verifyAndExtract(raw)
-    if (verified) {
-      jsonStr = verified
-    } else {
-      // Fallback: legacy raw value (old format) - attempt to decode but treat as unauthenticated if not parseable
-      try {
-        jsonStr = decodeURIComponent(raw)
-      } catch (e) {
-        jsonStr = null
-      }
-    }
-
-    if (!jsonStr) return null
-    const session = JSON.parse(jsonStr)
-    
-    // Validate session structure
-    if (session?.userId && session?.email) {
-      return {
-        userId: session.userId,
-        email: session.email,
-        isAdmin: session.isAdmin || false,
-      }
-    }
-  } catch (error) {
-    console.error("Error parsing session:", error)
-  }
-
-  return null
 }
 
 // Create session and set cookie
@@ -92,7 +82,7 @@ export async function createSession(session: Session): Promise<void> {
   cookieStore.set(SESSION_COOKIE_NAME, sessionValue, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+    sameSite: "strict", // upgraded from lax to strict
     maxAge: SESSION_MAX_AGE,
     path: "/",
   })
@@ -104,28 +94,16 @@ export async function deleteSession(): Promise<void> {
   cookieStore.delete(SESSION_COOKIE_NAME)
 }
 
-// Middleware helper to get session from request
+// Middleware helper - now uses SAME signature verification as getSession
 export function getSessionFromRequest(request: NextRequest): Session | null {
-  const sessionCookie = request.cookies.get(SESSION_COOKIE_NAME)
-
-  if (!sessionCookie?.value) {
+  try {
+    const sessionCookie = request.cookies.get(SESSION_COOKIE_NAME)
+    if (!sessionCookie?.value) return null
+    return parseSession(sessionCookie.value)
+  } catch (error) {
+    console.error("Error parsing session from request:", error)
     return null
   }
-
-  try {
-    const session = JSON.parse(decodeURIComponent(sessionCookie.value))
-    if (session?.userId && session?.email) {
-      return {
-        userId: session.userId,
-        email: session.email,
-        isAdmin: session.isAdmin || false,
-      }
-    }
-  } catch (error) {
-    console.error("Error parsing session:", error)
-  }
-
-  return null
 }
 
 // Set session in response (for middleware)
@@ -133,18 +111,17 @@ export function setSessionInResponse(
   response: NextResponse,
   session: Session
 ): NextResponse {
-  const sessionValue = encodeURIComponent(
-    JSON.stringify({
-      userId: session.userId,
-      email: session.email,
-      isAdmin: session.isAdmin,
-    })
-  )
+  const payload = JSON.stringify({
+    userId: session.userId,
+    email: session.email,
+    isAdmin: session.isAdmin,
+  })
+  const sessionValue = signPayload(payload)
 
   response.cookies.set(SESSION_COOKIE_NAME, sessionValue, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+    sameSite: "strict",
     maxAge: SESSION_MAX_AGE,
     path: "/",
   })
@@ -153,9 +130,7 @@ export function setSessionInResponse(
 }
 
 // Clear session in response (for middleware)
-export function clearSessionInResponse(
-  response: NextResponse
-): NextResponse {
+export function clearSessionInResponse(response: NextResponse): NextResponse {
   response.cookies.delete(SESSION_COOKIE_NAME)
   return response
 }
