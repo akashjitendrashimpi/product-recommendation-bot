@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server"
 import { getSession } from "@/lib/auth/session"
 import { supabaseAdmin } from "@/lib/supabase/client"
 
@@ -9,9 +9,9 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await (supabaseAdmin as any)
       .from('users')
-      .select('id, email, display_name, is_admin, is_verified, upi_id, created_at')
+      .select('id, email, display_name, is_admin, upi_id, created_at, phone')
       .order('created_at', { ascending: false })
 
     if (error) throw error

@@ -1,108 +1,70 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getSession } from "@/lib/auth/session"
-import { getProductById, updateProduct, deleteProduct } from "@/lib/db/products"
-import { getUserById } from "@/lib/db/users"
+import { supabaseAdmin } from "@/lib/supabase/client"
 
-interface RouteContext {
-  params: Promise<{ id: string }>
-}
-
-export async function GET(request: NextRequest, context: RouteContext) {
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    const { id } = await context.params
-    const productId = parseInt(id, 10)
-    if (isNaN(productId)) {
-      return NextResponse.json({ error: "Invalid product ID" }, { status: 400 })
-    }
-    const product = await getProductById(productId)
+    const { id } = await params
+    const { data, error } = await (supabaseAdmin as any)
+      .from('products')
+      .select('*')
+      .eq('id', parseInt(id))
+      .single()
 
-    if (!product) {
-      return NextResponse.json({ error: "Product not found" }, { status: 404 })
-    }
-
-    return NextResponse.json({ product })
+    if (error) throw error
+    return NextResponse.json({ product: data })
   } catch (error) {
-    console.error("Error fetching product:", error)
-    return NextResponse.json(
-      { error: "Failed to fetch product" },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Product not found' }, { status: 404 })
   }
 }
 
-export async function PUT(request: NextRequest, context: RouteContext) {
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
     const session = await getSession()
-    if (!session) {
+    if (!session || !session.isAdmin) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { id } = await context.params
-    const productId = parseInt(id, 10)
-    if (isNaN(productId)) {
-      return NextResponse.json({ error: "Invalid product ID" }, { status: 400 })
-    }
-    const product = await getProductById(productId)
-
-    if (!product) {
-      return NextResponse.json({ error: "Product not found" }, { status: 404 })
-    }
-
-    // Check ownership or admin
-    if (product.user_id !== session.userId) {
-      const user = await getUserById(session.userId)
-      if (!user?.is_admin) {
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-      }
-    }
-
+    const { id } = await params
     const data = await request.json()
-    await updateProduct(productId, data)
 
-    const updated = await getProductById(productId)
-    return NextResponse.json({ product: updated })
-  } catch (error) {
-    console.error("Error updating product:", error)
-    return NextResponse.json(
-      { error: "Failed to update product" },
-      { status: 500 }
-    )
-  }
-}
+    const { error } = await (supabaseAdmin as any)
+      .from('products')
+      .update({ ...data, updated_at: new Date().toISOString() })
+      .eq('id', parseInt(id))
 
-export async function DELETE(request: NextRequest, context: RouteContext) {
-  try {
-    const session = await getSession()
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
-    const { id } = await context.params
-    const productId = parseInt(id, 10)
-    if (isNaN(productId)) {
-      return NextResponse.json({ error: "Invalid product ID" }, { status: 400 })
-    }
-    const product = await getProductById(productId)
-
-    if (!product) {
-      return NextResponse.json({ error: "Product not found" }, { status: 404 })
-    }
-
-    // Check ownership or admin
-    if (product.user_id !== session.userId) {
-      const user = await getUserById(session.userId)
-      if (!user?.is_admin) {
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-      }
-    }
-
-    await deleteProduct(productId)
+    if (error) throw error
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error("Error deleting product:", error)
-    return NextResponse.json(
-      { error: "Failed to delete product" },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Failed to update product' }, { status: 500 })
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await getSession()
+    if (!session || !session.isAdmin) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const { id } = await params
+    const { error } = await (supabaseAdmin as any)
+      .from('products')
+      .delete()
+      .eq('id', parseInt(id))
+
+    if (error) throw error
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    return NextResponse.json({ error: 'Failed to delete product' }, { status: 500 })
   }
 }

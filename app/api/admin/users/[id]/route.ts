@@ -4,7 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase/client"
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getSession()
@@ -12,17 +12,19 @@ export async function PATCH(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { status } = await request.json()
-    const { error } = await supabaseAdmin
-      .from('payments')
-      .update({ status, updated_at: new Date().toISOString() })
-      .eq('id', parseInt(params.id))
+    const { id } = await params
+    const data = await request.json()
+
+    const { error } = await (supabaseAdmin as any)
+      .from('users')
+      .update(data)
+      .eq('id', parseInt(id))
 
     if (error) throw error
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error('Error updating payment:', error)
-    return NextResponse.json({ error: 'Failed to update payment' }, { status: 500 })
+    console.error('Error updating user:', error)
+    return NextResponse.json({ error: 'Failed to update user' }, { status: 500 })
   }
 }
