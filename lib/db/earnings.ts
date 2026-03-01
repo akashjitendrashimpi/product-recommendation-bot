@@ -2,7 +2,7 @@ import { supabaseAdmin } from '@/lib/supabase/client'
 import type { UserEarning } from '@/lib/types'
 
 export async function getUserDailyEarning(userId: number, date: string): Promise<UserEarning | null> {
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await (supabaseAdmin as any)
     .from('user_earnings')
     .select('*')
     .eq('user_id', userId)
@@ -13,7 +13,7 @@ export async function getUserDailyEarning(userId: number, date: string): Promise
 }
 
 export async function getUserMonthlyEarnings(userId: number, year: number, month: number): Promise<UserEarning[]> {
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await (supabaseAdmin as any)
     .from('user_earnings')
     .select('*')
     .eq('user_id', userId)
@@ -25,20 +25,21 @@ export async function getUserMonthlyEarnings(userId: number, year: number, month
 }
 
 export async function getUserTotalEarnings(userId: number): Promise<number> {
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await (supabaseAdmin as any)
     .from('user_earnings')
     .select('daily_earnings')
     .eq('user_id', userId)
   if (error) throw error
-  return (data || []).reduce((sum, r) => sum + Number(r.daily_earnings || 0), 0)
+  return (data || []).reduce((sum: number, r: any) => sum + Number(r.daily_earnings || 0), 0)
 }
 
 export async function updateDailyEarning(userId: number, date: string, amount: number): Promise<void> {
   const existing = await getUserDailyEarning(userId, date)
   if (existing) {
-    const { error } = await supabaseAdmin
+    const { error } = await (supabaseAdmin as any)
       .from('user_earnings')
       .update({
+        amount: Number(existing.amount || 0) + amount,
         daily_earnings: Number(existing.daily_earnings || 0) + amount,
         tasks_completed: (existing.tasks_completed || 0) + 1,
       })
@@ -46,9 +47,16 @@ export async function updateDailyEarning(userId: number, date: string, amount: n
       .eq('date', date)
     if (error) throw error
   } else {
-    const { error } = await supabaseAdmin
+    const { error } = await (supabaseAdmin as any)
       .from('user_earnings')
-      .insert({ user_id: userId, date, daily_earnings: amount, tasks_completed: 1 })
+      .insert({
+        user_id: userId,
+        date,
+        amount: amount,
+        daily_earnings: amount,
+        tasks_completed: 1,
+        earning_type: 'task',
+      })
     if (error) throw error
   }
 }
@@ -65,7 +73,7 @@ export async function getUserEarningsSummary(userId: number): Promise<{
     .split('T')[0]
 
   const [{ data: monthlyData, error: monthlyError }, dailyEarning] = await Promise.all([
-    supabaseAdmin
+    (supabaseAdmin as any)
       .from('user_earnings')
       .select('*')
       .eq('user_id', userId)
@@ -77,8 +85,9 @@ export async function getUserEarningsSummary(userId: number): Promise<{
   if (monthlyError) throw monthlyError
 
   const total = await getUserTotalEarnings(userId)
-  const monthlyTotal = (monthlyData || []).reduce((sum, e) => sum + Number(e.daily_earnings || 0), 0)
-  const { data: tasks, error: tasksError } = await supabaseAdmin
+  const monthlyTotal = (monthlyData || []).reduce((sum: number, e: any) => sum + Number(e.daily_earnings || 0), 0)
+
+  const { data: tasks, error: tasksError } = await (supabaseAdmin as any)
     .from('task_completions')
     .select('id', { count: 'exact' })
     .eq('user_id', userId)

@@ -113,10 +113,11 @@ export interface UserEarning {
   id: number
   user_id: number
   date: string
+  amount: number | string
   daily_earnings: number | string // MySQL DECIMAL can return as string
   tasks_completed: number
-  created_at: string
-  updated_at: string
+  earning_type?: string | null
+  description?: string | null
 }
 
 export interface Payment {

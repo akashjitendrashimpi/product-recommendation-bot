@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from "next/server"
 import { getSession } from "@/lib/auth/session"
 import { getTaskById, hasUserCompletedTask, createTaskCompletion } from "@/lib/db/tasks"
 import { updateDailyEarning } from "@/lib/db/earnings"
-import { getUserById } from "@/lib/db/users"
-import { sendTaskCompletionEmail } from "@/lib/email/resend"
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -37,35 +35,27 @@ export async function POST(request: NextRequest, context: RouteContext) {
       )
     }
 
+    // Get user payout — use reward column if user_payout not set
+    const userPayout = Number(task.user_payout || task.reward || 0)
+    const networkPayout = Number(task.network_payout || 0)
+
     // Create completion record
     const completion = await createTaskCompletion({
       user_id: session.userId,
       task_id: taskId,
-      network_payout: task.network_payout,
-      user_payout: task.user_payout,
+      network_payout: networkPayout,
+      user_payout: userPayout,
     })
 
     // Update daily earnings
     const today = new Date().toISOString().split("T")[0]
-    await updateDailyEarning(session.userId, today, task.user_payout)
+    await updateDailyEarning(session.userId, today, userPayout)
 
-    // Send email notification (don't fail if email fails)
-    try {
-      const user = await getUserById(session.userId)
-      if (user) {
-        await sendTaskCompletionEmail(
-          user.email,
-          task.title,
-          task.user_payout,
-          user.display_name || undefined
-        )
-      }
-    } catch (emailError) {
-      console.error("Failed to send task completion email:", emailError)
-      // Don't fail the request if email fails
-    }
-
-    return NextResponse.json({ completion, success: true })
+    return NextResponse.json({ 
+      completion, 
+      success: true,
+      earned: userPayout
+    })
   } catch (error) {
     console.error("Error completing task:", error)
     return NextResponse.json(
