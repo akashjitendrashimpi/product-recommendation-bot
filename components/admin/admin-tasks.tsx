@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import {
   Plus, Search, Trash2, X, BarChart3, IndianRupee,
   CheckCircle2, ExternalLink, Eye, TrendingUp, Target,
-  MousePointer, Percent, EyeOff
+  MousePointer, Percent, EyeOff, Edit2, Save, Camera, CameraOff
 } from "lucide-react"
 
 interface Task {
@@ -24,6 +24,8 @@ interface Task {
   user_payout: number
   country_code: string
   is_active: boolean
+  requires_proof: boolean
+  proof_instructions: string | null
   created_at: string
   completion_count?: number
   click_count?: number
@@ -64,9 +66,14 @@ export function AdminTasks() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [activeTab, setActiveTab] = useState<'tasks' | 'analytics'>('tasks')
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all')
+  const [editingTask, setEditingTask] = useState<Task | null>(null)
+  const [editForm, setEditForm] = useState<Partial<Task>>({})
+  const [savingEdit, setSavingEdit] = useState(false)
+
   const [form, setForm] = useState({
     title: '', description: '', task_url: '', app_name: '', app_icon_url: '',
-    network_payout: '', user_payout: '', country: 'IN', task_id: '', action_type: 'install'
+    network_payout: '', user_payout: '', country: 'IN', task_id: '',
+    action_type: 'install', requires_proof: true, proof_instructions: ''
   })
 
   useEffect(() => { fetchAll() }, [])
@@ -122,9 +129,7 @@ export function AdminTasks() {
       return
     }
     let url = form.task_url
-    if (!url.startsWith('http://') && !url.startsWith('https://')) {
-      url = 'https://' + url
-    }
+    if (!url.startsWith('http://') && !url.startsWith('https://')) url = 'https://' + url
     setSubmitting(true)
     try {
       const res = await fetch('/api/admin/tasks', {
@@ -136,11 +141,13 @@ export function AdminTasks() {
           task_id: form.task_id || `manual_${Date.now()}`,
           network_payout: parseFloat(form.network_payout),
           user_payout: parseFloat(form.user_payout),
+          requires_proof: form.requires_proof,
+          proof_instructions: form.proof_instructions || null,
         })
       })
       if (res.ok) {
         setShowForm(false)
-        setForm({ title: '', description: '', task_url: '', app_name: '', app_icon_url: '', network_payout: '', user_payout: '', country: 'IN', task_id: '', action_type: 'install' })
+        setForm({ title: '', description: '', task_url: '', app_name: '', app_icon_url: '', network_payout: '', user_payout: '', country: 'IN', task_id: '', action_type: 'install', requires_proof: true, proof_instructions: '' })
         fetchAll()
       } else {
         const data = await res.json()
@@ -153,13 +160,55 @@ export function AdminTasks() {
     }
   }
 
-  const deleteTask = async (id: number) => {
-    if (!confirm('Delete this task?')) return
+  const startEdit = (task: Task) => {
+    setEditingTask(task)
+    setEditForm({
+      title: task.title,
+      description: task.description,
+      task_url: task.task_url,
+      app_name: task.app_name,
+      app_icon_url: task.app_icon_url,
+      network_payout: task.network_payout,
+      user_payout: task.user_payout,
+      action_type: task.action_type,
+      requires_proof: task.requires_proof,
+      proof_instructions: task.proof_instructions,
+    })
+  }
+
+  const saveEdit = async () => {
+    if (!editingTask) return
+    setSavingEdit(true)
     try {
-      const res = await fetch(`/api/admin/tasks/${id}`, { method: 'DELETE' })
-      if (res.ok) fetchAll()
+      const res = await fetch(`/api/admin/tasks/${editingTask.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editForm)
+      })
+      if (res.ok) {
+        setEditingTask(null)
+        setEditForm({})
+        fetchAll()
+      } else {
+        alert('Failed to save changes')
+      }
     } catch (error) {
-      console.error('Error deleting task:', error)
+      console.error('Error saving task:', error)
+    } finally {
+      setSavingEdit(false)
+    }
+  }
+
+  const toggleProofRequired = async (task: Task) => {
+    try {
+      await fetch(`/api/admin/tasks/${task.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requires_proof: !task.requires_proof })
+      })
+      fetchAll()
+    } catch (error) {
+      console.error('Error toggling proof:', error)
     }
   }
 
@@ -176,6 +225,16 @@ export function AdminTasks() {
     }
   }
 
+  const deleteTask = async (id: number) => {
+    if (!confirm('Delete this task?')) return
+    try {
+      const res = await fetch(`/api/admin/tasks/${id}`, { method: 'DELETE' })
+      if (res.ok) fetchAll()
+    } catch (error) {
+      console.error('Error deleting task:', error)
+    }
+  }
+
   const filtered = tasks
     .filter(t => filterStatus === 'all' || (filterStatus === 'active' ? t.is_active : !t.is_active))
     .filter(t =>
@@ -183,9 +242,7 @@ export function AdminTasks() {
       (t.app_name || '').toLowerCase().includes(search.toLowerCase())
     )
 
-  const taskCompletions = selectedTask
-    ? completions.filter(c => c.task_id === selectedTask.id)
-    : []
+  const taskCompletions = selectedTask ? completions.filter(c => c.task_id === selectedTask.id) : []
 
   const getConversionColor = (rate: string) => {
     const r = parseFloat(rate)
@@ -196,6 +253,96 @@ export function AdminTasks() {
 
   return (
     <div className="space-y-6">
+
+      {/* Edit Modal */}
+      {editingTask && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-gray-900">Edit Task</h2>
+              <button onClick={() => setEditingTask(null)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label>Title *</Label>
+                <Input value={editForm.title || ''} onChange={e => setEditForm({...editForm, title: e.target.value})} className="mt-1" />
+              </div>
+              <div>
+                <Label>Task URL *</Label>
+                <Input value={editForm.task_url || ''} onChange={e => setEditForm({...editForm, task_url: e.target.value})} className="mt-1" />
+              </div>
+              <div>
+                <Label>App Name</Label>
+                <Input value={editForm.app_name || ''} onChange={e => setEditForm({...editForm, app_name: e.target.value})} className="mt-1" />
+              </div>
+              <div>
+                <Label>App Icon URL</Label>
+                <Input value={editForm.app_icon_url || ''} onChange={e => setEditForm({...editForm, app_icon_url: e.target.value})} className="mt-1" />
+              </div>
+              <div>
+                <Label>Network Payout (₹)</Label>
+                <Input type="number" value={editForm.network_payout || ''} onChange={e => setEditForm({...editForm, network_payout: parseFloat(e.target.value)})} className="mt-1" />
+              </div>
+              <div>
+                <Label>User Payout (₹)</Label>
+                <Input type="number" value={editForm.user_payout || ''} onChange={e => setEditForm({...editForm, user_payout: parseFloat(e.target.value)})} className="mt-1" />
+              </div>
+              <div>
+                <Label>Action Type</Label>
+                <select value={editForm.action_type || 'install'} onChange={e => setEditForm({...editForm, action_type: e.target.value})} className="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-white">
+                  <option value="install">App Install</option>
+                  <option value="signup">Sign Up</option>
+                  <option value="survey">Survey</option>
+                  <option value="review">Review</option>
+                  <option value="time_spent">Time Spent</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <div className="md:col-span-2">
+                <Label>Description</Label>
+                <Input value={editForm.description || ''} onChange={e => setEditForm({...editForm, description: e.target.value})} className="mt-1" />
+              </div>
+
+              {/* Proof Settings */}
+              <div className="md:col-span-2 p-4 bg-orange-50 border border-orange-200 rounded-xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-gray-900 text-sm">Screenshot Proof Required</p>
+                    <p className="text-xs text-gray-500">Users must upload proof to get paid</p>
+                  </div>
+                  <button
+                    onClick={() => setEditForm({...editForm, requires_proof: !editForm.requires_proof})}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${editForm.requires_proof ? 'bg-orange-500' : 'bg-gray-300'}`}
+                  >
+                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${editForm.requires_proof ? 'translate-x-6' : 'translate-x-1'}`} />
+                  </button>
+                </div>
+                {editForm.requires_proof && (
+                  <div>
+                    <Label>Proof Instructions <span className="text-xs text-gray-400">(shown to user)</span></Label>
+                    <Input
+                      value={editForm.proof_instructions || ''}
+                      onChange={e => setEditForm({...editForm, proof_instructions: e.target.value})}
+                      placeholder="e.g. Take a screenshot of the app installed on your phone"
+                      className="mt-1"
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="flex gap-3 mt-6">
+              <Button onClick={saveEdit} disabled={savingEdit} className="bg-blue-600 hover:bg-blue-700 flex-1">
+                <Save className="w-4 h-4 mr-2" />
+                {savingEdit ? 'Saving...' : 'Save Changes'}
+              </Button>
+              <Button variant="outline" onClick={() => setEditingTask(null)} className="flex-1">Cancel</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Tasks</h1>
@@ -253,8 +400,8 @@ export function AdminTasks() {
                 <Input value={form.title} onChange={e => setForm({...form, title: e.target.value})} placeholder="e.g. Install Spotify" className="mt-1" />
               </div>
               <div>
-                <Label>Task URL * <span className="text-xs text-gray-400">(https:// will be added automatically)</span></Label>
-                <Input value={form.task_url} onChange={e => setForm({...form, task_url: e.target.value})} placeholder="https://play.google.com/..." className="mt-1" />
+                <Label>Task URL *</Label>
+                <Input value={form.task_url} onChange={e => setForm({...form, task_url: e.target.value})} placeholder="https://..." className="mt-1" />
               </div>
               <div>
                 <Label>App Name</Label>
@@ -265,11 +412,11 @@ export function AdminTasks() {
                 <Input value={form.app_icon_url} onChange={e => setForm({...form, app_icon_url: e.target.value})} placeholder="https://..." className="mt-1" />
               </div>
               <div>
-                <Label>Network Payout (₹) * <span className="text-xs text-gray-400">what you earn</span></Label>
+                <Label>Network Payout (₹) *</Label>
                 <Input type="number" value={form.network_payout} onChange={e => setForm({...form, network_payout: e.target.value})} placeholder="0.00" className="mt-1" />
               </div>
               <div>
-                <Label>User Payout (₹) * <span className="text-xs text-gray-400">what user earns</span></Label>
+                <Label>User Payout (₹) *</Label>
                 <Input type="number" value={form.user_payout} onChange={e => setForm({...form, user_payout: e.target.value})} placeholder="0.00" className="mt-1" />
               </div>
               <div>
@@ -278,6 +425,7 @@ export function AdminTasks() {
                   <option value="install">App Install</option>
                   <option value="signup">Sign Up</option>
                   <option value="survey">Survey</option>
+                  <option value="review">Review</option>
                   <option value="time_spent">Time Spent</option>
                   <option value="other">Other</option>
                 </select>
@@ -289,6 +437,33 @@ export function AdminTasks() {
               <div className="md:col-span-2">
                 <Label>Description</Label>
                 <Input value={form.description} onChange={e => setForm({...form, description: e.target.value})} placeholder="e.g. Install and open the app to earn" className="mt-1" />
+              </div>
+
+              {/* Proof Settings in Create Form */}
+              <div className="md:col-span-2 p-4 bg-orange-50 border border-orange-200 rounded-xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-gray-900 text-sm">Require Screenshot Proof</p>
+                    <p className="text-xs text-gray-500">Users must upload proof to get paid</p>
+                  </div>
+                  <button
+                    onClick={() => setForm({...form, requires_proof: !form.requires_proof})}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${form.requires_proof ? 'bg-orange-500' : 'bg-gray-300'}`}
+                  >
+                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${form.requires_proof ? 'translate-x-6' : 'translate-x-1'}`} />
+                  </button>
+                </div>
+                {form.requires_proof && (
+                  <div>
+                    <Label>Proof Instructions</Label>
+                    <Input
+                      value={form.proof_instructions}
+                      onChange={e => setForm({...form, proof_instructions: e.target.value})}
+                      placeholder="e.g. Screenshot showing app installed on your phone"
+                      className="mt-1"
+                    />
+                  </div>
+                )}
               </div>
             </div>
             <div className="flex gap-3 mt-4">
@@ -336,6 +511,7 @@ export function AdminTasks() {
                         <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Clicks</th>
                         <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Completions</th>
                         <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">CVR</th>
+                        <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Proof</th>
                         <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Status</th>
                         <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Actions</th>
                       </tr>
@@ -386,6 +562,16 @@ export function AdminTasks() {
                             </span>
                           </td>
                           <td className="px-4 py-3">
+                            <button
+                              onClick={() => toggleProofRequired(task)}
+                              title={task.requires_proof ? 'Proof required — click to disable' : 'No proof required — click to enable'}
+                              className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors ${task.requires_proof ? 'bg-orange-100 text-orange-700 hover:bg-orange-200' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                            >
+                              {task.requires_proof ? <Camera className="w-3 h-3" /> : <CameraOff className="w-3 h-3" />}
+                              {task.requires_proof ? 'On' : 'Off'}
+                            </button>
+                          </td>
+                          <td className="px-4 py-3">
                             <button onClick={() => toggleTask(task.id, task.is_active)}>
                               <Badge className={`cursor-pointer ${task.is_active ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
                                 {task.is_active ? 'Active' : 'Inactive'}
@@ -393,9 +579,14 @@ export function AdminTasks() {
                             </button>
                           </td>
                           <td className="px-4 py-3">
-                            <Button variant="ghost" size="sm" onClick={() => deleteTask(task.id)} className="text-red-600 hover:bg-red-50">
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
+                            <div className="flex items-center gap-1">
+                              <Button variant="ghost" size="sm" onClick={() => startEdit(task)} className="text-blue-600 hover:bg-blue-50">
+                                <Edit2 className="w-4 h-4" />
+                              </Button>
+                              <Button variant="ghost" size="sm" onClick={() => deleteTask(task.id)} className="text-red-600 hover:bg-red-50">
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -434,7 +625,7 @@ export function AdminTasks() {
                           <tr key={c.id} className="bg-white/40">
                             <td className="px-3 py-2 text-sm">{c.user_email || `User #${c.user_id}`}</td>
                             <td className="px-3 py-2">
-                              <Badge className={c.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}>
+                              <Badge className={c.status === 'verified' ? 'bg-green-100 text-green-700' : c.status === 'pending_verification' ? 'bg-orange-100 text-orange-700' : 'bg-yellow-100 text-yellow-700'}>
                                 {c.status}
                               </Badge>
                             </td>
@@ -469,43 +660,27 @@ export function AdminTasks() {
                           {task.app_icon_url && <img src={task.app_icon_url} alt="" className="w-9 h-9 rounded-lg" />}
                           <div>
                             <p className="font-semibold text-gray-900 text-sm">{task.title}</p>
-                            <p className="text-xs text-gray-500">{task.action_type} • {task.country_code}</p>
+                            <div className="flex items-center gap-2">
+                              <p className="text-xs text-gray-500">{task.action_type}</p>
+                              {task.requires_proof && <span className="text-xs bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded">📸 Proof</span>}
+                            </div>
                           </div>
                         </div>
                         <div className="flex items-center gap-4 text-right">
-                          <div>
-                            <p className="text-xs text-gray-500">Clicks</p>
-                            <p className="font-bold text-purple-600">{task.click_count || 0}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-gray-500">Completions</p>
-                            <p className="font-bold text-green-600">{task.completion_count || 0}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-gray-500">CVR</p>
-                            <p className={`font-bold ${getConversionColor(task.conversion_rate || '0')}`}>{task.conversion_rate}%</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-gray-500">Profit</p>
-                            <p className="font-bold text-blue-600">₹{((task.completion_count || 0) * (Number(task.network_payout) - Number(task.user_payout))).toFixed(0)}</p>
-                          </div>
+                          <div><p className="text-xs text-gray-500">Clicks</p><p className="font-bold text-purple-600">{task.click_count || 0}</p></div>
+                          <div><p className="text-xs text-gray-500">Completions</p><p className="font-bold text-green-600">{task.completion_count || 0}</p></div>
+                          <div><p className="text-xs text-gray-500">CVR</p><p className={`font-bold ${getConversionColor(task.conversion_rate || '0')}`}>{task.conversion_rate}%</p></div>
+                          <div><p className="text-xs text-gray-500">Profit</p><p className="font-bold text-blue-600">₹{((task.completion_count || 0) * (Number(task.network_payout) - Number(task.user_payout))).toFixed(0)}</p></div>
                         </div>
                       </div>
-                      {/* Click progress bar */}
                       <div className="space-y-1.5">
-                        <div className="flex justify-between text-xs text-gray-400">
-                          <span>Clicks</span>
-                          <span>{task.click_count || 0}</span>
-                        </div>
+                        <div className="flex justify-between text-xs text-gray-400"><span>Clicks</span><span>{task.click_count || 0}</span></div>
                         <div className="w-full bg-gray-100 rounded-full h-2">
-                          <div className="bg-purple-500 h-2 rounded-full transition-all" style={{ width: `${((task.click_count || 0) / maxClicks) * 100}%` }} />
+                          <div className="bg-purple-500 h-2 rounded-full" style={{ width: `${((task.click_count || 0) / maxClicks) * 100}%` }} />
                         </div>
-                        <div className="flex justify-between text-xs text-gray-400">
-                          <span>Completions</span>
-                          <span>{task.completion_count || 0}</span>
-                        </div>
+                        <div className="flex justify-between text-xs text-gray-400"><span>Completions</span><span>{task.completion_count || 0}</span></div>
                         <div className="w-full bg-gray-100 rounded-full h-2">
-                          <div className="bg-green-500 h-2 rounded-full transition-all" style={{ width: `${((task.completion_count || 0) / maxClicks) * 100}%` }} />
+                          <div className="bg-green-500 h-2 rounded-full" style={{ width: `${((task.completion_count || 0) / maxClicks) * 100}%` }} />
                         </div>
                       </div>
                     </CardContent>
