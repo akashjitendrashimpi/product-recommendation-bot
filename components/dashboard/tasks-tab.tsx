@@ -4,12 +4,11 @@ import { useState, useEffect, useRef } from "react"
 import type { Task, TaskCompletion } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   CheckCircle2, Circle, ExternalLink, IndianRupee, TrendingUp,
   Calendar, Wallet, Clock, Target, Upload, Camera, X, AlertCircle,
-  Zap, Trophy, Star
+  Zap, Trophy, Edit2, CheckCircle
 } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
@@ -44,6 +43,7 @@ export function TasksTab({ userId }: TasksTabProps) {
   const [upiDialogOpen, setUpiDialogOpen] = useState(false)
   const [upiId, setUpiId] = useState("")
   const [isSavingUpi, setIsSavingUpi] = useState(false)
+  const [userUpiId, setUserUpiId] = useState<string | null>(null)
   const [selectedCategory, setSelectedCategory] = useState<string>("all")
   const [proofState, setProofState] = useState<ProofUploadState | null>(null)
   const [proofFile, setProofFile] = useState<File | null>(null)
@@ -57,15 +57,20 @@ export function TasksTab({ userId }: TasksTabProps) {
   const loadData = async () => {
     setIsLoading(true)
     try {
-      const [tasksRes, earningsRes] = await Promise.all([
+      const [tasksRes, earningsRes, profileRes] = await Promise.all([
         fetch("/api/tasks?country=IN"),
         fetch("/api/earnings"),
+        fetch("/api/user/profile"),
       ])
       const tasksData = await tasksRes.json()
       const earningsData = await earningsRes.json()
+      const profileData = await profileRes.json()
+
       setTasks(tasksData.tasks || [])
       setCompletions(earningsData.recentCompletions || [])
-      const summary = earningsData.summary || earnings
+      setUserUpiId(profileData.user?.upi_id || null)
+
+      const summary = earningsData.summary || {}
       setEarnings({
         totalEarnings: Number(summary.totalEarnings) || 0,
         dailyEarnings: Number(summary.dailyEarnings) || 0,
@@ -81,7 +86,6 @@ export function TasksTab({ userId }: TasksTabProps) {
 
   const handleCompleteTask = async (task: Task) => {
     if (completingTaskId) return
-
     try {
       const clickRes = await fetch(`/api/tasks/${task.id}/click`, { method: 'POST' })
       const clickData = await clickRes.json()
@@ -89,23 +93,18 @@ export function TasksTab({ userId }: TasksTabProps) {
     } catch {
       window.open(task.task_url, "_blank", "noopener,noreferrer")
     }
-
     setCompletingTaskId(task.id)
     try {
       setTimeout(async () => {
         const response = await fetch(`/api/tasks/${task.id}/complete`, { method: "POST" })
         const data = await response.json()
-
         if (!response.ok) {
           alert(data.error || "Failed to complete task")
           setCompletingTaskId(null)
           return
         }
-
         await loadData()
         setCompletingTaskId(null)
-
-        // Only show proof dialog if task requires proof
         if (data.completion?.id && (task as any).requires_proof !== false) {
           setProofState({
             completionId: data.completion.id,
@@ -117,11 +116,10 @@ export function TasksTab({ userId }: TasksTabProps) {
           setProofFile(null)
           setProofPreview(null)
         } else if (data.completion?.id) {
-          // No proof needed — show success toast
-          alert(`Task completed! ₹${Number(task.user_payout).toFixed(2)} will be credited to your account.`)
+          alert(`Task completed! ₹${Number(task.user_payout).toFixed(2)} will be credited soon.`)
         }
       }, 2000)
-    } catch (error) {
+    } catch {
       alert("Failed to complete task. Please try again.")
       setCompletingTaskId(null)
     }
@@ -145,21 +143,13 @@ export function TasksTab({ userId }: TasksTabProps) {
       const formData = new FormData()
       formData.append('screenshot', proofFile)
       const res = await fetch(`/api/task-completions/${proofState.completionId}/proof`, {
-        method: 'POST',
-        body: formData
+        method: 'POST', body: formData
       })
       const data = await res.json()
-      if (res.ok) {
-        setProofSuccess(true)
-        await loadData()
-      } else {
-        alert(data.error || 'Failed to upload proof')
-      }
-    } catch {
-      alert('Failed to upload. Please try again.')
-    } finally {
-      setUploadingProof(false)
-    }
+      if (res.ok) { setProofSuccess(true); await loadData() }
+      else alert(data.error || 'Failed to upload proof')
+    } catch { alert('Failed to upload. Please try again.') }
+    finally { setUploadingProof(false) }
   }
 
   const handleSaveUpi = async () => {
@@ -175,18 +165,21 @@ export function TasksTab({ userId }: TasksTabProps) {
         const data = await response.json()
         throw new Error(data.error || "Failed to save UPI ID")
       }
+      setUserUpiId(upiId)
       setUpiDialogOpen(false)
       setUpiId("")
     } catch (error) {
       alert(error instanceof Error ? error.message : "Failed to save UPI ID")
-    } finally {
-      setIsSavingUpi(false)
-    }
+    } finally { setIsSavingUpi(false) }
+  }
+
+  const openUpiDialog = () => {
+    setUpiId(userUpiId || "")
+    setUpiDialogOpen(true)
   }
 
   const isTaskCompleted = (taskId: number) => completions.some(c => c.task_id === taskId && c.status !== "rejected")
   const getTaskCompletion = (taskId: number) => completions.find(c => c.task_id === taskId)
-
   const availableTasks = tasks.filter(t => !isTaskCompleted(t.id))
   const completedTasks = tasks.filter(t => isTaskCompleted(t.id))
   const categories = ["all", ...new Set(tasks.map(t => t.action_type || "Other"))]
@@ -224,10 +217,11 @@ export function TasksTab({ userId }: TasksTabProps) {
   if (isLoading) {
     return (
       <div className="animate-pulse space-y-6 w-full">
-        <div className="grid gap-4 md:grid-cols-4">
-          {[1,2,3,4].map(i => <div key={i} className="h-24 bg-gray-200 rounded-xl" />)}
+        <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
+          {[1,2,3,4].map(i => <div key={i} className="h-28 bg-gray-200 rounded-2xl" />)}
         </div>
-        <div className="h-64 bg-gray-200 rounded-xl" />
+        <div className="h-24 bg-gray-200 rounded-2xl" />
+        <div className="h-64 bg-gray-200 rounded-2xl" />
       </div>
     )
   }
@@ -244,64 +238,51 @@ export function TasksTab({ userId }: TasksTabProps) {
                 <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <CheckCircle2 className="w-10 h-10 text-green-600" />
                 </div>
-                <h3 className="text-2xl font-bold text-gray-900 mb-2">Proof Submitted!</h3>
-                <p className="text-gray-500 mb-1">Your screenshot has been sent for review.</p>
-                <div className="bg-green-50 border border-green-200 rounded-xl p-3 my-4">
-                  <p className="text-green-700 font-semibold">₹{proofState.payout.toFixed(2)} pending verification</p>
-                  <p className="text-green-600 text-sm">Admin will verify within 24 hours</p>
+                <h3 className="text-2xl font-bold text-gray-900 mb-2">Proof Submitted! 🎉</h3>
+                <p className="text-gray-500 mb-4">Your screenshot has been sent for review.</p>
+                <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-6">
+                  <p className="text-green-700 font-bold text-lg">₹{proofState.payout.toFixed(2)} pending</p>
+                  <p className="text-green-600 text-sm">Admin verifies within 24 hours</p>
                 </div>
-                <Button onClick={() => setProofState(null)} className="bg-blue-600 hover:bg-blue-700 w-full">Done</Button>
+                <Button onClick={() => setProofState(null)} className="bg-blue-600 hover:bg-blue-700 w-full h-11 rounded-xl font-semibold">
+                  Done
+                </Button>
               </div>
             ) : (
               <div className="p-6">
                 <div className="flex items-center justify-between mb-5">
                   <div>
                     <h3 className="text-lg font-bold text-gray-900">Upload Proof</h3>
-                    <p className="text-xs text-gray-500">Required to receive payment</p>
+                    <p className="text-xs text-gray-500">Screenshot required to receive payment</p>
                   </div>
-                  <button onClick={() => setProofState(null)} className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200">
+                  <button onClick={() => setProofState(null)} className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors">
                     <X className="w-4 h-4 text-gray-500" />
                   </button>
                 </div>
-
-                {/* Task Info */}
                 <div className="bg-gradient-to-r from-blue-50 to-green-50 border border-blue-100 rounded-xl p-4 mb-4">
-                  <p className="text-sm font-semibold text-gray-900 mb-1">{proofState.taskTitle}</p>
+                  <p className="text-sm font-semibold text-gray-900 mb-1 truncate">{proofState.taskTitle}</p>
                   <div className="flex items-center gap-1">
                     <IndianRupee className="w-4 h-4 text-green-600" />
-                    <span className="text-xl font-black text-green-600">{proofState.payout.toFixed(2)}</span>
+                    <span className="text-2xl font-black text-green-600">{proofState.payout.toFixed(2)}</span>
                     <span className="text-xs text-gray-500 ml-1">after verification</span>
                   </div>
                 </div>
-
-                {/* Instructions */}
-                {proofState.instructions && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-4 flex items-start gap-2">
-                    <AlertCircle className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
-                    <p className="text-xs text-blue-700">{proofState.instructions}</p>
-                  </div>
-                )}
-
-                {!proofState.instructions && (
-                  <div className="bg-orange-50 border border-orange-200 rounded-xl p-3 mb-4 flex items-start gap-2">
-                    <AlertCircle className="w-4 h-4 text-orange-500 mt-0.5 flex-shrink-0" />
-                    <p className="text-xs text-orange-700">Take a screenshot proving you completed the task and upload it below.</p>
-                  </div>
-                )}
-
-                {/* Upload Area */}
+                <div className="bg-orange-50 border border-orange-200 rounded-xl p-3 mb-4 flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-orange-500 mt-0.5 flex-shrink-0" />
+                  <p className="text-xs text-orange-700">
+                    {proofState.instructions || "Take a screenshot proving you completed the task and upload it below."}
+                  </p>
+                </div>
                 <div
                   onClick={() => fileInputRef.current?.click()}
                   className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all mb-4 ${
-                    proofPreview
-                      ? 'border-blue-400 bg-blue-50'
-                      : 'border-gray-300 hover:border-blue-400 hover:bg-blue-50'
+                    proofPreview ? 'border-blue-400 bg-blue-50' : 'border-gray-300 hover:border-blue-400 hover:bg-blue-50'
                   }`}
                 >
                   {proofPreview ? (
                     <div>
-                      <img src={proofPreview} alt="Preview" className="max-h-44 mx-auto rounded-lg object-contain shadow-sm" />
-                      <p className="text-xs text-blue-600 mt-3 font-medium">✓ Screenshot selected — click to change</p>
+                      <img src={proofPreview} alt="Preview" className="max-h-44 mx-auto rounded-xl object-contain shadow-sm" />
+                      <p className="text-xs text-blue-600 mt-3 font-semibold">✓ Screenshot ready — tap to change</p>
                     </div>
                   ) : (
                     <div>
@@ -314,18 +295,10 @@ export function TasksTab({ userId }: TasksTabProps) {
                   )}
                 </div>
                 <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileSelect} />
-
                 <div className="flex gap-3">
-                  <Button variant="outline" onClick={() => setProofState(null)} className="flex-1">Cancel</Button>
-                  <Button
-                    onClick={handleUploadProof}
-                    disabled={!proofFile || uploadingProof}
-                    className="flex-1 bg-blue-600 hover:bg-blue-700"
-                  >
-                    {uploadingProof
-                      ? <><Clock className="w-4 h-4 mr-2 animate-spin" />Uploading...</>
-                      : <><Upload className="w-4 h-4 mr-2" />Submit Proof</>
-                    }
+                  <Button variant="outline" onClick={() => setProofState(null)} className="flex-1 rounded-xl">Skip for now</Button>
+                  <Button onClick={handleUploadProof} disabled={!proofFile || uploadingProof} className="flex-1 bg-blue-600 hover:bg-blue-700 rounded-xl">
+                    {uploadingProof ? <><Clock className="w-4 h-4 mr-2 animate-spin" />Uploading...</> : <><Upload className="w-4 h-4 mr-2" />Submit Proof</>}
                   </Button>
                 </div>
               </div>
@@ -335,90 +308,130 @@ export function TasksTab({ userId }: TasksTabProps) {
       )}
 
       {/* Earnings Summary */}
-      <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
+      <div className="grid gap-3 grid-cols-2 md:grid-cols-4">
         {[
-          { label: 'Total Earned', value: `₹${earnings.totalEarnings.toFixed(2)}`, icon: Trophy, color: 'blue', bg: 'from-blue-500 to-blue-600' },
-          { label: 'Today', value: `₹${earnings.dailyEarnings.toFixed(2)}`, icon: Zap, color: 'green', bg: 'from-green-500 to-green-600' },
-          { label: 'This Month', value: `₹${earnings.monthlyEarnings.toFixed(2)}`, icon: TrendingUp, color: 'purple', bg: 'from-purple-500 to-purple-600' },
-          { label: 'Completed', value: `${earnings.tasksCompleted}`, icon: CheckCircle2, color: 'orange', bg: 'from-orange-500 to-orange-600' },
+          { label: 'Total Earned', value: `₹${earnings.totalEarnings.toFixed(2)}`, icon: Trophy, bg: 'from-blue-500 to-blue-700' },
+          { label: 'Today', value: `₹${earnings.dailyEarnings.toFixed(2)}`, icon: Zap, bg: 'from-green-500 to-green-700' },
+          { label: 'This Month', value: `₹${earnings.monthlyEarnings.toFixed(2)}`, icon: TrendingUp, bg: 'from-purple-500 to-purple-700' },
+          { label: 'Tasks Done', value: `${earnings.tasksCompleted}`, icon: CheckCircle2, bg: 'from-orange-500 to-orange-700' },
         ].map((s, i) => (
-          <Card key={i} className="border-0 shadow-md overflow-hidden">
+          <Card key={i} className="border-0 shadow-md overflow-hidden rounded-2xl">
             <CardContent className="p-0">
               <div className={`bg-gradient-to-br ${s.bg} p-4`}>
-                <div className="flex items-center justify-between mb-3">
-                  <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center">
-                    <s.icon className="w-5 h-5 text-white" />
-                  </div>
+                <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center mb-3">
+                  <s.icon className="w-5 h-5 text-white" />
                 </div>
-                <p className="text-white/80 text-xs font-medium mb-1">{s.label}</p>
-                <p className="text-white text-2xl font-black">{s.value}</p>
+                <p className="text-white/70 text-xs font-medium mb-0.5">{s.label}</p>
+                <p className="text-white text-xl font-black">{s.value}</p>
               </div>
             </CardContent>
           </Card>
         ))}
       </div>
 
-      {/* UPI Setup Banner */}
-      <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-2xl p-5 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center flex-shrink-0">
-            <Wallet className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <p className="text-white font-semibold text-sm">Set up UPI to receive payments</p>
-            <p className="text-blue-200 text-xs">Add your Paytm, GPay, or PhonePe UPI ID</p>
+      {/* UPI Section */}
+      {userUpiId ? (
+        // UPI Already Set — show it with change option
+        <div className="bg-gradient-to-r from-green-600 to-green-700 rounded-2xl p-5">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 bg-white/20 rounded-xl flex items-center justify-center flex-shrink-0">
+                <CheckCircle className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <p className="text-white/80 text-xs font-medium">Payout UPI ID</p>
+                <p className="text-white font-bold text-sm mt-0.5">{userUpiId}</p>
+                <p className="text-green-200 text-xs mt-0.5">Earnings will be sent here ✓</p>
+              </div>
+            </div>
+            <Dialog open={upiDialogOpen} onOpenChange={setUpiDialogOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm" onClick={openUpiDialog} className="bg-white/20 hover:bg-white/30 text-white border-0 flex-shrink-0 rounded-xl">
+                  <Edit2 className="w-3.5 h-3.5 mr-1.5" /> Change
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Update UPI ID</DialogTitle>
+                  <DialogDescription>Change the UPI ID where your earnings are sent</DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="bg-gray-50 rounded-xl p-3 flex items-center gap-2 mb-2">
+                    <p className="text-xs text-gray-500">Current:</p>
+                    <p className="text-sm font-semibold text-gray-900">{userUpiId}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>New UPI ID</Label>
+                    <Input placeholder="yourname@paytm" value={upiId} onChange={e => setUpiId(e.target.value)} className="rounded-xl" />
+                    <p className="text-xs text-gray-500">e.g. name@paytm, name@ybl, 9999999999@upi</p>
+                  </div>
+                  <Button onClick={handleSaveUpi} disabled={isSavingUpi} className="w-full bg-blue-600 hover:bg-blue-700 rounded-xl h-11">
+                    {isSavingUpi ? "Saving..." : "Update UPI ID"}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
-        <Dialog open={upiDialogOpen} onOpenChange={setUpiDialogOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm" className="bg-white text-blue-600 hover:bg-blue-50 font-semibold flex-shrink-0">
-              Add UPI
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Enter Your UPI ID</DialogTitle>
-              <DialogDescription>Your earnings will be sent to this UPI ID after verification</DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label>UPI ID</Label>
-                <Input placeholder="yourname@paytm" value={upiId} onChange={e => setUpiId(e.target.value)} />
-                <p className="text-xs text-gray-500">e.g. name@paytm, name@ybl, 9999999999@upi</p>
+      ) : (
+        // UPI Not Set — prompt to add
+        <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-2xl p-5">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 bg-white/20 rounded-xl flex items-center justify-center flex-shrink-0">
+                <Wallet className="w-6 h-6 text-white" />
               </div>
-              <Button onClick={handleSaveUpi} disabled={isSavingUpi} className="w-full bg-blue-600 hover:bg-blue-700">
-                {isSavingUpi ? "Saving..." : "Save UPI ID"}
-              </Button>
+              <div>
+                <p className="text-white font-semibold text-sm">Set up UPI to get paid</p>
+                <p className="text-blue-200 text-xs mt-0.5">Add Paytm, GPay, or PhonePe UPI ID</p>
+              </div>
             </div>
-          </DialogContent>
-        </Dialog>
-      </div>
+            <Dialog open={upiDialogOpen} onOpenChange={setUpiDialogOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm" className="bg-white text-blue-600 hover:bg-blue-50 font-semibold flex-shrink-0 rounded-xl">
+                  Add UPI
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Enter Your UPI ID</DialogTitle>
+                  <DialogDescription>Your earnings will be sent to this UPI ID after verification</DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label>UPI ID</Label>
+                    <Input placeholder="yourname@paytm" value={upiId} onChange={e => setUpiId(e.target.value)} className="rounded-xl" />
+                    <p className="text-xs text-gray-500">e.g. name@paytm, name@ybl, 9999999999@upi</p>
+                  </div>
+                  <Button onClick={handleSaveUpi} disabled={isSavingUpi} className="w-full bg-blue-600 hover:bg-blue-700 rounded-xl h-11">
+                    {isSavingUpi ? "Saving..." : "Save UPI ID"}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </div>
+      )}
 
-      {/* Tasks Section */}
+      {/* Tasks */}
       <Tabs defaultValue="available" className="space-y-5">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <TabsList className="bg-gray-100 p-1 rounded-xl">
             <TabsTrigger value="available" className="data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm rounded-lg px-4">
-              Available <span className="ml-1.5 bg-blue-100 text-blue-600 text-xs px-1.5 py-0.5 rounded-full font-bold">{availableTasks.length}</span>
+              Available
+              <span className="ml-1.5 bg-blue-100 text-blue-600 text-xs px-1.5 py-0.5 rounded-full font-bold">{availableTasks.length}</span>
             </TabsTrigger>
             <TabsTrigger value="completed" className="data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm rounded-lg px-4">
-              Completed <span className="ml-1.5 bg-gray-200 text-gray-600 text-xs px-1.5 py-0.5 rounded-full font-bold">{completedTasks.length}</span>
+              Completed
+              <span className="ml-1.5 bg-gray-200 text-gray-600 text-xs px-1.5 py-0.5 rounded-full font-bold">{completedTasks.length}</span>
             </TabsTrigger>
           </TabsList>
 
-          {/* Category Filter */}
           {categories.length > 1 && (
             <div className="flex gap-2 flex-wrap">
               {categories.map(cat => (
-                <button
-                  key={cat}
-                  onClick={() => setSelectedCategory(cat)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
-                    selectedCategory === cat
-                      ? 'bg-blue-600 text-white shadow-sm'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
-                >
+                <button key={cat} onClick={() => setSelectedCategory(cat)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${selectedCategory === cat ? 'bg-blue-600 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
                   {cat === 'all' ? '🎯 All' : `${getActionTypeIcon(cat)} ${cat}`}
                 </button>
               ))}
@@ -428,7 +441,7 @@ export function TasksTab({ userId }: TasksTabProps) {
 
         <TabsContent value="available" className="space-y-4 mt-0">
           {filteredTasks.length === 0 ? (
-            <Card className="border border-dashed border-gray-300">
+            <Card className="border border-dashed border-gray-300 rounded-2xl">
               <CardContent className="py-16 text-center">
                 <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
                   <Target className="w-8 h-8 text-gray-400" />
@@ -440,63 +453,54 @@ export function TasksTab({ userId }: TasksTabProps) {
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
               {filteredTasks.map(task => (
-                <Card key={task.id} className="border border-gray-200 shadow-sm hover:shadow-lg transition-all duration-200 group overflow-hidden">
-                  <CardContent className="p-0">
-                    {/* Card Top */}
-                    <div className="p-5">
-                      <div className="flex items-start justify-between gap-3 mb-3">
-                        <div className="flex items-start gap-3 flex-1">
-                          {task.app_icon_url ? (
-                            <img src={task.app_icon_url} alt={task.app_name || task.title}
-                              className="w-14 h-14 rounded-2xl object-cover border border-gray-200 shadow-sm flex-shrink-0" />
-                          ) : (
-                            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center flex-shrink-0 text-2xl">
-                              {getActionTypeIcon(task.action_type || 'other')}
-                            </div>
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <h3 className="font-bold text-gray-900 text-sm leading-tight">{task.title}</h3>
-                            {task.app_name && <p className="text-xs text-gray-500 mt-0.5">{task.app_name}</p>}
-                            <div className="flex items-center gap-2 mt-1.5">
-                              <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
-                                {getActionTypeIcon(task.action_type || 'other')} {task.action_type}
-                              </span>
-                              {(task as any).requires_proof && (
-                                <span className="text-xs bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full flex items-center gap-1">
-                                  <Camera className="w-2.5 h-2.5" /> Proof needed
-                                </span>
-                              )}
-                            </div>
-                          </div>
+                <Card key={task.id} className="border border-gray-200 shadow-sm hover:shadow-lg transition-all duration-200 group overflow-hidden rounded-2xl">
+                  <CardContent className="p-5">
+                    <div className="flex items-start gap-3 mb-4">
+                      {task.app_icon_url ? (
+                        <img src={task.app_icon_url} alt={task.app_name || task.title}
+                          className="w-14 h-14 rounded-2xl object-cover border border-gray-200 shadow-sm flex-shrink-0" />
+                      ) : (
+                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center flex-shrink-0 text-2xl shadow-sm">
+                          {getActionTypeIcon(task.action_type || 'other')}
                         </div>
-                        <div className="text-right flex-shrink-0">
-                          <div className="flex items-center gap-0.5 justify-end">
-                            <IndianRupee className="w-4 h-4 text-green-600" />
-                            <span className="text-2xl font-black text-green-600">{Number(task.user_payout).toFixed(0)}</span>
-                          </div>
-                          <p className="text-xs text-gray-400">per task</p>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-bold text-gray-900 text-sm leading-tight">{task.title}</h3>
+                        {task.app_name && <p className="text-xs text-gray-500 mt-0.5">{task.app_name}</p>}
+                        <div className="flex items-center gap-2 mt-2 flex-wrap">
+                          <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+                            {getActionTypeIcon(task.action_type || 'other')} {task.action_type}
+                          </span>
+                          {(task as any).requires_proof && (
+                            <span className="text-xs bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full flex items-center gap-1">
+                              <Camera className="w-2.5 h-2.5" /> Proof needed
+                            </span>
+                          )}
                         </div>
                       </div>
-
-                      {task.description && (
-                        <p className="text-xs text-gray-500 line-clamp-2 mb-3">{task.description}</p>
-                      )}
+                      <div className="text-right flex-shrink-0">
+                        <div className="flex items-center gap-0.5 justify-end">
+                          <IndianRupee className="w-4 h-4 text-green-600" />
+                          <span className="text-2xl font-black text-green-600">{Number(task.user_payout).toFixed(0)}</span>
+                        </div>
+                        <p className="text-xs text-gray-400">per task</p>
+                      </div>
                     </div>
 
-                    {/* Card Bottom */}
-                    <div className="px-5 pb-5">
-                      <Button
-                        onClick={() => handleCompleteTask(task)}
-                        disabled={completingTaskId === task.id}
-                        className="w-full bg-blue-600 hover:bg-blue-700 group-hover:bg-blue-700 rounded-xl h-11 font-semibold"
-                      >
-                        {completingTaskId === task.id ? (
-                          <><Clock className="w-4 h-4 mr-2 animate-spin" />Opening task...</>
-                        ) : (
-                          <><ExternalLink className="w-4 h-4 mr-2" />Start & Earn ₹{Number(task.user_payout).toFixed(0)}</>
-                        )}
-                      </Button>
-                    </div>
+                    {task.description && (
+                      <p className="text-xs text-gray-500 line-clamp-2 mb-4">{task.description}</p>
+                    )}
+
+                    <Button
+                      onClick={() => handleCompleteTask(task)}
+                      disabled={completingTaskId === task.id}
+                      className="w-full bg-blue-600 hover:bg-blue-700 rounded-xl h-11 font-semibold"
+                    >
+                      {completingTaskId === task.id
+                        ? <><Clock className="w-4 h-4 mr-2 animate-spin" />Opening task...</>
+                        : <><ExternalLink className="w-4 h-4 mr-2" />Start & Earn ₹{Number(task.user_payout).toFixed(0)}</>
+                      }
+                    </Button>
                   </CardContent>
                 </Card>
               ))}
@@ -506,7 +510,7 @@ export function TasksTab({ userId }: TasksTabProps) {
 
         <TabsContent value="completed" className="space-y-3 mt-0">
           {completedTasks.length === 0 ? (
-            <Card className="border border-dashed border-gray-300">
+            <Card className="border border-dashed border-gray-300 rounded-2xl">
               <CardContent className="py-16 text-center">
                 <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
                   <Circle className="w-8 h-8 text-gray-400" />
@@ -521,7 +525,7 @@ export function TasksTab({ userId }: TasksTabProps) {
               const needsProof = completion && !completion.completion_proof &&
                 completion.status !== 'verified' && (task as any).requires_proof !== false
               return (
-                <Card key={task.id} className={`border shadow-sm transition-all ${needsProof ? 'border-orange-200 bg-orange-50/30' : 'border-gray-200'}`}>
+                <Card key={task.id} className={`border shadow-sm rounded-2xl transition-all ${needsProof ? 'border-orange-200 bg-orange-50/40' : 'border-gray-200'}`}>
                   <CardContent className="p-4">
                     <div className="flex items-center gap-4">
                       {task.app_icon_url ? (
@@ -543,7 +547,7 @@ export function TasksTab({ userId }: TasksTabProps) {
                               payout: Number(task.user_payout),
                               instructions: (task as any).proof_instructions || null
                             })}
-                            className="mt-1.5 flex items-center gap-1 text-xs text-orange-600 hover:text-orange-700 font-semibold bg-orange-100 px-2 py-1 rounded-lg"
+                            className="mt-1.5 flex items-center gap-1 text-xs text-orange-600 hover:text-orange-700 font-semibold bg-orange-100 hover:bg-orange-200 px-2.5 py-1 rounded-lg transition-colors"
                           >
                             <Upload className="w-3 h-3" /> Upload proof to get paid
                           </button>
