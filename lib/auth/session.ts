@@ -82,7 +82,7 @@ export async function createSession(session: Session): Promise<void> {
   cookieStore.set(SESSION_COOKIE_NAME, sessionValue, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "strict", // upgraded from lax to strict
+    sameSite: "lax", // upgraded from lax to strict
     maxAge: SESSION_MAX_AGE,
     path: "/",
   })
@@ -121,7 +121,7 @@ export function setSessionInResponse(
   response.cookies.set(SESSION_COOKIE_NAME, sessionValue, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
+    sameSite: "lax",
     maxAge: SESSION_MAX_AGE,
     path: "/",
   })

@@ -25,6 +25,7 @@ export function AdminLayout({ user, children }: AdminLayoutProps) {
     { name: 'Payments', href: '/admin/payments', icon: Wallet },
     { name: 'Products', href: '/admin/products', icon: ShoppingBag },
     { name: 'Campaigns', href: '/admin/campaigns', icon: QrCode },
+    { name: 'Proofs', href: '/admin/proofs', icon: Shield },     
   ]
 
   return (

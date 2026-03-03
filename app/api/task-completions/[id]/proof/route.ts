@@ -1,0 +1,93 @@
+import { NextRequest, NextResponse } from "next/server"
+import { getSession } from "@/lib/auth/session"
+import { supabaseAdmin } from "@/lib/supabase/client"
+
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await getSession()
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const { id } = await params
+    const completionId = parseInt(id)
+
+    const formData = await request.formData()
+    const file = formData.get("screenshot") as File
+
+    if (!file) {
+      return NextResponse.json({ error: "Screenshot required" }, { status: 400 })
+    }
+
+    if (!file.type.startsWith("image/")) {
+      return NextResponse.json({ error: "Only image files allowed" }, { status: 400 })
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      return NextResponse.json({ error: "File too large. Max 5MB" }, { status: 400 })
+    }
+
+    const { data: completion, error: compError } = await (supabaseAdmin as any)
+      .from("task_completions")
+      .select("*")
+      .eq("id", completionId)
+      .eq("user_id", session.userId)
+      .single()
+
+    if (compError || !completion) {
+      return NextResponse.json({ error: "Completion not found" }, { status: 404 })
+    }
+
+    if (completion.status === "verified") {
+      return NextResponse.json({ error: "Already verified" }, { status: 400 })
+    }
+
+    const fileExt = file.name.split(".").pop() || "jpg"
+    const fileName = "proof_" + completionId + "_" + session.userId + "_" + Date.now() + "." + fileExt
+    const fileBuffer = await file.arrayBuffer()
+
+    const { error: uploadError } = await (supabaseAdmin as any)
+      .storage
+      .from("task-proofs")
+      .upload(fileName, fileBuffer, {
+        contentType: file.type,
+        upsert: true
+      })
+
+    if (uploadError) {
+      console.error("Upload error:", uploadError)
+      return NextResponse.json({ error: "Failed to upload screenshot" }, { status: 500 })
+    }
+
+    const { data: urlData } = (supabaseAdmin as any)
+      .storage
+      .from("task-proofs")
+      .getPublicUrl(fileName)
+
+    const proofUrl = urlData?.publicUrl || fileName
+
+    const { error: updateError } = await (supabaseAdmin as any)
+      .from("task_completions")
+      .update({
+        completion_proof: proofUrl,
+        status: "pending_verification",
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", completionId)
+
+    if (updateError) throw updateError
+
+    return NextResponse.json({
+      success: true,
+      message: "Screenshot uploaded. Admin will verify within 24 hours.",
+      proof_url: proofUrl
+    })
+
+  } catch (error) {
+    console.error("Error uploading proof:", error)
+    return NextResponse.json({ error: "Failed to upload proof" }, { status: 500 })
+  }
+}
