@@ -84,7 +84,14 @@ export function TasksTab({ userId }: TasksTabProps) {
   const handleCompleteTask = async (task: Task) => {
     if (completingTaskId) return
 
-    window.open(task.task_url, "_blank", "noopener,noreferrer")
+   // Track click first, then open URL
+try {
+  const clickRes = await fetch(`/api/tasks/${task.id}/click`, { method: 'POST' })
+  const clickData = await clickRes.json()
+  window.open(clickData.redirect_url || task.task_url, "_blank", "noopener,noreferrer")
+} catch {
+  window.open(task.task_url, "_blank", "noopener,noreferrer")
+}
 
     setCompletingTaskId(task.id)
     try {
