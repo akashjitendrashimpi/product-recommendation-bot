@@ -11,14 +11,23 @@ export async function GET(request: NextRequest) {
 
     const { data, error } = await (supabaseAdmin as any)
       .from('task_completions')
-      .select('*, users(email)')
+      .select('*')
       .order('created_at', { ascending: false })
 
     if (error) throw error
 
+    // Get user emails separately
+    const userIds = [...new Set((data || []).map((c: any) => c.user_id))]
+    const { data: users } = await (supabaseAdmin as any)
+      .from('users')
+      .select('id, email')
+      .in('id', userIds)
+
+    const userMap = Object.fromEntries((users || []).map((u: any) => [u.id, u.email]))
+
     const completions = (data || []).map((c: any) => ({
       ...c,
-      user_email: c.users?.email || null,
+      user_email: userMap[c.user_id] || null,
     }))
 
     return NextResponse.json({ completions })
