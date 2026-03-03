@@ -2,7 +2,7 @@ import { supabaseAdmin } from '@/lib/supabase/client'
 import type { Payment } from '@/lib/types'
 
 export async function getUserPayments(userId: number): Promise<Payment[]> {
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await (supabaseAdmin as any)
     .from('payments')
     .select('*')
     .eq('user_id', userId)
@@ -12,7 +12,7 @@ export async function getUserPayments(userId: number): Promise<Payment[]> {
 }
 
 export async function getPaymentById(id: number): Promise<Payment | null> {
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await (supabaseAdmin as any)
     .from('payments')
     .select('*')
     .eq('id', id)
@@ -25,11 +25,16 @@ export async function createPayment(data: {
   user_id: number
   amount: number
   upi_id: string
-  payment_date: string
 }): Promise<Payment> {
-  const { data: payment, error } = await supabaseAdmin
+  const { data: payment, error } = await (supabaseAdmin as any)
     .from('payments')
-    .insert({ ...data, status: 'pending' })
+    .insert({
+      user_id: data.user_id,
+      amount: data.amount,
+      upi_id: data.upi_id,
+      status: 'pending',
+      payment_method: 'upi',
+    })
     .select()
     .single()
   if (error) throw error
@@ -38,17 +43,16 @@ export async function createPayment(data: {
 
 export async function updatePaymentStatus(
   id: number,
-  status: 'processing' | 'completed' | 'failed',
-  paymentReference?: string | null,
-  errorMessage?: string | null
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'rejected',
+  transactionId?: string | null,
 ): Promise<void> {
-  const updates: Record<string, any> = { status }
-  if (paymentReference !== undefined) updates.payment_reference = paymentReference
-  if (errorMessage !== undefined) updates.error_message = errorMessage
-  if (status === 'completed' || status === 'failed') {
-    updates.processed_at = new Date().toISOString()
+  const updates: Record<string, any> = {
+    status,
+    updated_at: new Date().toISOString(),
   }
-  const { error } = await supabaseAdmin
+  if (transactionId !== undefined) updates.transaction_id = transactionId
+
+  const { error } = await (supabaseAdmin as any)
     .from('payments')
     .update(updates)
     .eq('id', id)
@@ -56,21 +60,40 @@ export async function updatePaymentStatus(
 }
 
 export async function getPendingPayments(): Promise<Payment[]> {
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await (supabaseAdmin as any)
     .from('payments')
     .select('*')
     .eq('status', 'pending')
-    .order('payment_date', { ascending: true })
+    .order('created_at', { ascending: true })
   if (error) throw error
   return (data || []) as Payment[]
 }
 
-export async function getPaymentsByDate(date: string): Promise<Payment[]> {
-  const { data, error } = await supabaseAdmin
+export async function getAllPayments(): Promise<Payment[]> {
+  const { data, error } = await (supabaseAdmin as any)
     .from('payments')
     .select('*')
-    .eq('payment_date', date)
     .order('created_at', { ascending: false })
   if (error) throw error
   return (data || []) as Payment[]
+}
+
+export async function getUserPendingPaymentTotal(userId: number): Promise<number> {
+  const { data, error } = await (supabaseAdmin as any)
+    .from('payments')
+    .select('amount')
+    .eq('user_id', userId)
+    .in('status', ['pending', 'processing'])
+  if (error) throw error
+  return (data || []).reduce((sum: number, p: any) => sum + Number(p.amount || 0), 0)
+}
+
+export async function getUserCompletedPaymentTotal(userId: number): Promise<number> {
+  const { data, error } = await (supabaseAdmin as any)
+    .from('payments')
+    .select('amount')
+    .eq('user_id', userId)
+    .eq('status', 'completed')
+  if (error) throw error
+  return (data || []).reduce((sum: number, p: any) => sum + Number(p.amount || 0), 0)
 }

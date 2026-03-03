@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getSession } from "@/lib/auth/session"
-import { supabaseAdmin } from "@/lib/supabase/client"
+import { getPaymentById, updatePaymentStatus } from "@/lib/db/payments"
 
-export async function DELETE(
+export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getSession()
@@ -12,16 +12,39 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { error } = await supabaseAdmin
-      .from('tasks')
-      .delete()
-      .eq('id', parseInt(params.id))
+    const { id } = await params
+    const paymentId = parseInt(id)
+    const { status, transaction_id } = await request.json()
 
-    if (error) throw error
+    if (!['completed', 'rejected'].includes(status)) {
+      return NextResponse.json({ error: "Invalid status" }, { status: 400 })
+    }
 
-    return NextResponse.json({ success: true })
+    // Get payment
+    const payment = await getPaymentById(paymentId)
+    if (!payment) {
+      return NextResponse.json({ error: "Payment not found" }, { status: 404 })
+    }
+
+    if (payment.status !== 'pending') {
+      return NextResponse.json(
+        { error: `Payment is already ${payment.status}` },
+        { status: 400 }
+      )
+    }
+
+    // Update payment status with optional transaction ID
+    await updatePaymentStatus(paymentId, status, transaction_id || null)
+
+    return NextResponse.json({
+      success: true,
+      message: status === 'completed'
+        ? `Payment marked as completed`
+        : 'Payment rejected'
+    })
+
   } catch (error) {
-    console.error('Error deleting task:', error)
-    return NextResponse.json({ error: 'Failed to delete task' }, { status: 500 })
+    console.error('Error processing payment:', error)
+    return NextResponse.json({ error: 'Failed to process payment' }, { status: 500 })
   }
 }

@@ -2,27 +2,28 @@ import { NextRequest, NextResponse } from "next/server"
 import { getSession } from "@/lib/auth/session"
 import { supabaseAdmin } from "@/lib/supabase/client"
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(request: NextRequest) {
   try {
     const session = await getSession()
     if (!session || !session.isAdmin) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const data = await request.json()
-    const { error } = await supabaseAdmin
-      .from('users')
-      .update(data)
-      .eq('id', parseInt(params.id))
+    const { data, error } = await (supabaseAdmin as any)
+      .from('payments')
+      .select('*, users(email)')
+      .order('created_at', { ascending: false })
 
     if (error) throw error
 
-    return NextResponse.json({ success: true })
+    const payments = (data || []).map((p: any) => ({
+      ...p,
+      user_email: p.users?.email || null,
+    }))
+
+    return NextResponse.json({ payments })
   } catch (error) {
-    console.error('Error updating user:', error)
-    return NextResponse.json({ error: 'Failed to update user' }, { status: 500 })
+    console.error('Error fetching payments:', error)
+    return NextResponse.json({ error: 'Failed to fetch payments' }, { status: 500 })
   }
 }
