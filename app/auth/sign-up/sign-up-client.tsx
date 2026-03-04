@@ -1,60 +1,94 @@
 "use client";
 
 import type React from "react"
-
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { isSafeReturnUrl } from '@/lib/utils'
-import { Sparkles, User, Phone, Wallet, Mail, Lock, ShieldCheck, ArrowRight } from "lucide-react"
+import {
+  Sparkles, User, Phone, Wallet, Mail, Lock,
+  ShieldCheck, ArrowRight, Eye, EyeOff, Gift, CheckCircle2
+} from "lucide-react"
 
-export default function SignUpPage() {
+export default function SignUpClient() {
+  const [step, setStep] = useState(1) // 2-step form
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [repeatPassword, setRepeatPassword] = useState("")
   const [displayName, setDisplayName] = useState("")
   const [phone, setPhone] = useState("")
   const [upiId, setUpiId] = useState("")
+  const [referralCode, setReferralCode] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
+  const [showRepeatPassword, setShowRepeatPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
 
+  // Auto-fill referral code from URL ?ref=CODE
+  useEffect(() => {
+    const ref = searchParams.get("ref")
+    if (ref) setReferralCode(ref.toUpperCase())
+  }, [searchParams])
+
+  const validateStep1 = () => {
+    if (!displayName.trim()) { setError("Please enter your full name"); return false }
+    if (!phone.trim()) { setError("Phone number is required"); return false }
+    if (!/^[6-9]\d{9}$/.test(phone.replace(/\s/g, ''))) {
+      setError("Please enter a valid 10-digit Indian mobile number")
+      return false
+    }
+    if (!email.trim()) { setError("Please enter your email"); return false }
+    return true
+  }
+
+  const validateStep2 = () => {
+    if (password.length < 6) { setError("Password must be at least 6 characters"); return false }
+    if (password !== repeatPassword) { setError("Passwords do not match"); return false }
+    return true
+  }
+
+  const handleNextStep = (e: React.FormEvent) => {
+    e.preventDefault()
+    setError(null)
+    if (validateStep1()) setStep(2)
+  }
+
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsLoading(true)
     setError(null)
+    if (!validateStep2()) return
 
-    if (password !== repeatPassword) {
-      setError("Passwords do not match")
-      setIsLoading(false)
-      return
-    }
-
+    setIsLoading(true)
     try {
       const response = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email,
-          password,
-          displayName,
-          phone,
-          upiId,
+          email, password, displayName,
+          phone, upiId,
+          referralCode: referralCode.trim() || undefined,
         }),
       })
 
       const data = await response.json()
+      if (!response.ok) throw new Error(data.error || "Signup failed")
 
-      if (!response.ok) {
-        throw new Error(data.error || "Signup failed")
+      // Apply referral code if provided
+      if (referralCode.trim()) {
+        try {
+          await fetch("/api/referral/apply", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ referral_code: referralCode.trim() })
+          })
+        } catch { /* ignore referral errors */ }
       }
 
-      // Check if there's a return URL
       const returnUrl = searchParams.get("return")
       if (returnUrl && isSafeReturnUrl(returnUrl)) {
         router.push(returnUrl)
@@ -68,206 +102,311 @@ export default function SignUpPage() {
     }
   }
 
-  return (
-    <div className="flex min-h-screen w-full items-center justify-center bg-gradient-to-br from-blue-50 via-white to-green-50 p-6 md:p-10">
-      <div className="w-full max-w-md">
-        <div className="flex flex-col gap-6">
-          {/* Logo */}
-          <Link href="/" className="flex items-center justify-center gap-2 mb-2 group">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-green-500 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-              <Sparkles className="w-7 h-7 text-white" />
-            </div>
-            <span className="font-bold text-2xl bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
-              Qyantra
-            </span>
-          </Link>
+  const passwordStrength = (pwd: string) => {
+    if (pwd.length === 0) return null
+    if (pwd.length < 6) return { label: 'Too short', color: 'bg-red-400', width: '25%' }
+    if (pwd.length < 8) return { label: 'Weak', color: 'bg-orange-400', width: '50%' }
+    if (!/[A-Z]/.test(pwd) || !/[0-9]/.test(pwd)) return { label: 'Medium', color: 'bg-yellow-400', width: '75%' }
+    return { label: 'Strong', color: 'bg-green-500', width: '100%' }
+  }
 
-          {/* Trust Badge */}
-          <div className="flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-green-100 text-green-700 text-sm font-medium mx-auto">
-            <ShieldCheck className="w-4 h-4" />
-            <span>100% Secure • Free Forever</span>
+  const strength = passwordStrength(password)
+
+  return (
+    <div className="min-h-screen w-full bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center p-4">
+      <div className="w-full max-w-md">
+
+        {/* Logo */}
+        <Link href="/" className="flex items-center justify-center gap-2 mb-6 group">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform">
+            <Sparkles className="w-7 h-7 text-white" />
+          </div>
+          <span className="font-black text-2xl bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+            Qyantra
+          </span>
+        </Link>
+
+        {/* Referral Banner — show if ref code in URL */}
+        {referralCode && (
+          <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-2xl p-4 mb-4 flex items-center gap-3 shadow-md">
+            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center flex-shrink-0">
+              <Gift className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <p className="text-white font-bold text-sm">You've been invited! 🎉</p>
+              <p className="text-green-100 text-xs">Sign up now and get <span className="font-bold text-white">₹10 bonus</span> instantly</p>
+            </div>
+          </div>
+        )}
+
+        {/* Trust Badge */}
+        <div className="flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-blue-100 text-blue-700 text-xs font-semibold mb-4 mx-auto w-fit">
+          <ShieldCheck className="w-3.5 h-3.5" />
+          100% Free • Secure • UPI Payouts
+        </div>
+
+        {/* Card */}
+        <div className="bg-white rounded-3xl shadow-2xl border border-gray-100 overflow-hidden">
+
+          {/* Step Indicator */}
+          <div className="p-6 pb-0">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h1 className="text-2xl font-black text-gray-900">
+                  {step === 1 ? 'Create Account' : 'Set Password'}
+                </h1>
+                <p className="text-gray-500 text-sm mt-0.5">
+                  {step === 1 ? 'Step 1 of 2 — Your details' : 'Step 2 of 2 — Almost done!'}
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <div className={`w-8 h-2 rounded-full ${step >= 1 ? 'bg-blue-600' : 'bg-gray-200'}`} />
+                <div className={`w-8 h-2 rounded-full ${step >= 2 ? 'bg-blue-600' : 'bg-gray-200'}`} />
+              </div>
+            </div>
           </div>
 
-          <Card className="border-2 border-gray-200 shadow-xl">
-            <CardHeader className="text-center pb-4">
-              <CardTitle className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
-                Create Your Account
-              </CardTitle>
-              <CardDescription className="text-base text-gray-600 mt-2">
-                Start discovering products and earning money today
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleSignUp}>
-                <div className="flex flex-col gap-4">
-                  {/* Name Field */}
-                  <div className="grid gap-2">
-                    <Label htmlFor="displayName" className="text-gray-700 font-medium flex items-center gap-2">
-                      <User className="w-4 h-4 text-blue-500" />
-                      Full Name
-                    </Label>
-                    <Input
-                      id="displayName"
-                      placeholder="Enter your full name"
-                      required
-                      value={displayName}
-                      onChange={(e) => setDisplayName(e.target.value)}
-                      className="border-gray-300 focus:border-blue-500 focus:ring-blue-500 h-12 text-base"
-                    />
-                  </div>
+          <div className="p-6 pt-2">
+            {step === 1 ? (
+              <form onSubmit={handleNextStep} className="space-y-4">
 
-                  {/* Phone Field */}
-                  <div className="grid gap-2">
-                    <Label htmlFor="phone" className="text-gray-700 font-medium flex items-center gap-2">
-                      <Phone className="w-4 h-4 text-green-500" />
-                      WhatsApp/Phone Number
-                    </Label>
+                {/* Full Name */}
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                    <User className="w-4 h-4 text-blue-500" /> Full Name *
+                  </Label>
+                  <Input
+                    placeholder="Akash Kumar"
+                    required
+                    value={displayName}
+                    onChange={e => setDisplayName(e.target.value)}
+                    className="h-12 rounded-xl border-gray-200 focus:border-blue-500 text-base"
+                  />
+                </div>
+
+                {/* Phone */}
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                    <Phone className="w-4 h-4 text-green-500" /> WhatsApp Number *
+                  </Label>
+                  <div className="flex gap-2">
+                    <div className="flex items-center px-3 bg-gray-100 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600">
+                      🇮🇳 +91
+                    </div>
                     <Input
-                      id="phone"
                       type="tel"
                       placeholder="9876543210"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      className="border-gray-300 focus:border-green-500 focus:ring-green-500 h-12 text-base"
-                    />
-                    <p className="text-xs text-gray-500">We'll send task updates here</p>
-                  </div>
-
-                  {/* UPI ID Field */}
-                  <div className="grid gap-2">
-                    <Label htmlFor="upiId" className="text-gray-700 font-medium flex items-center gap-2">
-                      <Wallet className="w-4 h-4 text-green-500" />
-                      UPI ID
-                    </Label>
-                    <Input
-                      id="upiId"
-                      placeholder="yourname@paytm"
-                      value={upiId}
-                      onChange={(e) => setUpiId(e.target.value)}
-                      className="border-gray-300 focus:border-green-500 focus:ring-green-500 h-12 text-base"
-                    />
-                    <p className="text-xs text-gray-500">For receiving daily payments</p>
-                  </div>
-
-                  {/* Email Field */}
-                  <div className="grid gap-2">
-                    <Label htmlFor="email" className="text-gray-700 font-medium flex items-center gap-2">
-                      <Mail className="w-4 h-4 text-blue-500" />
-                      Email Address
-                    </Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="you@example.com"
                       required
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="border-gray-300 focus:border-blue-500 focus:ring-blue-500 h-12 text-base"
+                      value={phone}
+                      onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                      className="h-12 rounded-xl border-gray-200 focus:border-green-500 text-base flex-1"
+                      maxLength={10}
                     />
                   </div>
+                  <p className="text-xs text-gray-400">We'll send payout notifications here</p>
+                </div>
 
-                  {/* Password Field */}
-                  <div className="grid gap-2">
-                    <Label htmlFor="password" className="text-gray-700 font-medium flex items-center gap-2">
-                      <Lock className="w-4 h-4 text-blue-500" />
-                      Password
-                    </Label>
+                {/* Email */}
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                    <Mail className="w-4 h-4 text-blue-500" /> Email Address *
+                  </Label>
+                  <Input
+                    type="email"
+                    placeholder="you@gmail.com"
+                    required
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    className="h-12 rounded-xl border-gray-200 focus:border-blue-500 text-base"
+                  />
+                </div>
+
+                {/* UPI ID */}
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                    <Wallet className="w-4 h-4 text-purple-500" /> UPI ID
+                    <span className="text-xs text-gray-400 font-normal">(optional)</span>
+                  </Label>
+                  <Input
+                    placeholder="yourname@paytm"
+                    value={upiId}
+                    onChange={e => setUpiId(e.target.value)}
+                    className="h-12 rounded-xl border-gray-200 focus:border-purple-500 text-base"
+                  />
+                  <p className="text-xs text-gray-400">You can add this later from dashboard too</p>
+                </div>
+
+                {/* Referral Code */}
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                    <Gift className="w-4 h-4 text-orange-500" /> Referral Code
+                    <span className="text-xs text-gray-400 font-normal">(optional)</span>
+                  </Label>
+                  <div className="relative">
                     <Input
-                      id="password"
-                      type="password"
-                      placeholder="Create a strong password"
+                      placeholder="e.g. ABC12345"
+                      value={referralCode}
+                      onChange={e => setReferralCode(e.target.value.toUpperCase())}
+                      className={`h-12 rounded-xl border-gray-200 text-base font-mono tracking-wider uppercase pr-10 ${referralCode ? 'border-green-400 bg-green-50' : ''}`}
+                      maxLength={8}
+                    />
+                    {referralCode && (
+                      <CheckCircle2 className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-green-500" />
+                    )}
+                  </div>
+                  {referralCode && (
+                    <p className="text-xs text-green-600 font-semibold">✓ You'll get ₹10 bonus on signup!</p>
+                  )}
+                </div>
+
+                {error && (
+                  <div className="p-3 rounded-xl bg-red-50 border border-red-200">
+                    <p className="text-sm text-red-600 font-medium">{error}</p>
+                  </div>
+                )}
+
+                <Button type="submit" className="w-full h-12 rounded-xl font-bold text-base bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-lg mt-2">
+                  Continue <ArrowRight className="w-5 h-5 ml-2" />
+                </Button>
+              </form>
+            ) : (
+              <form onSubmit={handleSignUp} className="space-y-4">
+
+                {/* Summary of step 1 */}
+                <div className="bg-gray-50 rounded-2xl p-4 flex items-center gap-3 mb-2">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-lg">
+                    {displayName[0]?.toUpperCase()}
+                  </div>
+                  <div>
+                    <p className="font-bold text-gray-900 text-sm">{displayName}</p>
+                    <p className="text-xs text-gray-500">{email}</p>
+                  </div>
+                  <button type="button" onClick={() => { setStep(1); setError(null) }} className="ml-auto text-xs text-blue-600 font-semibold hover:underline">
+                    Edit
+                  </button>
+                </div>
+
+                {/* Password */}
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                    <Lock className="w-4 h-4 text-blue-500" /> Create Password *
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      type={showPassword ? "text" : "password"}
+                      placeholder="Minimum 6 characters"
                       required
                       value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="border-gray-300 focus:border-blue-500 focus:ring-blue-500 h-12 text-base"
+                      onChange={e => setPassword(e.target.value)}
+                      className="h-12 rounded-xl border-gray-200 focus:border-blue-500 text-base pr-12"
                     />
+                    <button type="button" onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                      {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                    </button>
                   </div>
+                  {strength && (
+                    <div className="space-y-1">
+                      <div className="w-full bg-gray-100 rounded-full h-1.5">
+                        <div className={`${strength.color} h-1.5 rounded-full transition-all`} style={{ width: strength.width }} />
+                      </div>
+                      <p className={`text-xs font-medium ${strength.color.replace('bg-', 'text-').replace('-400', '-600').replace('-500', '-600')}`}>
+                        {strength.label}
+                      </p>
+                    </div>
+                  )}
+                </div>
 
-                  {/* Confirm Password Field */}
-                  <div className="grid gap-2">
-                    <Label htmlFor="repeat-password" className="text-gray-700 font-medium flex items-center gap-2">
-                      <Lock className="w-4 h-4 text-green-500" />
-                      Confirm Password
-                    </Label>
+                {/* Confirm Password */}
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                    <Lock className="w-4 h-4 text-green-500" /> Confirm Password *
+                  </Label>
+                  <div className="relative">
                     <Input
-                      id="repeat-password"
-                      type="password"
+                      type={showRepeatPassword ? "text" : "password"}
                       placeholder="Re-enter your password"
                       required
                       value={repeatPassword}
-                      onChange={(e) => setRepeatPassword(e.target.value)}
-                      className="border-gray-300 focus:border-green-500 focus:ring-green-500 h-12 text-base"
+                      onChange={e => setRepeatPassword(e.target.value)}
+                      className={`h-12 rounded-xl text-base pr-12 ${
+                        repeatPassword && repeatPassword !== password
+                          ? 'border-red-400 focus:border-red-400'
+                          : repeatPassword && repeatPassword === password
+                          ? 'border-green-400 focus:border-green-400'
+                          : 'border-gray-200 focus:border-green-500'
+                      }`}
                     />
+                    <button type="button" onClick={() => setShowRepeatPassword(!showRepeatPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                      {showRepeatPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                    </button>
                   </div>
-
-                  {/* Error Message */}
-                  {error && (
-                    <div className="p-3 rounded-lg bg-red-50 border border-red-200">
-                      <p className="text-sm text-red-600 font-medium">{error}</p>
-                    </div>
+                  {repeatPassword && repeatPassword === password && (
+                    <p className="text-xs text-green-600 font-semibold flex items-center gap-1">
+                      <CheckCircle2 className="w-3.5 h-3.5" /> Passwords match
+                    </p>
                   )}
+                </div>
 
-                  {/* Submit Button */}
-                  <Button 
-                    type="submit" 
-                    className="w-full h-12 text-base font-semibold bg-gradient-to-r from-blue-500 to-green-500 hover:from-blue-600 hover:to-green-600 shadow-lg hover:shadow-xl transition-all mt-2" 
-                    disabled={isLoading}
-                  >
-                    {isLoading ? (
-                      <span className="flex items-center gap-2">
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                        Creating your account...
-                      </span>
-                    ) : (
-                      <span className="flex items-center gap-2">
-                        Create Free Account
-                        <ArrowRight className="w-5 h-5" />
-                      </span>
-                    )}
-                  </Button>
+                {error && (
+                  <div className="p-3 rounded-xl bg-red-50 border border-red-200">
+                    <p className="text-sm text-red-600 font-medium">{error}</p>
+                  </div>
+                )}
 
-                  {/* Benefits List */}
-                  <div className="mt-2 p-4 rounded-lg bg-gradient-to-br from-blue-50 to-green-50 border border-blue-100">
-                    <p className="text-xs font-semibold text-gray-700 mb-2">What you get:</p>
-                    <ul className="text-xs text-gray-600 space-y-1">
-                      <li className="flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
-                        AI-powered product recommendations
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
-                        Daily earning opportunities
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
-                        Instant UPI payouts
-                      </li>
-                    </ul>
+                {/* What you get */}
+                <div className="bg-gradient-to-br from-blue-50 to-purple-50 border border-blue-100 rounded-2xl p-4">
+                  <p className="text-xs font-bold text-gray-700 mb-2">🎁 You're getting:</p>
+                  <div className="space-y-1.5">
+                    {[
+                      'Daily earning tasks — ₹50 to ₹500/day',
+                      'Instant UPI payouts — minimum ₹50',
+                      referralCode ? `₹10 signup bonus from referral code` : 'Referral bonus when you invite friends',
+                    ].map((item, i) => (
+                      <div key={i} className="flex items-center gap-2">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
+                        <p className="text-xs text-gray-600">{item}</p>
+                      </div>
+                    ))}
                   </div>
                 </div>
 
-                {/* Sign In Link */}
-                <div className="mt-6 text-center">
-                  <p className="text-sm text-gray-600">
-                    Already have an account?{" "}
-                    <Link 
-                      href="/auth/login" 
-                      className="font-semibold text-blue-600 hover:text-green-600 underline underline-offset-4 transition-colors"
-                    >
-                      Sign in here
-                    </Link>
-                  </p>
-                </div>
+                <Button
+                  type="submit"
+                  disabled={isLoading}
+                  className="w-full h-12 rounded-xl font-bold text-base bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-lg"
+                >
+                  {isLoading ? (
+                    <span className="flex items-center gap-2">
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Creating account...
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-2">
+                      Create Free Account <ArrowRight className="w-5 h-5" />
+                    </span>
+                  )}
+                </Button>
               </form>
-            </CardContent>
-          </Card>
+            )}
 
-          {/* Privacy Notice */}
-          <p className="text-xs text-center text-gray-500 px-4">
-            By creating an account, you agree to our Terms of Service and Privacy Policy. 
-            Your data is encrypted and secure.
-          </p>
+            {/* Sign in link */}
+            <p className="text-center text-sm text-gray-500 mt-5">
+              Already have an account?{" "}
+              <Link href="/auth/login" className="font-bold text-blue-600 hover:text-purple-600 transition-colors">
+                Sign in
+              </Link>
+            </p>
+          </div>
         </div>
+
+        {/* Privacy */}
+        <p className="text-xs text-center text-gray-400 mt-4 px-4">
+          By signing up, you agree to our{" "}
+          <Link href="/terms" className="underline hover:text-gray-600">Terms</Link> and{" "}
+          <Link href="/privacy" className="underline hover:text-gray-600">Privacy Policy</Link>
+        </p>
       </div>
     </div>
   )

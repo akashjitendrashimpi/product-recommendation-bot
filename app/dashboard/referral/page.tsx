@@ -1,0 +1,18 @@
+import { getSession } from "@/lib/auth/session"
+import { redirect } from "next/navigation"
+import { getUserById, userToProfile } from "@/lib/db/users"
+import { DashboardLayout } from "@/components/dashboard/dashboard-layout"
+import { ReferralTab } from "@/components/dashboard/referral-tab"
+
+export default async function ReferralPage() {
+  const session = await getSession()
+  if (!session) redirect("/auth/login")
+  const user = await getUserById(session.userId)
+  if (!user) redirect("/auth/login")
+  const profile = userToProfile(user)
+  return (
+    <DashboardLayout user={{ id: user.id, email: user.email }} profile={profile}>
+      <ReferralTab />
+    </DashboardLayout>
+  )
+}
