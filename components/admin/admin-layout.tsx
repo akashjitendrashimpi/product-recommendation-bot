@@ -4,7 +4,8 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import {
   LayoutDashboard, Users, CheckSquare, Wallet,
-  ShoppingBag, LogOut, Menu, X, Shield, QrCode
+  ShoppingBag, LogOut, Menu, X, Shield, QrCode,
+  LayoutGrid
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -26,6 +27,7 @@ export function AdminLayout({ user, children }: AdminLayoutProps) {
     { name: 'Products', href: '/admin/products', icon: ShoppingBag },
     { name: 'Campaigns', href: '/admin/campaigns', icon: QrCode },
     { name: 'Proofs', href: '/admin/proofs', icon: Shield },     
+    { name: 'Sections', href: '/admin/sections', icon: LayoutGrid },
   ]
 
   return (
