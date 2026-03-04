@@ -50,11 +50,20 @@ export function ProductsComponent({ userId }: { userId: number }) {
   const fetchData = async () => {
     try {
       const [sectionsRes, productsRes] = await Promise.all([
-        fetch('/api/admin/sections'),
+        fetch('/api/sections'),
         fetch('/api/products')
       ])
-      if (sectionsRes.ok) setSections((await sectionsRes.json()).sections?.filter((s: Section) => s.is_active) || [])
-      if (productsRes.ok) setAllProducts((await productsRes.json()).products || [])
+      
+      if (sectionsRes.ok) {
+        const data = await sectionsRes.json()
+        console.log('first product:', data.sections?.[0]?.products?.[0])
+        setSections((data.sections || []).filter((s: Section) => s.is_active))
+      }
+      
+      if (productsRes.ok) {
+        const data = await productsRes.json()
+        setAllProducts(data.products || [])
+      }
     } catch (error) {
       console.error('Error fetching:', error)
     } finally {

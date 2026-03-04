@@ -25,9 +25,9 @@ export async function GET() {
         let products: any[] = []
         if (productIds.length > 0) {
           const { data: productData } = await (supabaseAdmin as any)
-            .from("products")
+             .from("products")
             .select("*")
-            .in("id", productIds)
+           .in("id", productIds)
             .eq("is_active", true)
           products = productData || []
           // Sort by section order
