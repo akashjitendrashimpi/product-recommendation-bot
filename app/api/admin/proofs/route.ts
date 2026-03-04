@@ -2,75 +2,96 @@ import { NextRequest, NextResponse } from "next/server"
 import { getSession } from "@/lib/auth/session"
 import { supabaseAdmin } from "@/lib/supabase/client"
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function GET(request: NextRequest) {
   try {
     const session = await getSession()
-    if (!session) {
+    if (!session || !session.isAdmin) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { id } = await params
-    const taskId = parseInt(id)
-
-    // Get task details
-    const { data: task, error: taskError } = await (supabaseAdmin as any)
-      .from("tasks")
+    const { data, error } = await (supabaseAdmin as any)
+      .from("task_completions")
       .select("*")
-      .eq("id", taskId)
-      .single()
+      .eq("status", "pending_verification")
+      .order("created_at", { ascending: false })
 
-    if (taskError || !task) {
-      return NextResponse.json({ error: "Task not found" }, { status: 404 })
+    if (error) throw error
+
+    const userIds = [...new Set((data || []).map((c: any) => c.user_id))]
+    const taskIds = [...new Set((data || []).map((c: any) => c.task_id))]
+
+    const [usersRes, tasksRes] = await Promise.all([
+      (supabaseAdmin as any).from("users").select("id, email, display_name").in("id", userIds),
+      (supabaseAdmin as any).from("tasks").select("id, title, user_payout").in("id", taskIds),
+    ])
+
+    const userMap = Object.fromEntries((usersRes.data || []).map((u: any) => [u.id, u]))
+    const taskMap = Object.fromEntries((tasksRes.data || []).map((t: any) => [t.id, t]))
+
+    const completions = (data || []).map((c: any) => ({
+      ...c,
+      user_email: userMap[c.user_id]?.email || null,
+      user_name: userMap[c.user_id]?.display_name || null,
+      task_title: taskMap[c.task_id]?.title || null,
+      user_payout: c.payout || taskMap[c.task_id]?.user_payout || 0,
+    }))
+
+    return NextResponse.json({ completions })
+  } catch (error) {
+    console.error("Error fetching pending proofs:", error)
+    return NextResponse.json({ error: "Failed to fetch" }, { status: 500 })
+  }
+}
+
+export async function PATCH(request: NextRequest) {
+  try {
+    const session = await getSession()
+    if (!session || !session.isAdmin) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Check if already completed
-    const { data: existing } = await (supabaseAdmin as any)
-      .from("task_completions")
-      .select("id, status")
-      .eq("task_id", taskId)
-      .eq("user_id", session.userId)
-      .neq("status", "rejected")
-      .single()
+    const { completion_id, action } = await request.json()
 
-    if (existing) {
-      return NextResponse.json({ error: "Task already completed" }, { status: 400 })
+    if (!["approve", "reject"].includes(action)) {
+      return NextResponse.json({ error: "Invalid action" }, { status: 400 })
     }
 
-    // requires_proof logic:
-    // If requires_proof is false → status = verified immediately, credit earnings
-    // If requires_proof is true → status = pending_verification, wait for admin
-    const requiresProof = task.requires_proof !== false
+    const newStatus = action === "approve" ? "verified" : "rejected"
 
-    const initialStatus = requiresProof ? "pending_verification" : "verified"
-
-    // Create completion record
-    const { data: completion, error: completionError } = await (supabaseAdmin as any)
+    // Get completion details
+    const { data: completion, error: fetchError } = await (supabaseAdmin as any)
       .from("task_completions")
-      .insert({
-        task_id: taskId,
-        user_id: session.userId,
-        status: initialStatus,
-        payout: task.user_payout,
-        completed_at: new Date().toISOString(),
-        created_at: new Date().toISOString(),
+      .select("*, tasks(user_payout, title)")
+      .eq("id", completion_id)
+      .single()
+
+    if (fetchError || !completion) {
+      return NextResponse.json({ error: "Completion not found" }, { status: 404 })
+    }
+
+    // Update completion status
+    const { error: updateError } = await (supabaseAdmin as any)
+      .from("task_completions")
+      .update({
+        status: newStatus,
+        verified_at: action === "approve" ? new Date().toISOString() : null,
+        updated_at: new Date().toISOString(),
       })
-      .select()
-      .single()
+      .eq("id", completion_id)
 
-    if (completionError) throw completionError
+    if (updateError) throw updateError
 
-    // If no proof required → credit earnings immediately
-    if (!requiresProof) {
+    // If approved → credit earnings to user
+    if (action === "approve") {
+      const payout = Number(completion.payout || completion.tasks?.user_payout || 0)
+      const userId = completion.user_id
       const today = new Date().toISOString().split("T")[0]
 
-      // Upsert daily earnings
+      // Upsert user_earnings
       const { data: existingEarning } = await (supabaseAdmin as any)
         .from("user_earnings")
         .select("id, daily_earnings, tasks_completed")
-        .eq("user_id", session.userId)
+        .eq("user_id", userId)
         .eq("date", today)
         .single()
 
@@ -78,34 +99,58 @@ export async function POST(
         await (supabaseAdmin as any)
           .from("user_earnings")
           .update({
-            daily_earnings: Number(existingEarning.daily_earnings) + Number(task.user_payout),
+            daily_earnings: Number(existingEarning.daily_earnings) + payout,
             tasks_completed: Number(existingEarning.tasks_completed) + 1,
-            amount: Number(existingEarning.daily_earnings) + Number(task.user_payout),
+            amount: Number(existingEarning.daily_earnings) + payout,
           })
           .eq("id", existingEarning.id)
       } else {
         await (supabaseAdmin as any)
           .from("user_earnings")
           .insert({
-            user_id: session.userId,
+            user_id: userId,
             date: today,
-            daily_earnings: Number(task.user_payout),
+            daily_earnings: payout,
             tasks_completed: 1,
-            amount: Number(task.user_payout),
+            amount: payout,
           })
+      }
+
+      // Get user UPI
+      const { data: user } = await (supabaseAdmin as any)
+        .from("users")
+        .select("upi_id")
+        .eq("id", userId)
+        .single()
+
+      // Create payment record if user has UPI
+      if (user?.upi_id) {
+        // Check if payment already exists for this completion
+        const { data: existingPayment } = await (supabaseAdmin as any)
+          .from("payments")
+          .select("id")
+          .eq("completion_id", completion_id)
+          .single()
+
+        if (!existingPayment) {
+          await (supabaseAdmin as any)
+            .from("payments")
+            .insert({
+              user_id: userId,
+              amount: payout,
+              upi_id: user.upi_id,
+              status: "pending",
+              completion_id: completion_id,
+              description: `Task: ${completion.tasks?.title || "Task"}`,
+              created_at: new Date().toISOString(),
+            })
+        }
       }
     }
 
-    return NextResponse.json({
-      success: true,
-      completion,
-      requiresProof,
-      message: requiresProof
-        ? "Task completed! Upload screenshot to get paid."
-        : `Task completed! ₹${Number(task.user_payout).toFixed(2)} will be credited soon.`,
-    })
+    return NextResponse.json({ success: true, status: newStatus })
   } catch (error) {
-    console.error("Error completing task:", error)
-    return NextResponse.json({ error: "Failed to complete task" }, { status: 500 })
+    console.error("Error updating proof:", error)
+    return NextResponse.json({ error: "Failed to update" }, { status: 500 })
   }
 }
