@@ -1,4 +1,4 @@
-import { getSession } from "@/lib/auth/session"
+﻿import { getSession } from "@/lib/auth/session"
 import { redirect } from "next/navigation"
 import { getUserById, userToProfile } from "@/lib/db/users"
 import { DashboardLayout } from "@/components/dashboard/dashboard-layout"
