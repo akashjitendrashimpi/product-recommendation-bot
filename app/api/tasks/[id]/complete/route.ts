@@ -27,7 +27,7 @@ export async function POST(
 
     const requiresProof = task.requires_proof === true
     const initialStatus = requiresProof ? "pending_verification" : "verified"
-    const payout = Number(task.user_payout || task.reward || 0)
+    const payout = Number(task.user_payout) > 0 ? Number(task.user_payout) : Number(task.reward || 0)
 
     const { data: completion, error } = await (supabaseAdmin as any)
       .from("task_completions")
@@ -37,6 +37,7 @@ export async function POST(
         status: initialStatus,
         payout: payout,
         user_payout: payout,
+        network_payout: Number(task.network_payout || 0),
         completed_at: new Date().toISOString(),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -53,25 +54,15 @@ export async function POST(
 
       if (earn) {
         await (supabaseAdmin as any).from("user_earnings")
-          .update({
-            daily_earnings: Number(earn.daily_earnings) + payout,
-            tasks_completed: Number(earn.tasks_completed) + 1,
-            amount: Number(earn.daily_earnings) + payout,
-          })
+          .update({ daily_earnings: Number(earn.daily_earnings) + payout, tasks_completed: Number(earn.tasks_completed) + 1, amount: Number(earn.daily_earnings) + payout })
           .eq("id", earn.id)
       } else {
         await (supabaseAdmin as any).from("user_earnings")
-          .insert({
-            user_id: session.userId,
-            date: today,
-            daily_earnings: payout,
-            tasks_completed: 1,
-            amount: payout,
-          })
+          .insert({ user_id: session.userId, date: today, daily_earnings: payout, tasks_completed: 1, amount: payout })
       }
     }
 
-    return NextResponse.json({ success: true, completion, requiresProof })
+    return NextResponse.json({ success: true, completion, requiresProof, payout })
   } catch (error) {
     console.error("Error completing task:", error)
     return NextResponse.json({ error: "Failed to complete task" }, { status: 500 })
