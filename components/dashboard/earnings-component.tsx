@@ -4,11 +4,11 @@ import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import {
-  Wallet, TrendingUp, Clock, CheckCircle2, ArrowUpRight,
-  AlertCircle, XCircle, Trophy, Zap, ArrowDownLeft
+  Wallet, TrendingUp, Clock, CheckCircle2, ChevronRight,
+  AlertCircle, Trophy, Zap, RefreshCw
 } from "lucide-react"
+import Link from "next/link"
 
 interface EarningsComponentProps {
   userId: number
@@ -33,6 +33,7 @@ interface Payment {
   upi_id: string
   transaction_id: string | null
   created_at: string
+  description: string | null
 }
 
 interface TaskCompletion {
@@ -43,7 +44,6 @@ interface TaskCompletion {
   status: string
   created_at: string
   completed_at: string
-  task?: { title: string }
 }
 
 const MIN_PAYOUT = 50
@@ -106,9 +106,9 @@ export function EarningsComponent({ userId, upiId: initialUpiId }: EarningsCompo
     if (!upiId) { setError("Add your UPI ID in profile settings first"); return }
     const amount = parseFloat(payoutAmount)
     if (isNaN(amount) || amount <= 0) { setError("Enter a valid amount"); return }
-    if (amount < MIN_PAYOUT) { setError(`Minimum payout is ₹${MIN_PAYOUT}`); return }
-    if (amount > MAX_PAYOUT) { setError(`Maximum per request is ₹${MAX_PAYOUT}`); return }
-    if (amount > earnings.availableBalance) { setError(`Exceeds available balance ₹${earnings.availableBalance.toFixed(2)}`); return }
+    if (amount < MIN_PAYOUT) { setError("Minimum payout is Rs." + MIN_PAYOUT); return }
+    if (amount > MAX_PAYOUT) { setError("Maximum per request is Rs." + MAX_PAYOUT); return }
+    if (amount > earnings.availableBalance) { setError("Exceeds available balance Rs." + earnings.availableBalance.toFixed(2)); return }
     setRequesting(true)
     try {
       const res = await fetch('/api/payments', {
@@ -121,7 +121,7 @@ export function EarningsComponent({ userId, upiId: initialUpiId }: EarningsCompo
       setShowPayoutForm(false)
       setPayoutAmount("")
       await fetchData()
-      setSuccess(`₹${amount} payout requested! Admin will process within 24 hours.`)
+      setSuccess("Rs." + amount + " payout requested! Admin will process within 24 hours.")
       setTimeout(() => setSuccess(null), 6000)
     } catch (err: any) {
       setError(err.message)
@@ -132,29 +132,30 @@ export function EarningsComponent({ userId, upiId: initialUpiId }: EarningsCompo
 
   const getStatusConfig = (status: string) => {
     switch (status) {
-      case 'completed': case 'verified': return { color: 'bg-green-100 text-green-700', icon: '✅', label: 'Verified' }
-      case 'pending_verification': return { color: 'bg-orange-100 text-orange-700', icon: '⏳', label: 'Reviewing' }
-      case 'pending': return { color: 'bg-yellow-100 text-yellow-700', icon: '🕐', label: 'Pending' }
-      case 'processing': return { color: 'bg-blue-100 text-blue-700', icon: '⚡', label: 'Processing' }
-      case 'rejected': case 'failed': return { color: 'bg-red-100 text-red-700', icon: '❌', label: 'Rejected' }
-      default: return { color: 'bg-gray-100 text-gray-700', icon: '📋', label: status }
+      case 'completed': case 'verified': return { color: 'bg-green-100 text-green-700', label: 'Paid', dot: 'bg-green-500' }
+      case 'pending_verification': return { color: 'bg-orange-100 text-orange-700', label: 'Reviewing', dot: 'bg-orange-500' }
+      case 'pending': return { color: 'bg-yellow-100 text-yellow-700', label: 'Processing', dot: 'bg-yellow-500' }
+      case 'rejected': return { color: 'bg-red-100 text-red-700', label: 'Rejected', dot: 'bg-red-500' }
+      default: return { color: 'bg-gray-100 text-gray-700', label: status, dot: 'bg-gray-400' }
     }
   }
 
-  const canRequestPayout = upiId && earnings.availableBalance >= MIN_PAYOUT
+  const pendingCount = recentEarnings.filter(e => e.status === 'pending_verification').length
 
-  const filteredEarnings = filterStatus === "all"
-    ? recentEarnings
-    : recentEarnings.filter(e => e.status === filterStatus)
+  const earningsFiltered = recentEarnings.filter(e => filterStatus === "all" || e.status === filterStatus)
+  const paymentsFiltered = payments.filter(p => filterStatus === "all" || p.status === filterStatus)
+
+  const earningFilters = ['all', 'verified', 'pending_verification', 'rejected']
+  const payoutFilters = ['all', 'pending', 'completed', 'rejected']
 
   if (loading) {
     return (
-      <div className="animate-pulse space-y-6">
+      <div className="space-y-6 animate-pulse max-w-4xl mx-auto">
         <div className="h-44 bg-gray-200 rounded-3xl" />
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[1,2,3,4].map(i => <div key={i} className="h-28 bg-gray-200 rounded-2xl" />)}
+          {[1,2,3,4].map(i => <div key={i} className="h-24 bg-gray-200 rounded-2xl" />)}
         </div>
-        <div className="h-96 bg-gray-200 rounded-2xl" />
+        <div className="h-64 bg-gray-200 rounded-2xl" />
       </div>
     )
   }
@@ -162,7 +163,96 @@ export function EarningsComponent({ userId, upiId: initialUpiId }: EarningsCompo
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
 
-      {/* Success Banner */}
+      {/* Hero Balance Card */}
+      <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-purple-700 rounded-3xl p-6 md:p-8 shadow-xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-32 translate-x-32" />
+        <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-24 -translate-x-24" />
+        <div className="relative">
+          <p className="text-blue-200 text-sm font-medium mb-1">Available Balance</p>
+          <div className="flex items-baseline gap-1 mb-5">
+            <span className="text-white/80 text-xl font-bold">Rs.</span>
+            <span className="text-5xl font-black text-white">{earnings.availableBalance.toFixed(0)}</span>
+            <span className="text-white/60 text-lg">.{earnings.availableBalance.toFixed(2).split('.')[1]}</span>
+          </div>
+          <div className="flex items-center gap-3 flex-wrap">
+            {earnings.availableBalance >= MIN_PAYOUT ? (
+              <Button onClick={() => setShowPayoutForm(!showPayoutForm)}
+                className="bg-white text-blue-700 hover:bg-blue-50 font-bold rounded-2xl h-11 px-6 shadow-lg">
+                <Wallet className="w-4 h-4 mr-2" /> Request Payout
+              </Button>
+            ) : (
+              <div className="bg-white/20 rounded-2xl px-4 py-3 flex-1 max-w-xs">
+                <p className="text-white text-xs font-medium mb-1.5">
+                  Need Rs.{(MIN_PAYOUT - earnings.availableBalance).toFixed(0)} more to withdraw
+                </p>
+                <div className="w-full bg-white/20 rounded-full h-1.5">
+                  <div className="bg-white rounded-full h-1.5 transition-all"
+                    style={{ width: `${Math.min((earnings.availableBalance / MIN_PAYOUT) * 100, 100)}%` }} />
+                </div>
+              </div>
+            )}
+            {!upiId && (
+              <Link href="/dashboard/profile">
+                <span className="bg-yellow-400 text-yellow-900 text-xs font-bold px-3 py-2 rounded-full flex items-center gap-1.5 cursor-pointer">
+                  <AlertCircle className="w-3.5 h-3.5" /> Add UPI ID
+                </span>
+              </Link>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Payout Form */}
+      {showPayoutForm && (
+        <Card className="border-2 border-blue-200 bg-blue-50 rounded-2xl shadow-md">
+          <CardContent className="p-5">
+            <h3 className="font-bold text-gray-900 mb-4 text-lg">Request Payout</h3>
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-3 mb-4 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
+                <p className="text-red-700 text-sm">{error}</p>
+              </div>
+            )}
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-semibold text-gray-700 block mb-1.5">Amount</label>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold text-sm">Rs.</span>
+                    <Input type="number" value={payoutAmount} onChange={e => setPayoutAmount(e.target.value)}
+                      placeholder="0" className="pl-10 rounded-xl h-12 text-lg font-bold"
+                      min={MIN_PAYOUT} max={Math.min(MAX_PAYOUT, earnings.availableBalance)} />
+                  </div>
+                  <Button variant="outline" onClick={() => setPayoutAmount(Math.min(earnings.availableBalance, MAX_PAYOUT).toFixed(0))}
+                    className="rounded-xl h-12 px-4 font-bold">Max</Button>
+                </div>
+                <p className="text-xs text-gray-500 mt-1.5">Min Rs.{MIN_PAYOUT} · Max Rs.{MAX_PAYOUT} · Available Rs.{earnings.availableBalance.toFixed(2)}</p>
+              </div>
+              <div className="flex gap-2 flex-wrap">
+                {[50, 100, 200, 500].filter(a => a <= earnings.availableBalance).map(amount => (
+                  <button key={amount} onClick={() => setPayoutAmount(amount.toString())}
+                    className={"px-3 py-1.5 rounded-xl text-sm font-semibold border transition-colors " + (payoutAmount === amount.toString() ? 'bg-blue-600 text-white border-blue-600' : 'bg-white border-gray-200 text-gray-700 hover:border-blue-300')}>
+                    Rs.{amount}
+                  </button>
+                ))}
+              </div>
+              <div className="bg-white border border-gray-200 rounded-xl p-3">
+                <p className="text-xs text-gray-500">Sending to</p>
+                <p className="text-sm font-bold text-gray-900 mt-0.5">{upiId || "No UPI ID set"}</p>
+              </div>
+              <div className="flex gap-2">
+                <Button onClick={handleRequestPayout} disabled={requesting || !payoutAmount}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 rounded-xl h-11">
+                  {requesting ? <><RefreshCw className="w-4 h-4 mr-2 animate-spin" />Processing...</> : <><Wallet className="w-4 h-4 mr-2" />Confirm Request</>}
+                </Button>
+                <Button variant="outline" onClick={() => { setShowPayoutForm(false); setError(null) }} className="rounded-xl h-11">Cancel</Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Success */}
       {success && (
         <div className="bg-green-50 border border-green-200 rounded-2xl p-4 flex items-center gap-3">
           <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0" />
@@ -170,129 +260,30 @@ export function EarningsComponent({ userId, upiId: initialUpiId }: EarningsCompo
         </div>
       )}
 
-      {/* Hero Balance Card */}
-      <div className="bg-gradient-to-br from-green-600 via-green-700 to-emerald-800 rounded-3xl p-6 md:p-8 shadow-xl relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-32 translate-x-32" />
-        <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-24 -translate-x-24" />
-        <div className="relative flex items-start justify-between flex-wrap gap-4">
+      {/* Pending Alert */}
+      {pendingCount > 0 && (
+        <div className="bg-orange-50 border border-orange-200 rounded-2xl p-4 flex items-center gap-3">
+          <Clock className="w-5 h-5 text-orange-600 flex-shrink-0" />
           <div>
-            <p className="text-green-200 text-sm font-medium mb-1">Available Balance</p>
-            <div className="flex items-baseline gap-1">
-              <span className="text-green-200 text-2xl font-bold">₹</span>
-              <span className="text-5xl font-black text-white">{earnings.availableBalance.toFixed(0)}</span>
-              <span className="text-green-300 text-xl">.{earnings.availableBalance.toFixed(2).split('.')[1]}</span>
-            </div>
-            <p className="text-green-300 text-sm mt-2">
-              ₹{earnings.totalEarnings.toFixed(0)} total · ₹{earnings.paidEarnings.toFixed(0)} paid out
-            </p>
-          </div>
-          <div>
-            {canRequestPayout ? (
-              <Button onClick={() => setShowPayoutForm(!showPayoutForm)}
-                className="bg-white text-green-700 hover:bg-green-50 rounded-2xl h-12 px-6 font-bold shadow-lg">
-                <ArrowUpRight className="w-4 h-4 mr-2" />
-                Withdraw
-              </Button>
-            ) : (
-              <div className="text-right bg-white/10 rounded-2xl p-3">
-                {!upiId
-                  ? <p className="text-yellow-300 text-xs font-bold">⚠ Add UPI to withdraw</p>
-                  : <p className="text-green-300 text-xs font-medium">Need ₹{Math.max(0, MIN_PAYOUT - earnings.availableBalance).toFixed(0)} more to withdraw</p>
-                }
-              </div>
-            )}
+            <p className="text-orange-800 font-bold text-sm">{pendingCount} task{pendingCount > 1 ? 's' : ''} under review</p>
+            <p className="text-orange-600 text-xs">Earnings credited once admin approves</p>
           </div>
         </div>
-        <div className="relative grid grid-cols-3 gap-4 mt-6 pt-6 border-t border-white/20">
-          {[
-            { label: "Today", value: `₹${earnings.dailyEarnings.toFixed(0)}` },
-            { label: "This Week", value: `₹${earnings.weeklyEarnings.toFixed(0)}` },
-            { label: "This Month", value: `₹${earnings.monthlyEarnings.toFixed(0)}` },
-          ].map((s, i) => (
-            <div key={i} className="text-center">
-              <p className="text-white font-black text-lg">{s.value}</p>
-              <p className="text-green-300 text-xs">{s.label}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Payout Form */}
-      {showPayoutForm && (
-        <Card className="border-2 border-green-300 bg-green-50 rounded-2xl shadow-md">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="font-black text-gray-900 text-lg">Request Withdrawal</h3>
-              <button onClick={() => { setShowPayoutForm(false); setError(null) }}
-                title="Close withdrawal form" aria-label="Close withdrawal form"
-                className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200">
-                <XCircle className="w-4 h-4 text-gray-500" />
-              </button>
-            </div>
-            {error && (
-              <div className="bg-red-50 border border-red-200 rounded-xl p-3 mb-4 flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
-                <p className="text-red-700 text-sm">{error}</p>
-              </div>
-            )}
-            <div className="grid md:grid-cols-2 gap-4">
-              <div>
-                <Label className="text-sm font-semibold text-gray-700">Amount (₹)</Label>
-                <div className="relative mt-1">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">₹</span>
-                  <Input type="number" value={payoutAmount} onChange={e => setPayoutAmount(e.target.value)}
-                    placeholder={`${MIN_PAYOUT}`} className="pl-8 h-12 rounded-xl text-lg font-bold"
-                    min={MIN_PAYOUT} max={Math.min(MAX_PAYOUT, earnings.availableBalance)} />
-                </div>
-                <p className="text-xs text-gray-500 mt-1">Min ₹{MIN_PAYOUT} · Max ₹{Math.min(MAX_PAYOUT, earnings.availableBalance).toFixed(0)}</p>
-                <div className="flex gap-2 mt-2 flex-wrap">
-                  {[50, 100, 500, 1000].filter(v => v <= earnings.availableBalance).map(v => (
-                    <button key={v} onClick={() => setPayoutAmount(v.toString())}
-                      className="text-xs bg-green-100 text-green-700 px-2.5 py-1 rounded-full font-semibold hover:bg-green-200">
-                      ₹{v}
-                    </button>
-                  ))}
-                  <button onClick={() => setPayoutAmount(Math.min(MAX_PAYOUT, earnings.availableBalance).toFixed(0))}
-                    className="text-xs bg-green-600 text-white px-2.5 py-1 rounded-full font-semibold hover:bg-green-700">
-                    Max
-                  </button>
-                </div>
-              </div>
-              <div>
-                <Label className="text-sm font-semibold text-gray-700">Sending to</Label>
-                <div className="mt-1 h-12 bg-white border border-gray-200 rounded-xl px-4 flex items-center gap-2">
-                  <Wallet className="w-4 h-4 text-green-600 flex-shrink-0" />
-                  <span className="text-sm font-medium text-gray-900 truncate">{upiId}</span>
-                </div>
-                <p className="text-xs text-gray-500 mt-1">Processed within 24 hours</p>
-              </div>
-            </div>
-            <div className="flex gap-3 mt-5">
-              <Button onClick={handleRequestPayout} disabled={requesting}
-                className="bg-green-600 hover:bg-green-700 rounded-xl h-12 flex-1 font-bold text-base">
-                {requesting ? "Requesting..." : `Withdraw ₹${payoutAmount || "0"}`}
-              </Button>
-              <Button variant="outline" onClick={() => { setShowPayoutForm(false); setError(null) }} className="rounded-xl h-12">
-                Cancel
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
       )}
 
       {/* Stats Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
-          { label: "Total Earned", value: `₹${earnings.totalEarnings.toFixed(0)}`, sub: "All time", gradient: "from-blue-500 to-blue-700", icon: TrendingUp },
-          { label: "Paid Out", value: `₹${earnings.paidEarnings.toFixed(0)}`, sub: "Withdrawn", gradient: "from-green-500 to-green-700", icon: CheckCircle2 },
-          { label: "Processing", value: `₹${earnings.pendingPayouts.toFixed(0)}`, sub: "In progress", gradient: "from-orange-500 to-orange-700", icon: Clock },
-          { label: "Tasks Done", value: `${earnings.tasksCompleted}`, sub: "Completed", gradient: "from-purple-500 to-purple-700", icon: Trophy },
+          { label: 'Total Earned', value: 'Rs.' + earnings.totalEarnings.toFixed(0), sub: 'All time', gradient: 'from-blue-500 to-blue-700', Icon: Trophy },
+          { label: 'This Week', value: 'Rs.' + earnings.weeklyEarnings.toFixed(0), sub: 'Last 7 days', gradient: 'from-green-500 to-green-700', Icon: TrendingUp },
+          { label: 'Tasks Done', value: String(earnings.tasksCompleted), sub: 'Completed', gradient: 'from-purple-500 to-purple-700', Icon: CheckCircle2 },
+          { label: 'Total Paid', value: 'Rs.' + earnings.paidEarnings.toFixed(0), sub: 'Withdrawn', gradient: 'from-orange-500 to-orange-700', Icon: Wallet },
         ].map((s, i) => (
           <Card key={i} className="border-0 shadow-md rounded-2xl overflow-hidden">
             <CardContent className="p-0">
-              <div className={`bg-gradient-to-br ${s.gradient} p-4`}>
+              <div className={"bg-gradient-to-br " + s.gradient + " p-4"}>
                 <div className="w-8 h-8 bg-white/20 rounded-xl flex items-center justify-center mb-3">
-                  <s.icon className="w-4 h-4 text-white" />
+                  <s.Icon className="w-4 h-4 text-white" />
                 </div>
                 <p className="text-white/70 text-xs font-medium">{s.label}</p>
                 <p className="text-white text-xl font-black mt-0.5">{s.value}</p>
@@ -304,124 +295,117 @@ export function EarningsComponent({ userId, upiId: initialUpiId }: EarningsCompo
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-0 border-b border-gray-200">
+      <div className="flex gap-1 bg-gray-100 rounded-2xl p-1">
         {[
-          { key: "earnings", label: "Task Earnings", count: recentEarnings.length },
-          { key: "payouts", label: "Payout History", count: payments.length },
+          { key: 'earnings', label: 'Task History', Icon: Zap },
+          { key: 'payouts', label: 'Payouts', Icon: Wallet },
         ].map(tab => (
-          <button key={tab.key} onClick={() => setActiveTab(tab.key as any)}
-            className={`px-5 py-3 text-sm font-bold border-b-2 transition-colors ${activeTab === tab.key ? "border-blue-600 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700"}`}>
+          <button key={tab.key} onClick={() => { setActiveTab(tab.key as any); setFilterStatus('all') }}
+            className={"flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all " + (activeTab === tab.key ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700')}>
+            <tab.Icon className="w-4 h-4" />
             {tab.label}
-            {tab.count > 0 && (
-              <span className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full ${activeTab === tab.key ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-500"}`}>
-                {tab.count}
-              </span>
+            {tab.key === 'earnings' && pendingCount > 0 && (
+              <span className="bg-orange-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">{pendingCount}</span>
             )}
           </button>
         ))}
       </div>
 
-      {/* Earnings Tab */}
-      {activeTab === "earnings" && (
+      {/* Filter Pills */}
+      <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+        {(activeTab === 'earnings' ? earningFilters : payoutFilters).map(f => (
+          <button key={f} onClick={() => setFilterStatus(f)}
+            className={"flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-bold transition-all " + (filterStatus === f ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200')}>
+            {f === 'all' ? 'All' : f === 'pending_verification' ? 'Reviewing' : f.charAt(0).toUpperCase() + f.slice(1)}
+          </button>
+        ))}
+      </div>
+
+      {/* Task History */}
+      {activeTab === 'earnings' && (
         <div className="space-y-3">
-          <div className="flex gap-2 flex-wrap">
-            {["all", "verified", "pending_verification", "rejected"].map(f => (
-              <button key={f} onClick={() => setFilterStatus(f)}
-                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${filterStatus === f ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
-                {f === "all" ? "All" : f === "pending_verification" ? "⏳ Reviewing" : f === "verified" ? "✅ Verified" : "❌ Rejected"}
-              </button>
-            ))}
-          </div>
-          {filteredEarnings.length === 0 ? (
+          {earningsFiltered.length === 0 ? (
             <Card className="border border-dashed border-gray-300 rounded-2xl">
               <CardContent className="py-16 text-center">
                 <Zap className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                 <h3 className="text-lg font-bold text-gray-900 mb-2">No earnings yet</h3>
-                <p className="text-gray-500 text-sm">Complete tasks to start earning!</p>
+                <p className="text-gray-500 text-sm mb-4">Complete tasks to start earning!</p>
+                <Link href="/dashboard/tasks">
+                  <Button className="bg-blue-600 hover:bg-blue-700 rounded-xl">
+                    Browse Tasks <ChevronRight className="w-4 h-4 ml-1" />
+                  </Button>
+                </Link>
               </CardContent>
             </Card>
-          ) : (
-            filteredEarnings.map(earning => {
-              const config = getStatusConfig(earning.status)
-              const amount = Number(earning.payout || earning.user_payout || 0)
-              return (
-                <Card key={earning.id} className="border border-gray-200 rounded-2xl shadow-sm hover:shadow-md transition-all">
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-4">
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0 ${config.color}`}>
-                        {config.icon}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-bold text-gray-900 text-sm truncate">
-                          {earning.task?.title || `Task #${earning.task_id}`}
-                        </p>
-                        <p className="text-xs text-gray-500 mt-0.5">
-                          {new Date(earning.completed_at || earning.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
-                        </p>
-                      </div>
-                      <div className="text-right flex-shrink-0">
-                        <p className="text-lg font-black text-green-600">+₹{amount.toFixed(2)}</p>
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${config.color}`}>{config.label}</span>
+          ) : earningsFiltered.map(earning => {
+            const config = getStatusConfig(earning.status)
+            const payout = Number(earning.payout || earning.user_payout || 0)
+            return (
+              <Card key={earning.id} className="border border-gray-200 rounded-2xl shadow-sm hover:shadow-md transition-all">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-4">
+                    <div className={"w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0 " + config.color}>
+                      <span className="text-lg">{earning.status === 'verified' ? '✅' : earning.status === 'pending_verification' ? '⏳' : earning.status === 'rejected' ? '❌' : '📋'}</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-gray-900">Task #{earning.task_id}</p>
+                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                        <span className={"text-xs font-semibold px-2 py-0.5 rounded-full " + config.color}>{config.label}</span>
+                        <span className="text-xs text-gray-400">
+                          {new Date(earning.completed_at || earning.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        </span>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-              )
-            })
-          )}
+                    <p className={"text-lg font-black " + (earning.status === 'rejected' ? 'text-gray-400 line-through' : 'text-green-600')}>
+                      +Rs.{payout.toFixed(0)}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )
+          })}
         </div>
       )}
 
-      {/* Payouts Tab */}
-      {activeTab === "payouts" && (
+      {/* Payouts */}
+      {activeTab === 'payouts' && (
         <div className="space-y-3">
-          {payments.length === 0 ? (
+          {paymentsFiltered.length === 0 ? (
             <Card className="border border-dashed border-gray-300 rounded-2xl">
               <CardContent className="py-16 text-center">
-                <ArrowDownLeft className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                <Wallet className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                 <h3 className="text-lg font-bold text-gray-900 mb-2">No payouts yet</h3>
-                <p className="text-gray-500 text-sm">Request a withdrawal once you have ₹{MIN_PAYOUT}+ balance</p>
+                <p className="text-gray-500 text-sm">Request a payout once you have Rs.{MIN_PAYOUT}+ balance</p>
               </CardContent>
             </Card>
-          ) : (
-            payments.map(payment => {
-              const config = getStatusConfig(payment.status)
-              return (
-                <Card key={payment.id} className="border border-gray-200 rounded-2xl shadow-sm">
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-4">
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0 ${config.color}`}>
-                        {config.icon}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <p className="font-black text-gray-900">₹{Number(payment.amount).toFixed(2)}</p>
-                          <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${config.color}`}>{config.label}</span>
-                        </div>
-                        <p className="text-xs text-gray-500 mt-0.5 truncate">
-                          {payment.upi_id} · {new Date(payment.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
-                        </p>
-                        {payment.transaction_id && (
-                          <p className="text-xs text-gray-400 font-mono mt-0.5">TXN: {payment.transaction_id}</p>
-                        )}
-                      </div>
+          ) : paymentsFiltered.map(payment => {
+            const config = getStatusConfig(payment.status)
+            return (
+              <Card key={payment.id} className="border border-gray-200 rounded-2xl shadow-sm">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-4">
+                    <div className={"w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0 " + config.color}>
+                      <span className="text-lg">{payment.status === 'completed' ? '✅' : payment.status === 'rejected' ? '❌' : '🕐'}</span>
                     </div>
-                  </CardContent>
-                </Card>
-              )
-            })
-          )}
-        </div>
-      )}
-
-      {/* UPI Warning */}
-      {!upiId && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-4 flex items-start gap-3">
-          <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
-          <div>
-            <p className="font-bold text-gray-900 text-sm">Add UPI ID to withdraw earnings</p>
-            <p className="text-xs text-gray-500 mt-0.5">Go to Profile → Edit UPI ID</p>
-          </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-gray-900">Payout Request</p>
+                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                        <span className={"text-xs font-semibold px-2 py-0.5 rounded-full " + config.color}>{config.label}</span>
+                        <span className="text-xs text-gray-400 font-mono truncate max-w-32">{payment.upi_id}</span>
+                      </div>
+                      {payment.transaction_id && (
+                        <p className="text-xs text-gray-400 font-mono mt-0.5">Txn: {payment.transaction_id}</p>
+                      )}
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        {new Date(payment.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </p>
+                    </div>
+                    <p className="text-lg font-black text-gray-900 flex-shrink-0">Rs.{Number(payment.amount).toFixed(0)}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            )
+          })}
         </div>
       )}
     </div>
