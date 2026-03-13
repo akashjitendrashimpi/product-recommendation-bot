@@ -7,8 +7,8 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   CheckCircle2, Circle, ExternalLink, IndianRupee, TrendingUp,
-  Calendar, Wallet, Clock, Target, Upload, Camera, X, AlertCircle,
-  Zap, Trophy, Edit2, CheckCircle
+  Wallet, Clock, Target, Upload, Camera, X, AlertCircle,
+  Zap, Trophy, Edit2, CheckCircle, Users
 } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
@@ -32,8 +32,14 @@ interface ProofUploadState {
   instructions: string | null
 }
 
+// Extend Task type locally to include max_completions and completion_count
+interface TaskWithSlots extends Task {
+  max_completions?: number | null
+  completion_count?: number
+}
+
 export function TasksTab({ userId }: TasksTabProps) {
-  const [tasks, setTasks] = useState<Task[]>([])
+  const [tasks, setTasks] = useState<TaskWithSlots[]>([])
   const [completions, setCompletions] = useState<TaskCompletion[]>([])
   const [earnings, setEarnings] = useState<EarningsSummary>({
     totalEarnings: 0, dailyEarnings: 0, monthlyEarnings: 0, tasksCompleted: 0,
@@ -84,7 +90,7 @@ export function TasksTab({ userId }: TasksTabProps) {
     }
   }
 
-  const handleCompleteTask = async (task: Task) => {
+  const handleCompleteTask = async (task: TaskWithSlots) => {
     if (completingTaskId) return
     try {
       const clickRes = await fetch(`/api/tasks/${task.id}/click`, { method: 'POST' })
@@ -105,7 +111,9 @@ export function TasksTab({ userId }: TasksTabProps) {
         }
         await loadData()
         setCompletingTaskId(null)
-        if (data.completion?.id && (task as any).requires_proof !== false) {
+
+        // Fix: use requiresProof from SERVER response, not from client-side task object
+        if (data.requiresProof && data.completion?.id) {
           setProofState({
             completionId: data.completion.id,
             taskTitle: task.title,
@@ -115,8 +123,9 @@ export function TasksTab({ userId }: TasksTabProps) {
           setProofSuccess(false)
           setProofFile(null)
           setProofPreview(null)
-        } else if (data.completion?.id) {
-          alert(`Task completed! ₹${Number(task.user_payout).toFixed(2)} will be credited soon.`)
+        } else {
+          // No proof needed — just show a quick success message
+          // (earnings already credited server-side)
         }
       }, 2000)
     } catch {
@@ -199,19 +208,49 @@ export function TasksTab({ userId }: TasksTabProps) {
       case 'verified': return '✅ Verified'
       case 'pending_verification': return '⏳ Under Review'
       case 'rejected': return '❌ Rejected'
-      default: return '📋 Completed'
+      default: return '🎯 Completed'
     }
   }
 
   const getActionTypeIcon = (type: string) => {
     switch (type) {
-      case 'install': return '📱'
+      case 'install': return '📲'
       case 'signup': return '✍️'
       case 'survey': return '📋'
       case 'review': return '⭐'
       case 'time_spent': return '⏱️'
       default: return '🎯'
     }
+  }
+
+  // Slots progress bar for user-facing task cards
+  const SlotsBar = ({ task }: { task: TaskWithSlots }) => {
+    if (!task.max_completions) return null
+    const filled = task.completion_count || 0
+    const total = task.max_completions
+    const remaining = total - filled
+    const pct = Math.min((filled / total) * 100, 100)
+    const isCritical = remaining <= Math.ceil(total * 0.1) // last 10%
+
+    return (
+      <div className="mt-2 pt-2 border-t border-gray-100">
+        <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center gap-1">
+            <Users className="w-3 h-3 text-gray-400" />
+            <span className={`text-xs font-semibold ${isCritical ? 'text-orange-600' : 'text-gray-500'}`}>
+              {isCritical ? `🔥 Only ${remaining} spots left!` : `${remaining} of ${total} spots available`}
+            </span>
+          </div>
+          <span className="text-xs text-gray-400">{filled}/{total}</span>
+        </div>
+        <div className="w-full bg-gray-100 rounded-full h-1.5">
+          <div
+            className={`h-1.5 rounded-full transition-all ${pct > 80 ? 'bg-orange-500' : 'bg-blue-400'}`}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+      </div>
+    )
   }
 
   if (isLoading) {
@@ -331,7 +370,6 @@ export function TasksTab({ userId }: TasksTabProps) {
 
       {/* UPI Section */}
       {userUpiId ? (
-        // UPI Already Set — show it with change option
         <div className="bg-gradient-to-r from-green-600 to-green-700 rounded-2xl p-5">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
@@ -374,7 +412,6 @@ export function TasksTab({ userId }: TasksTabProps) {
           </div>
         </div>
       ) : (
-        // UPI Not Set — prompt to add
         <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-2xl p-5">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
@@ -488,13 +525,16 @@ export function TasksTab({ userId }: TasksTabProps) {
                     </div>
 
                     {task.description && (
-                      <p className="text-xs text-gray-500 line-clamp-2 mb-4">{task.description}</p>
+                      <p className="text-xs text-gray-500 line-clamp-2 mb-3">{task.description}</p>
                     )}
+
+                    {/* Slots bar — only shown if max_completions is set */}
+                    <SlotsBar task={task} />
 
                     <Button
                       onClick={() => handleCompleteTask(task)}
                       disabled={completingTaskId === task.id}
-                      className="w-full bg-blue-600 hover:bg-blue-700 rounded-xl h-11 font-semibold"
+                      className="w-full bg-blue-600 hover:bg-blue-700 rounded-xl h-11 font-semibold mt-3"
                     >
                       {completingTaskId === task.id
                         ? <><Clock className="w-4 h-4 mr-2 animate-spin" />Opening task...</>
@@ -522,8 +562,11 @@ export function TasksTab({ userId }: TasksTabProps) {
           ) : (
             completedTasks.map(task => {
               const completion = getTaskCompletion(task.id)
-              const needsProof = completion && !completion.completion_proof &&
-                completion.status !== 'verified' && (task as any).requires_proof !== false
+              // Fix: only show upload prompt if task actually requires_proof
+              const needsProof = completion &&
+                !completion.completion_proof &&
+                completion.status === 'pending_verification' &&
+                (task as any).requires_proof === true
               return (
                 <Card key={task.id} className={`border shadow-sm rounded-2xl transition-all ${needsProof ? 'border-orange-200 bg-orange-50/40' : 'border-gray-200'}`}>
                   <CardContent className="p-4">
@@ -539,10 +582,10 @@ export function TasksTab({ userId }: TasksTabProps) {
                       <div className="flex-1 min-w-0">
                         <h3 className="font-semibold text-gray-900 text-sm truncate">{task.title}</h3>
                         {task.app_name && <p className="text-xs text-gray-500">{task.app_name}</p>}
-                        {needsProof && (
+                        {needsProof && completion && (
                           <button
                             onClick={() => setProofState({
-                              completionId: completion!.id,
+                              completionId: completion.id,
                               taskTitle: task.title,
                               payout: Number(task.user_payout),
                               instructions: (task as any).proof_instructions || null

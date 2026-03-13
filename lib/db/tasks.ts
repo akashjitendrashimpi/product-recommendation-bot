@@ -1,7 +1,7 @@
 import { supabaseAdmin } from '@/lib/supabase/client'
 import type { Task, TaskCompletion } from '@/lib/types'
 
-// Get all active tasks
+// Get all active tasks (filters out full tasks)
 export async function getAllTasks(country: string = 'IN'): Promise<Task[]> {
   const { data, error } = await (supabaseAdmin as any)
     .from('tasks')
@@ -12,7 +12,32 @@ export async function getAllTasks(country: string = 'IN'): Promise<Task[]> {
     .order('created_at', { ascending: false })
 
   if (error) throw error
-  return (data || []) as Task[]
+
+  const tasks = (data || []) as any[]
+
+  // For tasks with max_completions, check count separately
+  const tasksWithLimits = tasks.filter(t => t.max_completions)
+  if (tasksWithLimits.length > 0) {
+    const { data: counts } = await (supabaseAdmin as any)
+      .from('task_completions')
+      .select('task_id')
+      .in('task_id', tasksWithLimits.map((t: any) => t.id))
+      .neq('status', 'rejected')
+
+    const countMap: Record<number, number> = {}
+    ;(counts || []).forEach((c: any) => {
+      countMap[c.task_id] = (countMap[c.task_id] || 0) + 1
+    })
+
+    return tasks
+      .map(t => ({ ...t, completion_count: countMap[t.id] || 0 }))
+      .filter(t => {
+        if (!t.max_completions) return true
+        return (countMap[t.id] || 0) < Number(t.max_completions)
+      }) as Task[]
+  }
+
+  return tasks.map(t => ({ ...t, completion_count: 0 })) as Task[]
 }
 
 // Get task by ID
@@ -68,6 +93,9 @@ export async function createTask(data: {
   country?: string
   requirements?: string | null
   expires_at?: string | null
+  max_completions?: number | null
+  requires_proof?: boolean
+  proof_instructions?: string | null
 }): Promise<Task> {
   const { data: task, error } = await (supabaseAdmin as any)
     .from('tasks')
@@ -82,11 +110,15 @@ export async function createTask(data: {
       task_url: data.task_url,
       network_payout: data.network_payout,
       reward: data.user_payout,
+      user_payout: data.user_payout,
       currency: data.currency || 'INR',
       country_code: data.country || 'IN',
       requirements: data.requirements || null,
       expires_at: data.expires_at || null,
       is_active: true,
+      max_completions: data.max_completions || null,
+      requires_proof: data.requires_proof ?? true,
+      proof_instructions: data.proof_instructions || null,
     })
     .select()
     .single()

@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import {
   Plus, Search, Trash2, X, BarChart3, IndianRupee,
   CheckCircle2, ExternalLink, Eye, TrendingUp, Target,
-  MousePointer, Percent, EyeOff, Edit2, Save, Camera, CameraOff
+  MousePointer, Percent, EyeOff, Edit2, Save, Camera, CameraOff, Users
 } from "lucide-react"
 
 interface Task {
@@ -26,6 +26,7 @@ interface Task {
   is_active: boolean
   requires_proof: boolean
   proof_instructions: string | null
+  max_completions: number | null
   created_at: string
   completion_count?: number
   click_count?: number
@@ -73,7 +74,8 @@ export function AdminTasks() {
   const [form, setForm] = useState({
     title: '', description: '', task_url: '', app_name: '', app_icon_url: '',
     network_payout: '', user_payout: '', country: 'IN', task_id: '',
-    action_type: 'install', requires_proof: true, proof_instructions: ''
+    action_type: 'install', requires_proof: true, proof_instructions: '',
+    max_completions: ''
   })
 
   useEffect(() => { fetchAll() }, [])
@@ -143,11 +145,16 @@ export function AdminTasks() {
           user_payout: parseFloat(form.user_payout),
           requires_proof: form.requires_proof,
           proof_instructions: form.proof_instructions || null,
+          max_completions: form.max_completions ? parseInt(form.max_completions) : null,
         })
       })
       if (res.ok) {
         setShowForm(false)
-        setForm({ title: '', description: '', task_url: '', app_name: '', app_icon_url: '', network_payout: '', user_payout: '', country: 'IN', task_id: '', action_type: 'install', requires_proof: true, proof_instructions: '' })
+        setForm({
+          title: '', description: '', task_url: '', app_name: '', app_icon_url: '',
+          network_payout: '', user_payout: '', country: 'IN', task_id: '',
+          action_type: 'install', requires_proof: true, proof_instructions: '', max_completions: ''
+        })
         fetchAll()
       } else {
         const data = await res.json()
@@ -173,6 +180,7 @@ export function AdminTasks() {
       action_type: task.action_type,
       requires_proof: task.requires_proof,
       proof_instructions: task.proof_instructions,
+      max_completions: task.max_completions,
     })
   }
 
@@ -251,6 +259,32 @@ export function AdminTasks() {
     return 'text-red-500'
   }
 
+  // Slots progress bar helper
+  const SlotsBar = ({ task }: { task: Task }) => {
+    if (!task.max_completions) return null
+    const filled = task.completion_count || 0
+    const total = task.max_completions
+    const pct = Math.min((filled / total) * 100, 100)
+    const remaining = total - filled
+    const isFull = remaining <= 0
+    return (
+      <div className="mt-1">
+        <div className="flex items-center justify-between mb-1">
+          <span className={`text-xs font-semibold ${isFull ? 'text-red-600' : 'text-gray-600'}`}>
+            {isFull ? '🔒 Full' : `${remaining} slots left`}
+          </span>
+          <span className="text-xs text-gray-400">{filled}/{total}</span>
+        </div>
+        <div className="w-full bg-gray-100 rounded-full h-1.5">
+          <div
+            className={`h-1.5 rounded-full transition-all ${isFull ? 'bg-red-500' : pct > 70 ? 'bg-orange-500' : 'bg-green-500'}`}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
 
@@ -300,9 +334,35 @@ export function AdminTasks() {
                   <option value="other">Other</option>
                 </select>
               </div>
-              <div className="md:col-span-2">
+              <div>
                 <Label>Description</Label>
                 <Input value={editForm.description || ''} onChange={e => setEditForm({...editForm, description: e.target.value})} className="mt-1" />
+              </div>
+
+              {/* Max Completions */}
+              <div className="md:col-span-2 p-4 bg-blue-50 border border-blue-200 rounded-xl space-y-2">
+                <div className="flex items-center gap-2 mb-1">
+                  <Users className="w-4 h-4 text-blue-600" />
+                  <p className="font-medium text-gray-900 text-sm">User Completion Limit</p>
+                  <span className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full">Optional</span>
+                </div>
+                <p className="text-xs text-gray-500 mb-2">Set a max number of users who can complete this task. Leave empty for unlimited.</p>
+                <Input
+                  type="number"
+                  min="1"
+                  placeholder="e.g. 100 (leave empty for unlimited)"
+                  value={editForm.max_completions ?? ''}
+                  onChange={e => setEditForm({
+                    ...editForm,
+                    max_completions: e.target.value ? parseInt(e.target.value) : null
+                  })}
+                  className="bg-white"
+                />
+                {editForm.max_completions && (
+                  <p className="text-xs text-blue-600 font-medium">
+                    ✓ Only {editForm.max_completions} users can complete this task
+                  </p>
+                )}
               </div>
 
               {/* Proof Settings */}
@@ -439,6 +499,29 @@ export function AdminTasks() {
                 <Input value={form.description} onChange={e => setForm({...form, description: e.target.value})} placeholder="e.g. Install and open the app to earn" className="mt-1" />
               </div>
 
+              {/* Max Completions in Create Form */}
+              <div className="md:col-span-2 p-4 bg-blue-50 border border-blue-200 rounded-xl space-y-2">
+                <div className="flex items-center gap-2 mb-1">
+                  <Users className="w-4 h-4 text-blue-600" />
+                  <p className="font-medium text-gray-900 text-sm">User Completion Limit</p>
+                  <span className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full">Optional</span>
+                </div>
+                <p className="text-xs text-gray-500">Limit how many users can complete this task. Leave empty for unlimited.</p>
+                <Input
+                  type="number"
+                  min="1"
+                  placeholder="e.g. 100 (leave empty for unlimited)"
+                  value={form.max_completions}
+                  onChange={e => setForm({...form, max_completions: e.target.value})}
+                  className="bg-white"
+                />
+                {form.max_completions && (
+                  <p className="text-xs text-blue-600 font-medium">
+                    ✓ Only {form.max_completions} users can complete this task
+                  </p>
+                )}
+              </div>
+
               {/* Proof Settings in Create Form */}
               <div className="md:col-span-2 p-4 bg-orange-50 border border-orange-200 rounded-xl space-y-3">
                 <div className="flex items-center justify-between">
@@ -509,7 +592,7 @@ export function AdminTasks() {
                         <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Task</th>
                         <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Payouts</th>
                         <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Clicks</th>
-                        <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Completions</th>
+                        <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Slots</th>
                         <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">CVR</th>
                         <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Proof</th>
                         <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Status</th>
@@ -548,13 +631,29 @@ export function AdminTasks() {
                               <span className="text-sm font-bold text-gray-900">{task.click_count || 0}</span>
                             </div>
                           </td>
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-bold text-gray-900">{task.completion_count || 0}</span>
-                              <button onClick={() => setSelectedTask(selectedTask?.id === task.id ? null : task)} className="text-blue-500 hover:text-blue-700">
-                                {selectedTask?.id === task.id ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          <td className="px-4 py-3 min-w-[120px]">
+                            {task.max_completions ? (
+                              <div>
+                                <div className="flex items-center gap-1 mb-1">
+                                  <Users className="w-3 h-3 text-blue-500" />
+                                  <span className="text-sm font-bold text-gray-900">{task.completion_count || 0}</span>
+                                  <span className="text-xs text-gray-400">/ {task.max_completions}</span>
+                                </div>
+                                <SlotsBar task={task} />
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-1">
+                                <span className="text-sm font-bold text-gray-900">{task.completion_count || 0}</span>
+                                <button onClick={() => setSelectedTask(selectedTask?.id === task.id ? null : task)} className="text-blue-500 hover:text-blue-700 ml-1">
+                                  {selectedTask?.id === task.id ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                </button>
+                              </div>
+                            )}
+                            {task.max_completions && (
+                              <button onClick={() => setSelectedTask(selectedTask?.id === task.id ? null : task)} className="text-blue-500 hover:text-blue-700 mt-1">
+                                {selectedTask?.id === task.id ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
                               </button>
-                            </div>
+                            )}
                           </td>
                           <td className="px-4 py-3">
                             <span className={`text-sm font-bold ${getConversionColor(task.conversion_rate || '0')}`}>
@@ -663,6 +762,11 @@ export function AdminTasks() {
                             <div className="flex items-center gap-2">
                               <p className="text-xs text-gray-500">{task.action_type}</p>
                               {task.requires_proof && <span className="text-xs bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded">📸 Proof</span>}
+                              {task.max_completions && (
+                                <span className="text-xs bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded flex items-center gap-1">
+                                  <Users className="w-2.5 h-2.5" /> {task.completion_count}/{task.max_completions}
+                                </span>
+                              )}
                             </div>
                           </div>
                         </div>

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getSession } from "@/lib/auth/session"
 import { getAllTasks, createTask, getTasksByNetwork } from "@/lib/db/tasks"
-import { getUserById } from "@/lib/db/users"
 
 export async function GET(request: NextRequest) {
   try {
@@ -54,6 +53,9 @@ export async function POST(request: NextRequest) {
       country: data.country || "IN",
       requirements: data.requirements || null,
       expires_at: data.expires_at || null,
+      max_completions: data.max_completions ? parseInt(data.max_completions) : null,
+      requires_proof: data.requires_proof ?? true,
+      proof_instructions: data.proof_instructions || null,
     })
 
     return NextResponse.json({ task }, { status: 201 })
