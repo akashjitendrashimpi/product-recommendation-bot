@@ -190,7 +190,13 @@ export function TasksTab({ userId }: TasksTabProps) {
   const isTaskCompleted = (taskId: number) => completions.some(c => c.task_id === taskId && c.status !== "rejected")
   const getTaskCompletion = (taskId: number) => completions.find(c => c.task_id === taskId)
   const availableTasks = tasks.filter(t => !isTaskCompleted(t.id))
-  const completedTasks = tasks.filter(t => isTaskCompleted(t.id))
+  // Completions whose task still exists in our tasks list
+const completedTasks = tasks.filter(t => isTaskCompleted(t.id))
+
+// Completions whose task was deleted — show from completions directly
+const deletedTaskCompletions = completions.filter(
+  c => c.status !== "rejected" && !tasks.find(t => t.id === c.task_id)
+)
   const categories = ["all", ...new Set(tasks.map(t => t.action_type || "Other"))]
   const filteredTasks = selectedCategory === "all" ? availableTasks : availableTasks.filter(t => t.action_type === selectedCategory)
 
@@ -641,7 +647,33 @@ export function TasksTab({ userId }: TasksTabProps) {
                 </Card>
               )
             })
-          )}
+          )}{/* Show completions for deleted tasks */}
+{deletedTaskCompletions.map(c => (
+  <Card key={`deleted-${c.id}`} className="border border-gray-200 shadow-sm rounded-2xl opacity-75">
+    <CardContent className="p-4">
+      <div className="flex items-center gap-4">
+        <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center flex-shrink-0 text-xl">
+          🎯
+        </div>
+        <div className="flex-1 min-w-0">
+          <h3 className="font-semibold text-gray-700 text-sm truncate">
+            {(c as any).task_title || "Task (removed)"}
+          </h3>
+          <p className="text-xs text-gray-400">This task was removed by admin</p>
+        </div>
+        <div className="text-right flex-shrink-0">
+          <div className="flex items-center gap-0.5 justify-end mb-1.5">
+            <IndianRupee className="w-3.5 h-3.5 text-green-600" />
+            <span className="text-lg font-black text-green-600">{Number(c.user_payout).toFixed(0)}</span>
+          </div>
+          <span className={`text-xs font-medium px-2 py-1 rounded-full border ${getStatusColor(c.status)}`}>
+            {getStatusLabel(c.status)}
+          </span>
+        </div>
+      </div>
+    </CardContent>
+  </Card>
+))}
         </TabsContent>
       </Tabs>
     </div>
