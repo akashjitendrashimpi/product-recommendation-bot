@@ -477,16 +477,47 @@ export function TasksTab({ userId }: TasksTabProps) {
         </div>
 
         <TabsContent value="available" className="space-y-4 mt-0">
-          {filteredTasks.length === 0 ? (
-            <Card className="border border-dashed border-gray-300 rounded-2xl">
-              <CardContent className="py-16 text-center">
-                <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                  <Target className="w-8 h-8 text-gray-400" />
-                </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">No tasks available</h3>
-                <p className="text-gray-500 text-sm">Check back soon for new earning opportunities!</p>
-              </CardContent>
-            </Card>
+         {filteredTasks.length === 0 ? (
+  <Card className="border-0 shadow-lg rounded-2xl overflow-hidden">
+    <CardContent className="p-0">
+      {/* Pulsing top bar */}
+      <div className="bg-gradient-to-r from-orange-500 to-pink-500 px-5 py-3 flex items-center gap-2">
+        <span className="relative flex h-2.5 w-2.5">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-white"></span>
+        </span>
+        <p className="text-white text-xs font-bold tracking-wide">🔥 High demand period — tasks fill up fast!</p>
+      </div>
+
+      <div className="p-6 text-center">
+        {/* Icon */}
+        <div className="w-16 h-16 bg-gradient-to-br from-orange-100 to-pink-100 rounded-2xl flex items-center justify-center mx-auto mb-4 text-3xl">
+          ⏳
+        </div>
+
+        <h3 className="text-lg font-black text-gray-900 mb-1">All slots grabbed!</h3>
+        <p className="text-gray-500 text-sm mb-5">Tasks get claimed within minutes of going live.<br/>The early bird gets the earnings. 🐦</p>
+
+        {/* Urgency cards */}
+        <div className="grid grid-cols-2 gap-3 mb-5">
+          <div className="bg-orange-50 border border-orange-100 rounded-xl p-3">
+            <p className="text-2xl font-black text-orange-600">⚡</p>
+            <p className="text-xs font-semibold text-gray-700 mt-1">Tasks go live</p>
+            <p className="text-xs text-gray-500">multiple times a day</p>
+          </div>
+          <div className="bg-pink-50 border border-pink-100 rounded-xl p-3">
+            <p className="text-2xl font-black text-pink-600">🎯</p>
+            <p className="text-xs font-semibold text-gray-700 mt-1">Limited slots</p>
+            <p className="text-xs text-gray-500">per task always</p>
+          </div>
+        </div>
+
+        <div className="bg-gray-50 rounded-xl px-4 py-3">
+          <p className="text-xs text-gray-500">💡 <span className="font-semibold text-gray-700">Pro tip:</span> Check back in the morning & evening — that's when most tasks drop.</p>
+        </div>
+      </div>
+    </CardContent>
+  </Card>
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
               {filteredTasks.map(task => (
