@@ -188,10 +188,16 @@ export function TasksTab({ userId }: TasksTabProps) {
   }
 
   const isTaskCompleted = (taskId: number) => completions.some(c => c.task_id === taskId && c.status !== "rejected")
+
+// Task is retryable if ALL completions for it are rejected
+const isTaskRetryable = (taskId: number) => {
+  const taskCompletions = completions.filter(c => c.task_id === taskId)
+  return taskCompletions.length > 0 && taskCompletions.every(c => c.status === "rejected")
+}
   const getTaskCompletion = (taskId: number) => completions.find(c => c.task_id === taskId)
-  const availableTasks = tasks.filter(t => !isTaskCompleted(t.id))
+  const availableTasks = tasks.filter(t => !isTaskCompleted(t.id) || isTaskRetryable(t.id))
   // Completions whose task still exists in our tasks list
-const completedTasks = tasks.filter(t => isTaskCompleted(t.id))
+const completedTasks = tasks.filter(t => isTaskCompleted(t.id) && !isTaskRetryable(t.id))
 
 // Completions whose task was deleted — show from completions directly
 const deletedTaskCompletions = completions.filter(
