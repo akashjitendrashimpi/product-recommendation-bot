@@ -14,7 +14,7 @@ import {
 } from "lucide-react"
 
 export default function SignUpClient() {
-  const [step, setStep] = useState(1) // 2-step form
+  const [step, setStep] = useState(1)
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [repeatPassword, setRepeatPassword] = useState("")
@@ -26,6 +26,7 @@ export default function SignUpClient() {
   const [showRepeatPassword, setShowRepeatPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [agreedToPolicy, setAgreedToPolicy] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -49,6 +50,7 @@ export default function SignUpClient() {
   const validateStep2 = () => {
     if (password.length < 6) { setError("Password must be at least 6 characters"); return false }
     if (password !== repeatPassword) { setError("Passwords do not match"); return false }
+    if (!agreedToPolicy) { setError("Please agree to the Privacy Policy to continue"); return false }
     return true
   }
 
@@ -78,23 +80,14 @@ export default function SignUpClient() {
       const data = await response.json()
       if (!response.ok) throw new Error(data.error || "Signup failed")
 
-      // Apply referral code if provided
-      if (referralCode.trim()) {
-        try {
-          await fetch("/api/referral/apply", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ referral_code: referralCode.trim() })
-          })
-        } catch { /* ignore referral errors */ }
-      }
-
+      // Auto-logged in — go straight to dashboard, no login page redirect!
       const returnUrl = searchParams.get("return")
       if (returnUrl && isSafeReturnUrl(returnUrl)) {
         router.push(returnUrl)
       } else {
-        router.push("/auth/sign-up-success")
+        router.push("/dashboard")
       }
+
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "An error occurred")
     } finally {
@@ -107,7 +100,7 @@ export default function SignUpClient() {
     if (pwd.length < 6) return { label: 'Too short', color: 'bg-red-400', width: '25%' }
     if (pwd.length < 8) return { label: 'Weak', color: 'bg-orange-400', width: '50%' }
     if (!/[A-Z]/.test(pwd) || !/[0-9]/.test(pwd)) return { label: 'Medium', color: 'bg-yellow-400', width: '75%' }
-    return { label: 'Strong', color: 'bg-green-500', width: '100%' }
+    return { label: 'Strong ✓', color: 'bg-green-500', width: '100%' }
   }
 
   const strength = passwordStrength(password)
@@ -126,7 +119,7 @@ export default function SignUpClient() {
           </span>
         </Link>
 
-        {/* Referral Banner — show if ref code in URL */}
+        {/* Referral Banner */}
         {referralCode && (
           <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-2xl p-4 mb-4 flex items-center gap-3 shadow-md">
             <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center flex-shrink-0">
@@ -160,8 +153,8 @@ export default function SignUpClient() {
                 </p>
               </div>
               <div className="flex gap-2">
-                <div className={`w-8 h-2 rounded-full ${step >= 1 ? 'bg-blue-600' : 'bg-gray-200'}`} />
-                <div className={`w-8 h-2 rounded-full ${step >= 2 ? 'bg-blue-600' : 'bg-gray-200'}`} />
+                <div className={`w-8 h-2 rounded-full transition-all ${step >= 1 ? 'bg-blue-600' : 'bg-gray-200'}`} />
+                <div className={`w-8 h-2 rounded-full transition-all ${step >= 2 ? 'bg-blue-600' : 'bg-gray-200'}`} />
               </div>
             </div>
           </div>
@@ -190,7 +183,7 @@ export default function SignUpClient() {
                     <Phone className="w-4 h-4 text-green-500" /> WhatsApp Number *
                   </Label>
                   <div className="flex gap-2">
-                    <div className="flex items-center px-3 bg-gray-100 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600">
+                    <div className="flex items-center px-3 bg-gray-100 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 flex-shrink-0">
                       🇮🇳 +91
                     </div>
                     <Input
@@ -274,14 +267,15 @@ export default function SignUpClient() {
 
                 {/* Summary of step 1 */}
                 <div className="bg-gray-50 rounded-2xl p-4 flex items-center gap-3 mb-2">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-lg">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
                     {displayName[0]?.toUpperCase()}
                   </div>
-                  <div>
-                    <p className="font-bold text-gray-900 text-sm">{displayName}</p>
-                    <p className="text-xs text-gray-500">{email}</p>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-gray-900 text-sm truncate">{displayName}</p>
+                    <p className="text-xs text-gray-500 truncate">{email}</p>
                   </div>
-                  <button type="button" onClick={() => { setStep(1); setError(null) }} className="ml-auto text-xs text-blue-600 font-semibold hover:underline">
+                  <button type="button" onClick={() => { setStep(1); setError(null) }}
+                    className="ml-auto text-xs text-blue-600 font-semibold hover:underline flex-shrink-0">
                     Edit
                   </button>
                 </div>
@@ -349,11 +343,45 @@ export default function SignUpClient() {
                   )}
                 </div>
 
-                {error && (
-                  <div className="p-3 rounded-xl bg-red-50 border border-red-200">
-                    <p className="text-sm text-red-600 font-medium">{error}</p>
+                {/* ── Privacy Policy Checkbox ── */}
+                <div
+                  onClick={() => setAgreedToPolicy(!agreedToPolicy)}
+                  className={`flex items-start gap-3 p-4 rounded-2xl border-2 cursor-pointer transition-all select-none ${
+                    agreedToPolicy
+                      ? 'border-blue-500 bg-blue-50'
+                      : 'border-gray-200 bg-gray-50 hover:border-gray-300'
+                  }`}
+                >
+                  <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 mt-0.5 transition-all ${
+                    agreedToPolicy ? 'bg-blue-600 border-blue-600' : 'border-gray-300 bg-white'
+                  }`}>
+                    {agreedToPolicy && (
+                      <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
                   </div>
-                )}
+                  <p className="text-sm text-gray-600 leading-relaxed">
+                    I have read and agree to the{" "}
+                    <Link
+                      href="/privacy"
+                      target="_blank"
+                      onClick={e => e.stopPropagation()}
+                      className="text-blue-600 font-semibold hover:underline"
+                    >
+                      Privacy Policy
+                    </Link>
+                    {" "}and{" "}
+                    <Link
+                      href="/terms"
+                      target="_blank"
+                      onClick={e => e.stopPropagation()}
+                      className="text-blue-600 font-semibold hover:underline"
+                    >
+                      Terms of Service
+                    </Link>
+                  </p>
+                </div>
 
                 {/* What you get */}
                 <div className="bg-gradient-to-br from-blue-50 to-purple-50 border border-blue-100 rounded-2xl p-4">
@@ -361,7 +389,7 @@ export default function SignUpClient() {
                   <div className="space-y-1.5">
                     {[
                       'Daily earning tasks — ₹50 to ₹500/day',
-                      'Instant UPI payouts — minimum ₹50',
+                      'UPI payouts — minimum ₹50',
                       referralCode ? `₹10 signup bonus from referral code` : 'Referral bonus when you invite friends',
                     ].map((item, i) => (
                       <div key={i} className="flex items-center gap-2">
@@ -372,10 +400,16 @@ export default function SignUpClient() {
                   </div>
                 </div>
 
+                {error && (
+                  <div className="p-3 rounded-xl bg-red-50 border border-red-200">
+                    <p className="text-sm text-red-600 font-medium">{error}</p>
+                  </div>
+                )}
+
                 <Button
                   type="submit"
-                  disabled={isLoading}
-                  className="w-full h-12 rounded-xl font-bold text-base bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-lg"
+                  disabled={isLoading || !agreedToPolicy}
+                  className="w-full h-12 rounded-xl font-bold text-base bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isLoading ? (
                     <span className="flex items-center gap-2">
@@ -401,11 +435,9 @@ export default function SignUpClient() {
           </div>
         </div>
 
-        {/* Privacy */}
+        {/* Footer note */}
         <p className="text-xs text-center text-gray-400 mt-4 px-4">
-          By signing up, you agree to our{" "}
-          <Link href="/terms" className="underline hover:text-gray-600">Terms</Link> and{" "}
-          <Link href="/privacy" className="underline hover:text-gray-600">Privacy Policy</Link>
+          🔒 Your data is encrypted and never shared with third parties.
         </p>
       </div>
     </div>
