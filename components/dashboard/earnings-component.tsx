@@ -181,7 +181,7 @@ const [maxPayout, setMaxPayout] = useState(MAX_PAYOUT)
             <span className="text-white/60 text-lg">.{earnings.availableBalance.toFixed(2).split('.')[1]}</span>
           </div>
           <div className="flex items-center gap-3 flex-wrap">
-            {earnings.availableBalance >= MIN_PAYOUT ? (
+            {earnings.availableBalance >= minPayout ? (
               <Button onClick={() => setShowPayoutForm(!showPayoutForm)}
                 className="bg-white text-blue-700 hover:bg-blue-50 font-bold rounded-2xl h-11 px-6 shadow-lg">
                 <Wallet className="w-4 h-4 mr-2" /> Request Payout
@@ -189,11 +189,11 @@ const [maxPayout, setMaxPayout] = useState(MAX_PAYOUT)
             ) : (
               <div className="bg-white/20 rounded-2xl px-4 py-3 flex-1 max-w-xs">
                 <p className="text-white text-xs font-medium mb-1.5">
-                  Need Rs.{(MIN_PAYOUT - earnings.availableBalance).toFixed(0)} more to withdraw
-                </p>
+                  Need Rs.{(minPayout - earnings.availableBalance).toFixed(0)} more to withdraw
+                   </p>
                 <div className="w-full bg-white/20 rounded-full h-1.5">
                   <div className="bg-white rounded-full h-1.5 transition-all"
-                    style={{ width: `${Math.min((earnings.availableBalance / MIN_PAYOUT) * 100, 100)}%` }} />
+                    style={{ width: `${Math.min((earnings.availableBalance / minPayout) * 100, 100)}%` }} />
                 </div>
               </div>
             )}
@@ -232,10 +232,10 @@ const [maxPayout, setMaxPayout] = useState(MAX_PAYOUT)
                   <Button variant="outline" onClick={() => setPayoutAmount(Math.min(earnings.availableBalance, MAX_PAYOUT).toFixed(0))}
                     className="rounded-xl h-12 px-4 font-bold">Max</Button>
                 </div>
-                <p className="text-xs text-gray-500 mt-1.5">Min Rs.{MIN_PAYOUT} · Max Rs.{MAX_PAYOUT} · Available Rs.{earnings.availableBalance.toFixed(2)}</p>
+                <p className="text-xs text-gray-500 mt-1.5">Min Rs.{minPayout} · Max Rs.{maxPayout} · Available Rs.{earnings.availableBalance.toFixed(2)}</p>
               </div>
               <div className="flex gap-2 flex-wrap">
-                {[50, 100, 200, 500].filter(a => a <= earnings.availableBalance).map(amount => (
+               {[minPayout, 100, 200, 500].filter((a, i, arr) => a <= earnings.availableBalance && (i === 0 || a > arr[i-1])).map(amount => (
                   <button key={amount} onClick={() => setPayoutAmount(amount.toString())}
                     className={"px-3 py-1.5 rounded-xl text-sm font-semibold border transition-colors " + (payoutAmount === amount.toString() ? 'bg-blue-600 text-white border-blue-600' : 'bg-white border-gray-200 text-gray-700 hover:border-blue-300')}>
                     Rs.{amount}
