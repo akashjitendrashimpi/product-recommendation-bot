@@ -12,108 +12,66 @@ export async function PATCH(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
     const { id } = await params
-    const { status, transaction_id } = await request.json()
+    const paymentId = parseInt(id)
+
+    // Security: validate payment ID
+    if (isNaN(paymentId) || paymentId <= 0)
+      return NextResponse.json({ error: "Invalid payment ID" }, { status: 400 })
+
+    let body: any
+    try {
+      body = await request.json()
+    } catch {
+      return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
+    }
+
+    const { status, transaction_id } = body
 
     if (!["completed", "rejected"].includes(status))
       return NextResponse.json({ error: "Invalid status" }, { status: 400 })
 
-    // Fetch payment
+    // Security: sanitize transaction_id
+    const safeTxnId = transaction_id
+      ? String(transaction_id).trim().slice(0, 100)
+      : null
+
+    // Fetch payment — must be pending
     const { data: payment, error: fetchError } = await (supabaseAdmin as any)
       .from("payments")
       .select("*")
-      .eq("id", parseInt(id))
+      .eq("id", paymentId)
+      .eq("status", "pending") // Security: can only act on pending payments
       .single()
 
     if (fetchError || !payment)
-      return NextResponse.json({ error: "Payment not found" }, { status: 404 })
+      return NextResponse.json({ error: "Payment not found or already processed" }, { status: 404 })
 
     // Update payment status
     const { error } = await (supabaseAdmin as any)
       .from("payments")
       .update({
         status,
-        transaction_id: transaction_id || null,
+        transaction_id: safeTxnId,
         updated_at: new Date().toISOString(),
         paid_at: status === "completed" ? new Date().toISOString() : null,
       })
-      .eq("id", parseInt(id))
+      .eq("id", paymentId)
 
     if (error) throw error
 
-    if (status === "completed") {
-      // Check current completion status BEFORE updating
-      // Proof tasks → already "verified" + earnings already credited at proof approval → skip earnings
-      // No-proof tasks → status is "pending" → credit earnings now
-      let currentCompletionStatus = "pending"
+    // Option B: This payment is a MANUAL PAYOUT REQUEST
+    // Earnings were already credited when tasks were completed/approved
+    // We just need to record the payment as done — NO earnings adjustment needed
 
-      if (payment.completion_id) {
-        const { data: comp } = await (supabaseAdmin as any)
-          .from("task_completions")
-          .select("status")
-          .eq("id", payment.completion_id)
-          .single()
-
-        currentCompletionStatus = comp?.status || "pending"
-
-        // Mark completion as verified (paid)
-        await (supabaseAdmin as any)
-          .from("task_completions")
-          .update({
-            status: "verified",
-            verified_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", payment.completion_id)
-      }
-
-      // Only credit earnings for no-proof tasks (were "pending")
-      // Proof tasks (were "verified") already had earnings credited at proof approval
-      if (currentCompletionStatus !== "verified") {
-        const payout = Number(payment.amount)
-        const userId = payment.user_id
-        const today = new Date().toISOString().split("T")[0]
-
-        const { data: earn } = await (supabaseAdmin as any)
-          .from("user_earnings")
-          .select("id, daily_earnings, tasks_completed")
-          .eq("user_id", userId)
-          .eq("date", today)
-          .maybeSingle()
-
-        if (earn) {
-          await (supabaseAdmin as any)
-            .from("user_earnings")
-            .update({
-              daily_earnings: Number(earn.daily_earnings) + payout,
-              tasks_completed: Number(earn.tasks_completed) + 1,
-              amount: Number(earn.daily_earnings) + payout,
-            })
-            .eq("id", earn.id)
-        } else {
-          await (supabaseAdmin as any)
-            .from("user_earnings")
-            .insert({
-              user_id: userId,
-              date: today,
-              daily_earnings: payout,
-              tasks_completed: 1,
-              amount: payout,
-            })
-        }
-      }
-
-    } else if (status === "rejected") {
-      // Mark completion as rejected → frees up the slot + user can retry
-      if (payment.completion_id) {
-        await (supabaseAdmin as any)
-          .from("task_completions")
-          .update({
-            status: "rejected",
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", payment.completion_id)
-      }
+    if (status === "rejected") {
+      // Payment rejected — user's balance stays intact, they can request again
+      // No earnings adjustment needed — balance was never deducted
+      // Just log it and let the user know via the status change
     }
+
+    // Note: We intentionally do NOT touch user_earnings here
+    // Balance deduction happens via getUserPendingPaymentTotal and getUserCompletedPaymentTotal
+    // which are calculated dynamically from the payments table
 
     return NextResponse.json({ success: true })
   } catch (error) {
