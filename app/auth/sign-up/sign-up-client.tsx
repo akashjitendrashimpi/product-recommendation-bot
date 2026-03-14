@@ -169,7 +169,7 @@ export default function SignUpClient() {
                     <User className="w-4 h-4 text-blue-500" /> Full Name *
                   </Label>
                   <Input
-                    placeholder="Akash Kumar"
+                    placeholder="Your Name"
                     required
                     value={displayName}
                     onChange={e => setDisplayName(e.target.value)}
