@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getSession } from "@/lib/auth/session"
-import { getAllTasks, createTask, getTasksByNetwork } from "@/lib/db/tasks"
+import { createTask, getTasksByNetwork } from "@/lib/db/tasks"
+import { supabaseAdmin } from "@/lib/supabase/client"
 
 export async function GET(request: NextRequest) {
   try {
@@ -12,11 +13,17 @@ export async function GET(request: NextRequest) {
     const url = new URL(request.url)
     const networkId = url.searchParams.get("network_id")
 
-    let tasks
+   let tasks
     if (networkId) {
       tasks = await getTasksByNetwork(parseInt(networkId, 10))
     } else {
-      tasks = await getAllTasks()
+      // Admin gets ALL tasks — no filtering by slot limits
+      const { data, error } = await (supabaseAdmin as any)
+        .from('tasks')
+        .select('*')
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      tasks = data || []
     }
 
     return NextResponse.json({ tasks })
