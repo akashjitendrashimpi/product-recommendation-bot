@@ -46,7 +46,7 @@ interface TaskCompletion {
   completed_at: string
 }
 
-const MIN_PAYOUT = 50
+const MIN_PAYOUT = 50  // fallback, overridden by server
 const MAX_PAYOUT = 5000
 
 export function EarningsComponent({ userId, upiId: initialUpiId }: EarningsComponentProps) {
@@ -66,16 +66,18 @@ export function EarningsComponent({ userId, upiId: initialUpiId }: EarningsCompo
   const [activeTab, setActiveTab] = useState<"earnings" | "payouts">("earnings")
   const [upiId, setUpiId] = useState(initialUpiId)
   const [filterStatus, setFilterStatus] = useState("all")
-
+const [minPayout, setMinPayout] = useState(MIN_PAYOUT)
+const [maxPayout, setMaxPayout] = useState(MAX_PAYOUT)
   useEffect(() => { fetchData() }, [])
 
   const fetchData = async () => {
     setLoading(true)
     try {
-      const [earningsRes, paymentsRes, profileRes] = await Promise.all([
+      const [earningsRes, paymentsRes, profileRes, settingsRes] = await Promise.all([
         fetch('/api/earnings'),
         fetch('/api/payments'),
         fetch('/api/user/profile'),
+        fetch('/api/settings'),
       ])
       if (earningsRes.ok) {
         const data = await earningsRes.json()
@@ -94,20 +96,24 @@ export function EarningsComponent({ userId, upiId: initialUpiId }: EarningsCompo
       }
       if (paymentsRes.ok) setPayments((await paymentsRes.json()).payments || [])
       if (profileRes.ok) setUpiId((await profileRes.json()).user?.upi_id || null)
+      if (settingsRes.ok) {
+        const s = await settingsRes.json()
+        setMinPayout(s.min_payout || 50)
+        setMaxPayout(s.max_payout || 5000)
+      }
     } catch (error) {
       console.error('Error:', error)
     } finally {
       setLoading(false)
     }
   }
-
   const handleRequestPayout = async () => {
     setError(null)
     if (!upiId) { setError("Add your UPI ID in profile settings first"); return }
     const amount = parseFloat(payoutAmount)
     if (isNaN(amount) || amount <= 0) { setError("Enter a valid amount"); return }
-    if (amount < MIN_PAYOUT) { setError("Minimum payout is Rs." + MIN_PAYOUT); return }
-    if (amount > MAX_PAYOUT) { setError("Maximum per request is Rs." + MAX_PAYOUT); return }
+    if (amount < minPayout) { setError("Minimum payout is Rs." + minPayout); return }
+    if (amount > maxPayout) { setError("Maximum per request is Rs." + maxPayout); return }
     if (amount > earnings.availableBalance) { setError("Exceeds available balance Rs." + earnings.availableBalance.toFixed(2)); return }
     setRequesting(true)
     try {

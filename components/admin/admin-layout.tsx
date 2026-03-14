@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import {
   LayoutDashboard, Users, CheckSquare, Wallet,
   ShoppingBag, LogOut, Menu, X, Shield, QrCode,
-  LayoutGrid
+  LayoutGrid, Settings
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -20,15 +20,16 @@ export function AdminLayout({ user, children }: AdminLayoutProps) {
   const pathname = usePathname()
 
   const navigation = [
-    { name: 'Overview', href: '/admin', icon: LayoutDashboard },
-    { name: 'Users', href: '/admin/users', icon: Users },
-    { name: 'Tasks', href: '/admin/tasks', icon: CheckSquare },
-    { name: 'Payments', href: '/admin/payments', icon: Wallet },
-    { name: 'Products', href: '/admin/products', icon: ShoppingBag },
-    { name: 'Campaigns', href: '/admin/campaigns', icon: QrCode },
-    { name: 'Proofs', href: '/admin/proofs', icon: Shield },     
-    { name: 'Sections', href: '/admin/sections', icon: LayoutGrid },
-  ]
+  { name: 'Overview', href: '/admin', icon: LayoutDashboard },
+  { name: 'Users', href: '/admin/users', icon: Users },
+  { name: 'Tasks', href: '/admin/tasks', icon: CheckSquare },
+  { name: 'Payments', href: '/admin/payments', icon: Wallet },
+  { name: 'Products', href: '/admin/products', icon: ShoppingBag },
+  { name: 'Campaigns', href: '/admin/campaigns', icon: QrCode },
+  { name: 'Proofs', href: '/admin/proofs', icon: Shield },
+  { name: 'Sections', href: '/admin/sections', icon: LayoutGrid },
+  { name: 'Settings', href: '/admin/settings', icon: Settings },
+]
 
   return (
     <div className="min-h-screen bg-gray-50">
