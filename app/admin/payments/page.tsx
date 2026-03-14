@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic"
 import { getSession } from "@/lib/auth/session"
 import { redirect } from "next/navigation"
 import { getUserById } from "@/lib/db/users"
@@ -12,3 +13,4 @@ export default async function AdminPaymentsPage() {
 
   return <AdminPayments />
 }
+

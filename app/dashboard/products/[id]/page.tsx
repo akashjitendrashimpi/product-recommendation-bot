@@ -1,4 +1,5 @@
-﻿import { getSession } from "@/lib/auth/session"
+export const dynamic = "force-dynamic"
+import { getSession } from "@/lib/auth/session"
 import { redirect } from "next/navigation"
 import { getUserById, userToProfile } from "@/lib/db/users"
 import { DashboardLayout } from "@/components/dashboard/dashboard-layout"
