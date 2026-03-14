@@ -197,8 +197,9 @@ export function TasksTab({ userId }: TasksTabProps) {
 
   const availableTasks = tasks.filter(t => !isTaskCompleted(t.id) || isTaskRetryable(t.id))
   const completedTasks = tasks.filter(t => isTaskCompleted(t.id) && !isTaskRetryable(t.id))
-  const deletedTaskCompletions = completions.filter(
-  c => c.status !== "rejected" && !tasks.find(t => Number(t.id) === Number(c.task_id))
+ // Only show "removed by admin" if the completion has task_deleted flag from API
+const deletedTaskCompletions = completions.filter(
+  c => c.status !== "rejected" && (c as any).task_deleted === true
 )
 
   const categories = ["all", ...new Set(tasks.map(t => t.action_type || "Other"))]
