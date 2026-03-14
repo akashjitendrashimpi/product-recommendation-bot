@@ -37,11 +37,11 @@ export async function POST(
     if (existing) return NextResponse.json({ error: "Task already completed" }, { status: 400 })
 
     const requiresProof = task.requires_proof === true
-    const payout = Number(task.user_payout) > 0 ? Number(task.user_payout) : Number(task.reward || 0)
+const payout = Number(task.user_payout) > 0 ? Number(task.user_payout) : Number(task.reward || 0)
 
-    // With proof → pending_verification, wait for admin approval
-    // No proof → verified, create payment immediately for admin to pay
-    const initialStatus = requiresProof ? "pending_verification" : "verified"
+// With proof → pending_verification (user must upload screenshot, then admin approves)
+// No proof → pending (admin just needs to pay, no verification needed)
+const initialStatus = requiresProof ? "pending_verification" : "pending"
 
     const { data: completion, error } = await (supabaseAdmin as any)
       .from("task_completions")
