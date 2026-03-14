@@ -18,7 +18,7 @@ export async function POST(
 
     if (!task) return NextResponse.json({ error: "Task not found" }, { status: 404 })
 
-    // Check max_completions limit
+    // Check max_completions limit — rejected completions don't occupy slots
     if (task.max_completions) {
       const { count } = await (supabaseAdmin as any)
         .from("task_completions")
@@ -29,7 +29,7 @@ export async function POST(
         return NextResponse.json({ error: "This task has reached its maximum completions limit" }, { status: 400 })
     }
 
-    // Check already completed
+    // Check already completed — rejected completions allow retry
     const { data: existing } = await (supabaseAdmin as any)
       .from("task_completions").select("id")
       .eq("task_id", taskId).eq("user_id", session.userId)

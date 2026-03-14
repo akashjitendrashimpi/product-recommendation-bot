@@ -123,9 +123,6 @@ export function TasksTab({ userId }: TasksTabProps) {
           setProofSuccess(false)
           setProofFile(null)
           setProofPreview(null)
-        } else {
-          // No proof needed — just show a quick success message
-          // (earnings already credited server-side)
         }
       }, 2000)
     } catch {
@@ -187,24 +184,33 @@ export function TasksTab({ userId }: TasksTabProps) {
     setUpiDialogOpen(true)
   }
 
-  const isTaskCompleted = (taskId: number) => completions.some(c => c.task_id === taskId && c.status !== "rejected")
+  // ─── FIX 1: isTaskCompleted ignores rejected completions ───────────────────
+  const isTaskCompleted = (taskId: number) =>
+    completions.some(c => c.task_id === taskId && c.status !== "rejected")
 
-// Task is retryable if ALL completions for it are rejected
-const isTaskRetryable = (taskId: number) => {
-  const taskCompletions = completions.filter(c => c.task_id === taskId)
-  return taskCompletions.length > 0 && taskCompletions.every(c => c.status === "rejected")
-}
+  // ─── FIX 2: Task is retryable if ALL its completions are rejected ──────────
+  const isTaskRetryable = (taskId: number) => {
+    const taskCompletions = completions.filter(c => c.task_id === taskId)
+    return taskCompletions.length > 0 && taskCompletions.every(c => c.status === "rejected")
+  }
+
   const getTaskCompletion = (taskId: number) => completions.find(c => c.task_id === taskId)
-  const availableTasks = tasks.filter(t => !isTaskCompleted(t.id) || isTaskRetryable(t.id))
-  // Completions whose task still exists in our tasks list
-const completedTasks = tasks.filter(t => isTaskCompleted(t.id) && !isTaskRetryable(t.id))
 
-// Completions whose task was deleted — show from completions directly
-const deletedTaskCompletions = completions.filter(
-  c => c.status !== "rejected" && !tasks.find(t => t.id === c.task_id)
-)
+  // ─── FIX 3: Show retryable tasks in Available tab ─────────────────────────
+  const availableTasks = tasks.filter(t => !isTaskCompleted(t.id) || isTaskRetryable(t.id))
+
+  // ─── FIX 4: Exclude retryable tasks from Completed tab ────────────────────
+  const completedTasks = tasks.filter(t => isTaskCompleted(t.id) && !isTaskRetryable(t.id))
+
+  // Completions whose task was deleted — show from completions directly
+  const deletedTaskCompletions = completions.filter(
+    c => c.status !== "rejected" && !tasks.find(t => t.id === c.task_id)
+  )
+
   const categories = ["all", ...new Set(tasks.map(t => t.action_type || "Other"))]
-  const filteredTasks = selectedCategory === "all" ? availableTasks : availableTasks.filter(t => t.action_type === selectedCategory)
+  const filteredTasks = selectedCategory === "all"
+    ? availableTasks
+    : availableTasks.filter(t => t.action_type === selectedCategory)
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -242,7 +248,7 @@ const deletedTaskCompletions = completions.filter(
     const total = task.max_completions
     const remaining = total - filled
     const pct = Math.min((filled / total) * 100, 100)
-    const isCritical = remaining <= Math.ceil(total * 0.1) // last 10%
+    const isCritical = remaining <= Math.ceil(total * 0.1)
 
     return (
       <div className="mt-2 pt-2 border-t border-gray-100">
@@ -489,47 +495,40 @@ const deletedTaskCompletions = completions.filter(
         </div>
 
         <TabsContent value="available" className="space-y-4 mt-0">
-         {filteredTasks.length === 0 ? (
-  <Card className="border-0 shadow-lg rounded-2xl overflow-hidden">
-    <CardContent className="p-0">
-      {/* Pulsing top bar */}
-      <div className="bg-gradient-to-r from-orange-500 to-pink-500 px-5 py-3 flex items-center gap-2">
-        <span className="relative flex h-2.5 w-2.5">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
-          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-white"></span>
-        </span>
-        <p className="text-white text-xs font-bold tracking-wide">🔥 High demand period — tasks fill up fast!</p>
-      </div>
-
-      <div className="p-6 text-center">
-        {/* Icon */}
-        <div className="w-16 h-16 bg-gradient-to-br from-orange-100 to-pink-100 rounded-2xl flex items-center justify-center mx-auto mb-4 text-3xl">
-          ⏳
-        </div>
-
-        <h3 className="text-lg font-black text-gray-900 mb-1">All slots grabbed!</h3>
-        <p className="text-gray-500 text-sm mb-5">Tasks get claimed within minutes of going live.<br/>The early bird gets the earnings. 🐦</p>
-
-        {/* Urgency cards */}
-        <div className="grid grid-cols-2 gap-3 mb-5">
-          <div className="bg-orange-50 border border-orange-100 rounded-xl p-3">
-            <p className="text-2xl font-black text-orange-600">⚡</p>
-            <p className="text-xs font-semibold text-gray-700 mt-1">Tasks go live</p>
-            <p className="text-xs text-gray-500">multiple times a day</p>
-          </div>
-          <div className="bg-pink-50 border border-pink-100 rounded-xl p-3">
-            <p className="text-2xl font-black text-pink-600">🎯</p>
-            <p className="text-xs font-semibold text-gray-700 mt-1">Limited slots</p>
-            <p className="text-xs text-gray-500">per task always</p>
-          </div>
-        </div>
-
-        <div className="bg-gray-50 rounded-xl px-4 py-3">
-          <p className="text-xs text-gray-500">💡 <span className="font-semibold text-gray-700">Pro tip:</span> Check back in the morning & evening — that's when most tasks drop.</p>
-        </div>
-      </div>
-    </CardContent>
-  </Card>
+          {filteredTasks.length === 0 ? (
+            <Card className="border-0 shadow-lg rounded-2xl overflow-hidden">
+              <CardContent className="p-0">
+                <div className="bg-gradient-to-r from-orange-500 to-pink-500 px-5 py-3 flex items-center gap-2">
+                  <span className="relative flex h-2.5 w-2.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-white"></span>
+                  </span>
+                  <p className="text-white text-xs font-bold tracking-wide">🔥 High demand period — tasks fill up fast!</p>
+                </div>
+                <div className="p-6 text-center">
+                  <div className="w-16 h-16 bg-gradient-to-br from-orange-100 to-pink-100 rounded-2xl flex items-center justify-center mx-auto mb-4 text-3xl">
+                    ⏳
+                  </div>
+                  <h3 className="text-lg font-black text-gray-900 mb-1">All slots grabbed!</h3>
+                  <p className="text-gray-500 text-sm mb-5">Tasks get claimed within minutes of going live.<br/>The early bird gets the earnings. 🐦</p>
+                  <div className="grid grid-cols-2 gap-3 mb-5">
+                    <div className="bg-orange-50 border border-orange-100 rounded-xl p-3">
+                      <p className="text-2xl font-black text-orange-600">⚡</p>
+                      <p className="text-xs font-semibold text-gray-700 mt-1">Tasks go live</p>
+                      <p className="text-xs text-gray-500">multiple times a day</p>
+                    </div>
+                    <div className="bg-pink-50 border border-pink-100 rounded-xl p-3">
+                      <p className="text-2xl font-black text-pink-600">🎯</p>
+                      <p className="text-xs font-semibold text-gray-700 mt-1">Limited slots</p>
+                      <p className="text-xs text-gray-500">per task always</p>
+                    </div>
+                  </div>
+                  <div className="bg-gray-50 rounded-xl px-4 py-3">
+                    <p className="text-xs text-gray-500">💡 <span className="font-semibold text-gray-700">Pro tip:</span> Check back in the morning & evening — that's when most tasks drop.</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
               {filteredTasks.map(task => (
@@ -571,8 +570,17 @@ const deletedTaskCompletions = completions.filter(
                       <p className="text-xs text-gray-500 line-clamp-2 mb-3">{task.description}</p>
                     )}
 
-                    {/* Slots bar — only shown if max_completions is set */}
                     <SlotsBar task={task} />
+
+                    {/* ─── Rejection retry banner ─────────────────────────────── */}
+                    {isTaskRetryable(task.id) && (
+                      <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-3 py-2 mt-3">
+                        <span className="text-red-500 text-xs">❌</span>
+                        <p className="text-xs text-red-600 font-medium">
+                          Previous attempt rejected — you can retry this task
+                        </p>
+                      </div>
+                    )}
 
                     <Button
                       onClick={() => handleCompleteTask(task)}
@@ -605,7 +613,6 @@ const deletedTaskCompletions = completions.filter(
           ) : (
             completedTasks.map(task => {
               const completion = getTaskCompletion(task.id)
-              // Fix: only show upload prompt if task actually requires_proof
               const needsProof = completion &&
                 !completion.completion_proof &&
                 completion.status === 'pending_verification' &&
@@ -653,33 +660,35 @@ const deletedTaskCompletions = completions.filter(
                 </Card>
               )
             })
-          )}{/* Show completions for deleted tasks */}
-{deletedTaskCompletions.map(c => (
-  <Card key={`deleted-${c.id}`} className="border border-gray-200 shadow-sm rounded-2xl opacity-75">
-    <CardContent className="p-4">
-      <div className="flex items-center gap-4">
-        <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center flex-shrink-0 text-xl">
-          🎯
-        </div>
-        <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-gray-700 text-sm truncate">
-            {(c as any).task_title || "Task (removed)"}
-          </h3>
-          <p className="text-xs text-gray-400">This task was removed by admin</p>
-        </div>
-        <div className="text-right flex-shrink-0">
-          <div className="flex items-center gap-0.5 justify-end mb-1.5">
-            <IndianRupee className="w-3.5 h-3.5 text-green-600" />
-            <span className="text-lg font-black text-green-600">{Number(c.user_payout).toFixed(0)}</span>
-          </div>
-          <span className={`text-xs font-medium px-2 py-1 rounded-full border ${getStatusColor(c.status)}`}>
-            {getStatusLabel(c.status)}
-          </span>
-        </div>
-      </div>
-    </CardContent>
-  </Card>
-))}
+          )}
+
+          {/* Show completions for deleted tasks */}
+          {deletedTaskCompletions.map(c => (
+            <Card key={`deleted-${c.id}`} className="border border-gray-200 shadow-sm rounded-2xl opacity-75">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center flex-shrink-0 text-xl">
+                    🎯
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-gray-700 text-sm truncate">
+                      {(c as any).task_title || "Task (removed)"}
+                    </h3>
+                    <p className="text-xs text-gray-400">This task was removed by admin</p>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <div className="flex items-center gap-0.5 justify-end mb-1.5">
+                      <IndianRupee className="w-3.5 h-3.5 text-green-600" />
+                      <span className="text-lg font-black text-green-600">{Number(c.user_payout).toFixed(0)}</span>
+                    </div>
+                    <span className={`text-xs font-medium px-2 py-1 rounded-full border ${getStatusColor(c.status)}`}>
+                      {getStatusLabel(c.status)}
+                    </span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
         </TabsContent>
       </Tabs>
     </div>
