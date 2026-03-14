@@ -706,16 +706,16 @@ const deletedTaskCompletions = completions.filter(
 
               {/* Deleted task completions */}
               {deletedTaskCompletions.map(c => (
-                <Card key={`deleted-${c.id}`} className="border border-gray-200 shadow-sm rounded-2xl opacity-70">
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-11 h-11 rounded-xl bg-gray-100 flex items-center justify-center flex-shrink-0 text-lg">🎯</div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-gray-700 text-sm truncate">
-                          {(c as any).task_title || "Task (removed)"}
-                        </h3>
-                        <p className="text-xs text-gray-400">Removed by admin</p>
-                      </div>
+  <Card key={`deleted-${c.id}`} className="border border-gray-200 shadow-sm rounded-2xl">
+    <CardContent className="p-4">
+      <div className="flex items-center gap-3">
+        <div className="w-11 h-11 rounded-xl bg-gray-100 flex items-center justify-center flex-shrink-0 text-lg">🎯</div>
+        <div className="flex-1 min-w-0">
+          <h3 className="font-semibold text-gray-900 text-sm truncate">
+            {(c as any).task_title || "Completed Task"}
+          </h3>
+          <p className="text-xs text-gray-400">Task no longer available</p>
+        </div>
                       <div className="text-right flex-shrink-0">
                         <div className="flex items-center gap-0.5 justify-end mb-1">
                           <IndianRupee className="w-3.5 h-3.5 text-green-600" />
