@@ -32,7 +32,6 @@ interface ProofUploadState {
   instructions: string | null
 }
 
-// Extend Task type locally to include max_completions and completion_count
 interface TaskWithSlots extends Task {
   max_completions?: number | null
   completion_count?: number
@@ -40,7 +39,7 @@ interface TaskWithSlots extends Task {
 
 export function TasksTab({ userId }: TasksTabProps) {
   const [tasks, setTasks] = useState<TaskWithSlots[]>([])
-  const [completions, setCompletions] = useState<TaskCompletion[]>([])
+  const [completions, setCompletions] = useState<any[]>([])
   const [earnings, setEarnings] = useState<EarningsSummary>({
     totalEarnings: 0, dailyEarnings: 0, monthlyEarnings: 0, tasksCompleted: 0,
   })
@@ -111,7 +110,6 @@ export function TasksTab({ userId }: TasksTabProps) {
         }
         await loadData()
         setCompletingTaskId(null)
-
         if (data.requiresProof && data.completion?.id) {
           setProofState({
             completionId: data.completion.id,
@@ -183,24 +181,20 @@ export function TasksTab({ userId }: TasksTabProps) {
     setUpiDialogOpen(true)
   }
 
-  // ─── isTaskCompleted ignores rejected completions ──────────────────────────
+  // Available: tasks not yet completed by this user (or retryable after rejection)
   const isTaskCompleted = (taskId: number) =>
-    completions.some(c => c.task_id === taskId && c.status !== "rejected")
+    completions.some(c => Number(c.task_id) === Number(taskId) && c.status !== "rejected")
 
-  // ─── Task is retryable if ALL its completions are rejected ─────────────────
   const isTaskRetryable = (taskId: number) => {
-    const taskCompletions = completions.filter(c => c.task_id === taskId)
+    const taskCompletions = completions.filter(c => Number(c.task_id) === Number(taskId))
     return taskCompletions.length > 0 && taskCompletions.every(c => c.status === "rejected")
   }
 
-  const getTaskCompletion = (taskId: number) => completions.find(c => c.task_id === taskId)
-
   const availableTasks = tasks.filter(t => !isTaskCompleted(t.id) || isTaskRetryable(t.id))
-  const completedTasks = tasks.filter(t => isTaskCompleted(t.id) && !isTaskRetryable(t.id))
- // Only show "removed by admin" if the completion has task_deleted flag from API
-const deletedTaskCompletions = completions.filter(
-  c => c.status !== "rejected" && (c as any).task_deleted === true
-)
+
+  // Completed: use completions array directly — never depends on tasks array being populated
+  // This fixes the issue where tasks array is empty (slots full) but completions still exist
+  const completedCompletions = completions.filter(c => c.status !== "rejected")
 
   const categories = ["all", ...new Set(tasks.map(t => t.action_type || "Other"))]
   const filteredTasks = selectedCategory === "all"
@@ -243,7 +237,6 @@ const deletedTaskCompletions = completions.filter(
     const remaining = total - filled
     const pct = Math.min((filled / total) * 100, 100)
     const isCritical = remaining <= Math.ceil(total * 0.1)
-
     return (
       <div className="mt-2 pt-2 border-t border-gray-100">
         <div className="flex items-center justify-between mb-1">
@@ -302,14 +295,12 @@ const deletedTaskCompletions = completions.filter(
               </div>
             ) : (
               <div className="p-5 sm:p-6">
-                {/* Drag handle — mobile only */}
                 <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4 sm:hidden" />
                 <div className="flex items-center justify-between mb-4">
                   <div>
                     <h3 className="text-lg font-bold text-gray-900">Upload Proof</h3>
                     <p className="text-xs text-gray-500">Screenshot required to receive payment</p>
                   </div>
-                  {/* FIX 1: aria-label on icon button */}
                   <button
                     aria-label="Close proof upload"
                     onClick={() => setProofState(null)}
@@ -318,7 +309,6 @@ const deletedTaskCompletions = completions.filter(
                     <X className="w-4 h-4 text-gray-500" />
                   </button>
                 </div>
-
                 <div className="bg-gradient-to-r from-blue-50 to-green-50 border border-blue-100 rounded-xl p-4 mb-4">
                   <p className="text-sm font-semibold text-gray-900 mb-1 truncate">{proofState.taskTitle}</p>
                   <div className="flex items-center gap-1">
@@ -327,14 +317,12 @@ const deletedTaskCompletions = completions.filter(
                     <span className="text-xs text-gray-500 ml-1">after verification</span>
                   </div>
                 </div>
-
                 <div className="bg-orange-50 border border-orange-200 rounded-xl p-3 mb-4 flex items-start gap-2">
                   <AlertCircle className="w-4 h-4 text-orange-500 mt-0.5 flex-shrink-0" />
                   <p className="text-xs text-orange-700">
                     {proofState.instructions || "Take a screenshot proving you completed the task and upload it below."}
                   </p>
                 </div>
-
                 <div
                   onClick={() => fileInputRef.current?.click()}
                   className={`border-2 border-dashed rounded-xl p-5 text-center cursor-pointer transition-all mb-4 ${
@@ -356,8 +344,6 @@ const deletedTaskCompletions = completions.filter(
                     </div>
                   )}
                 </div>
-
-                {/* FIX 2: accessible file input */}
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -367,7 +353,6 @@ const deletedTaskCompletions = completions.filter(
                   aria-label="Upload proof screenshot"
                   title="Upload proof screenshot"
                 />
-
                 <div className="flex gap-3">
                   <Button variant="outline" onClick={() => setProofState(null)} className="flex-1 rounded-xl h-12">
                     Skip for now
@@ -389,7 +374,7 @@ const deletedTaskCompletions = completions.filter(
         </div>
       )}
 
-      {/* ── Earnings Summary — 2 cols on mobile, 4 on desktop ── */}
+      {/* ── Earnings Summary ── */}
       <div className="grid gap-2 grid-cols-2 sm:gap-3 md:grid-cols-4">
         {[
           { label: 'Total Earned', value: `₹${earnings.totalEarnings.toFixed(2)}`, icon: Trophy, bg: 'from-blue-500 to-blue-700' },
@@ -496,7 +481,6 @@ const deletedTaskCompletions = completions.filter(
       {/* ── Tabs ── */}
       <Tabs defaultValue="available" className="space-y-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          {/* Full width tabs on mobile */}
           <TabsList className="bg-gray-100 p-1 rounded-xl w-full sm:w-auto">
             <TabsTrigger value="available" className="flex-1 sm:flex-none data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm rounded-lg px-4 text-sm">
               Available
@@ -504,11 +488,10 @@ const deletedTaskCompletions = completions.filter(
             </TabsTrigger>
             <TabsTrigger value="completed" className="flex-1 sm:flex-none data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm rounded-lg px-4 text-sm">
               Completed
-              <span className="ml-1.5 bg-gray-200 text-gray-600 text-xs px-1.5 py-0.5 rounded-full font-bold">{completedTasks.length}</span>
+              <span className="ml-1.5 bg-gray-200 text-gray-600 text-xs px-1.5 py-0.5 rounded-full font-bold">{completedCompletions.length}</span>
             </TabsTrigger>
           </TabsList>
 
-          {/* Category pills — horizontally scrollable on mobile */}
           {categories.length > 1 && (
             <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
               {categories.map(cat => (
@@ -528,7 +511,7 @@ const deletedTaskCompletions = completions.filter(
           )}
         </div>
 
-        {/* ── Available ── */}
+        {/* ── Available Tab ── */}
         <TabsContent value="available" className="space-y-3 mt-0">
           {filteredTasks.length === 0 ? (
             <Card className="border-0 shadow-lg rounded-2xl overflow-hidden">
@@ -563,7 +546,6 @@ const deletedTaskCompletions = completions.filter(
               </CardContent>
             </Card>
           ) : (
-            // Single column on mobile, 2 cols on md+
             <div className="grid gap-3 grid-cols-1 md:grid-cols-2">
               {filteredTasks.map(task => (
                 <Card key={task.id} className="border border-gray-200 shadow-sm hover:shadow-lg active:shadow-sm transition-all duration-200 overflow-hidden rounded-2xl">
@@ -633,9 +615,9 @@ const deletedTaskCompletions = completions.filter(
           )}
         </TabsContent>
 
-        {/* ── Completed ── */}
+        {/* ── Completed Tab ── uses completions directly, never depends on tasks array ── */}
         <TabsContent value="completed" className="space-y-3 mt-0">
-          {completedTasks.length === 0 && deletedTaskCompletions.length === 0 ? (
+          {completedCompletions.length === 0 ? (
             <Card className="border border-dashed border-gray-300 rounded-2xl">
               <CardContent className="py-14 text-center">
                 <div className="w-14 h-14 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
@@ -646,42 +628,45 @@ const deletedTaskCompletions = completions.filter(
               </CardContent>
             </Card>
           ) : (
-            <>
-              {completedTasks.map(task => {
-                const completion = getTaskCompletion(task.id)
-                // FIX 3: cast status to string to avoid TS type overlap error
-                const needsProof = completion &&
-                  !completion.completion_proof &&
-                  (completion.status as string) === 'pending_verification' &&
-                  (task as any).requires_proof === true
+            <div className="space-y-3">
+              {completedCompletions.map(c => {
+                const needsProof = !c.completion_proof &&
+                  c.status === 'pending_verification' &&
+                  c.requires_proof === true
                 return (
                   <Card
-                    key={task.id}
+                    key={c.id}
                     className={`border shadow-sm rounded-2xl transition-all ${needsProof ? 'border-orange-200 bg-orange-50/40' : 'border-gray-200'}`}
                   >
                     <CardContent className="p-4">
                       <div className="flex items-center gap-3">
-                        {task.app_icon_url ? (
+                        {c.app_icon_url ? (
                           <img
-                            src={task.app_icon_url}
-                            alt={task.app_name || task.title}
+                            src={c.app_icon_url}
+                            alt={c.app_name || c.task_title}
                             className="w-11 h-11 rounded-xl object-cover border border-gray-200 flex-shrink-0"
                           />
                         ) : (
                           <div className="w-11 h-11 rounded-xl bg-gray-100 flex items-center justify-center flex-shrink-0 text-lg">
-                            {getActionTypeIcon(task.action_type || 'other')}
+                            {getActionTypeIcon(c.action_type || 'other')}
                           </div>
                         )}
                         <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold text-gray-900 text-sm truncate">{task.title}</h3>
-                          {task.app_name && <p className="text-xs text-gray-500 truncate">{task.app_name}</p>}
-                          {needsProof && completion && (
+                          <h3 className="font-semibold text-gray-900 text-sm truncate">
+                            {c.task_title || "Completed Task"}
+                          </h3>
+                          {c.app_name && <p className="text-xs text-gray-500 truncate">{c.app_name}</p>}
+                          {/* Only show "no longer available" if task was actually deleted */}
+                          {c.task_deleted && (
+                            <p className="text-xs text-gray-400">Task no longer available</p>
+                          )}
+                          {needsProof && (
                             <button
                               onClick={() => setProofState({
-                                completionId: completion.id,
-                                taskTitle: task.title,
-                                payout: Number(task.user_payout),
-                                instructions: (task as any).proof_instructions || null
+                                completionId: c.id,
+                                taskTitle: c.task_title || "Task",
+                                payout: Number(c.user_payout),
+                                instructions: c.proof_instructions || null
                               })}
                               className="mt-1.5 flex items-center gap-1 text-xs text-orange-600 hover:text-orange-700 font-semibold bg-orange-100 hover:bg-orange-200 active:bg-orange-300 px-2.5 py-1 rounded-lg transition-colors"
                             >
@@ -692,10 +677,10 @@ const deletedTaskCompletions = completions.filter(
                         <div className="text-right flex-shrink-0">
                           <div className="flex items-center gap-0.5 justify-end mb-1">
                             <IndianRupee className="w-3.5 h-3.5 text-green-600" />
-                            <span className="text-base font-black text-green-600">{Number(task.user_payout).toFixed(0)}</span>
+                            <span className="text-base font-black text-green-600">{Number(c.user_payout).toFixed(0)}</span>
                           </div>
-                          <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${getStatusColor(completion?.status || 'completed')}`}>
-                            {getStatusLabel(completion?.status || 'completed')}
+                          <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${getStatusColor(c.status)}`}>
+                            {getStatusLabel(c.status)}
                           </span>
                         </div>
                       </div>
@@ -703,33 +688,7 @@ const deletedTaskCompletions = completions.filter(
                   </Card>
                 )
               })}
-
-              {/* Deleted task completions */}
-              {deletedTaskCompletions.map(c => (
-  <Card key={`deleted-${c.id}`} className="border border-gray-200 shadow-sm rounded-2xl">
-    <CardContent className="p-4">
-      <div className="flex items-center gap-3">
-        <div className="w-11 h-11 rounded-xl bg-gray-100 flex items-center justify-center flex-shrink-0 text-lg">🎯</div>
-        <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-gray-900 text-sm truncate">
-            {(c as any).task_title || "Completed Task"}
-          </h3>
-          <p className="text-xs text-gray-400">Task no longer available</p>
-        </div>
-                      <div className="text-right flex-shrink-0">
-                        <div className="flex items-center gap-0.5 justify-end mb-1">
-                          <IndianRupee className="w-3.5 h-3.5 text-green-600" />
-                          <span className="text-base font-black text-green-600">{Number(c.user_payout).toFixed(0)}</span>
-                        </div>
-                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${getStatusColor(c.status)}`}>
-                          {getStatusLabel(c.status)}
-                        </span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </>
+            </div>
           )}
         </TabsContent>
       </Tabs>
