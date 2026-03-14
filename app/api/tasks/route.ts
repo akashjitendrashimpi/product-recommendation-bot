@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
     const url = new URL(request.url)
     const country = url.searchParams.get("country") || "IN"
 
-    // Pass userId so rejected completions free up slots for that user
+    // Pass userId so rejected slots free up for that user
     const session = await getSession()
     const userId = session?.userId
 

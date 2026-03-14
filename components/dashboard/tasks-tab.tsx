@@ -181,7 +181,7 @@ export function TasksTab({ userId }: TasksTabProps) {
     setUpiDialogOpen(true)
   }
 
-  // Available: tasks not yet completed by this user (or retryable after rejection)
+  // ── Available: tasks not yet completed by this user (or retryable after rejection) ──
   const isTaskCompleted = (taskId: number) =>
     completions.some(c => Number(c.task_id) === Number(taskId) && c.status !== "rejected")
 
@@ -192,8 +192,7 @@ export function TasksTab({ userId }: TasksTabProps) {
 
   const availableTasks = tasks.filter(t => !isTaskCompleted(t.id) || isTaskRetryable(t.id))
 
-  // Completed: use completions array directly — never depends on tasks array being populated
-  // This fixes the issue where tasks array is empty (slots full) but completions still exist
+  // ── Completed: use completions directly — never depends on tasks array ──
   const completedCompletions = completions.filter(c => c.status !== "rejected")
 
   const categories = ["all", ...new Set(tasks.map(t => t.action_type || "Other"))]
@@ -230,27 +229,34 @@ export function TasksTab({ userId }: TasksTabProps) {
     }
   }
 
+  // ── Enhanced SlotsBar — shows full state clearly ──
   const SlotsBar = ({ task }: { task: TaskWithSlots }) => {
     if (!task.max_completions) return null
     const filled = task.completion_count || 0
     const total = task.max_completions
     const remaining = total - filled
     const pct = Math.min((filled / total) * 100, 100)
-    const isCritical = remaining <= Math.ceil(total * 0.1)
+    const isFull = remaining <= 0
+    const isCritical = !isFull && remaining <= Math.ceil(total * 0.1)
+
     return (
       <div className="mt-2 pt-2 border-t border-gray-100">
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-1">
             <Users className="w-3 h-3 text-gray-400" />
-            <span className={`text-xs font-semibold ${isCritical ? 'text-orange-600' : 'text-gray-500'}`}>
-              {isCritical ? `🔥 Only ${remaining} spots left!` : `${remaining} of ${total} spots available`}
+            <span className={`text-xs font-semibold ${isFull ? 'text-red-500' : isCritical ? 'text-orange-600' : 'text-gray-500'}`}>
+              {isFull
+                ? '🔒 All slots filled'
+                : isCritical
+                ? `🔥 Only ${remaining} spots left!`
+                : `${remaining} of ${total} spots available`}
             </span>
           </div>
           <span className="text-xs text-gray-400">{filled}/{total}</span>
         </div>
         <div className="w-full bg-gray-100 rounded-full h-1.5">
           <div
-            className={`h-1.5 rounded-full transition-all ${pct > 80 ? 'bg-orange-500' : 'bg-blue-400'}`}
+            className={`h-1.5 rounded-full transition-all ${isFull ? 'bg-red-400' : pct > 80 ? 'bg-orange-500' : 'bg-blue-400'}`}
             style={{ width: `${pct}%` }}
           />
         </div>
@@ -547,75 +553,91 @@ export function TasksTab({ userId }: TasksTabProps) {
             </Card>
           ) : (
             <div className="grid gap-3 grid-cols-1 md:grid-cols-2">
-              {filteredTasks.map(task => (
-                <Card key={task.id} className="border border-gray-200 shadow-sm hover:shadow-lg active:shadow-sm transition-all duration-200 overflow-hidden rounded-2xl">
-                  <CardContent className="p-4 sm:p-5">
-                    <div className="flex items-start gap-3 mb-3">
-                      {task.app_icon_url ? (
-                        <img
-                          src={task.app_icon_url}
-                          alt={task.app_name || task.title}
-                          className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl object-cover border border-gray-200 shadow-sm flex-shrink-0"
-                        />
-                      ) : (
-                        <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center flex-shrink-0 text-2xl shadow-sm">
-                          {getActionTypeIcon(task.action_type || 'other')}
+              {filteredTasks.map(task => {
+                const isFull = task.max_completions
+                  ? (task.completion_count || 0) >= Number(task.max_completions)
+                  : false
+                const isRetryable = isTaskRetryable(task.id)
+
+                return (
+                  <Card key={task.id} className="border border-gray-200 shadow-sm hover:shadow-lg active:shadow-sm transition-all duration-200 overflow-hidden rounded-2xl">
+                    <CardContent className="p-4 sm:p-5">
+                      <div className="flex items-start gap-3 mb-3">
+                        {task.app_icon_url ? (
+                          <img
+                            src={task.app_icon_url}
+                            alt={task.app_name || task.title}
+                            className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl object-cover border border-gray-200 shadow-sm flex-shrink-0"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center flex-shrink-0 text-2xl shadow-sm">
+                            {getActionTypeIcon(task.action_type || 'other')}
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-bold text-gray-900 text-sm leading-tight line-clamp-2">{task.title}</h3>
+                          {task.app_name && <p className="text-xs text-gray-500 mt-0.5 truncate">{task.app_name}</p>}
+                          <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                            <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+                              {getActionTypeIcon(task.action_type || 'other')} {task.action_type}
+                            </span>
+                            {(task as any).requires_proof && (
+                              <span className="text-xs bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                <Camera className="w-2.5 h-2.5" /> Proof needed
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-right flex-shrink-0 ml-1">
+                          <div className="flex items-center gap-0.5 justify-end">
+                            <IndianRupee className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-green-600" />
+                            <span className="text-xl sm:text-2xl font-black text-green-600">{Number(task.user_payout).toFixed(0)}</span>
+                          </div>
+                          <p className="text-xs text-gray-400">per task</p>
+                        </div>
+                      </div>
+
+                      {task.description && (
+                        <p className="text-xs text-gray-500 line-clamp-2 mb-2">{task.description}</p>
+                      )}
+
+                      {/* Enhanced SlotsBar */}
+                      <SlotsBar task={task} />
+
+                      {/* Rejection retry banner */}
+                      {isRetryable && (
+                        <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-3 py-2 mt-3">
+                          <span className="text-red-500 text-xs flex-shrink-0">❌</span>
+                          <p className="text-xs text-red-600 font-medium">Previous attempt rejected — you can retry</p>
                         </div>
                       )}
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-bold text-gray-900 text-sm leading-tight line-clamp-2">{task.title}</h3>
-                        {task.app_name && <p className="text-xs text-gray-500 mt-0.5 truncate">{task.app_name}</p>}
-                        <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-                          <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
-                            {getActionTypeIcon(task.action_type || 'other')} {task.action_type}
-                          </span>
-                          {(task as any).requires_proof && (
-                            <span className="text-xs bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full flex items-center gap-1">
-                              <Camera className="w-2.5 h-2.5" /> Proof needed
-                            </span>
-                          )}
+
+                      {/* Button — locked if full (and not retryable), otherwise normal */}
+                      {isFull && !isRetryable ? (
+                        <div className="w-full bg-gray-100 border border-gray-200 rounded-xl h-11 flex items-center justify-center gap-2 mt-3">
+                          <span className="text-gray-400 text-sm font-semibold">🔒 All slots filled</span>
                         </div>
-                      </div>
-                      <div className="text-right flex-shrink-0 ml-1">
-                        <div className="flex items-center gap-0.5 justify-end">
-                          <IndianRupee className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-green-600" />
-                          <span className="text-xl sm:text-2xl font-black text-green-600">{Number(task.user_payout).toFixed(0)}</span>
-                        </div>
-                        <p className="text-xs text-gray-400">per task</p>
-                      </div>
-                    </div>
-
-                    {task.description && (
-                      <p className="text-xs text-gray-500 line-clamp-2 mb-2">{task.description}</p>
-                    )}
-
-                    <SlotsBar task={task} />
-
-                    {isTaskRetryable(task.id) && (
-                      <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-3 py-2 mt-3">
-                        <span className="text-red-500 text-xs flex-shrink-0">❌</span>
-                        <p className="text-xs text-red-600 font-medium">Previous attempt rejected — you can retry</p>
-                      </div>
-                    )}
-
-                    <Button
-                      onClick={() => handleCompleteTask(task)}
-                      disabled={completingTaskId === task.id}
-                      className="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 rounded-xl h-11 font-semibold mt-3 text-sm"
-                    >
-                      {completingTaskId === task.id
-                        ? <><Clock className="w-4 h-4 mr-2 animate-spin" />Opening task...</>
-                        : <><ExternalLink className="w-4 h-4 mr-2" />Start & Earn ₹{Number(task.user_payout).toFixed(0)}</>
-                      }
-                    </Button>
-                  </CardContent>
-                </Card>
-              ))}
+                      ) : (
+                        <Button
+                          onClick={() => handleCompleteTask(task)}
+                          disabled={completingTaskId === task.id}
+                          className="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 rounded-xl h-11 font-semibold mt-3 text-sm"
+                        >
+                          {completingTaskId === task.id
+                            ? <><Clock className="w-4 h-4 mr-2 animate-spin" />Opening task...</>
+                            : <><ExternalLink className="w-4 h-4 mr-2" />Start & Earn ₹{Number(task.user_payout).toFixed(0)}</>
+                          }
+                        </Button>
+                      )}
+                    </CardContent>
+                  </Card>
+                )
+              })}
             </div>
           )}
         </TabsContent>
 
-        {/* ── Completed Tab ── uses completions directly, never depends on tasks array ── */}
+        {/* ── Completed Tab — uses completions directly, always shows full history ── */}
         <TabsContent value="completed" className="space-y-3 mt-0">
           {completedCompletions.length === 0 ? (
             <Card className="border border-dashed border-gray-300 rounded-2xl">
@@ -656,7 +678,6 @@ export function TasksTab({ userId }: TasksTabProps) {
                             {c.task_title || "Completed Task"}
                           </h3>
                           {c.app_name && <p className="text-xs text-gray-500 truncate">{c.app_name}</p>}
-                          {/* Only show "no longer available" if task was actually deleted */}
                           {c.task_deleted && (
                             <p className="text-xs text-gray-400">Task no longer available</p>
                           )}
