@@ -25,25 +25,22 @@ export async function POST(
         .select("id", { count: "exact", head: true })
         .eq("task_id", taskId)
         .neq("status", "rejected")
-
-      if ((count || 0) >= Number(task.max_completions)) {
+      if ((count || 0) >= Number(task.max_completions))
         return NextResponse.json({ error: "This task has reached its maximum completions limit" }, { status: 400 })
-      }
     }
 
-    // Check if user already completed this task
+    // Check already completed
     const { data: existing } = await (supabaseAdmin as any)
       .from("task_completions").select("id")
       .eq("task_id", taskId).eq("user_id", session.userId)
       .neq("status", "rejected").maybeSingle()
-
     if (existing) return NextResponse.json({ error: "Task already completed" }, { status: 400 })
 
     const requiresProof = task.requires_proof === true
     const payout = Number(task.user_payout) > 0 ? Number(task.user_payout) : Number(task.reward || 0)
 
-    // If proof needed → pending_verification (waits for user screenshot + admin approval)
-    // If no proof needed → verified directly, but still needs admin to pay
+    // With proof → pending_verification, wait for admin approval
+    // No proof → verified, create payment immediately for admin to pay
     const initialStatus = requiresProof ? "pending_verification" : "verified"
 
     const { data: completion, error } = await (supabaseAdmin as any)
@@ -62,29 +59,9 @@ export async function POST(
 
     if (error) throw error
 
-    // If no proof needed — credit earnings + create payment record immediately
-    // (same logic as admin approving a proof)
+    // No proof needed → create payment record for admin to pay
+    // DO NOT credit user_earnings here — credit only when admin marks payment as completed
     if (!requiresProof) {
-      const today = new Date().toISOString().split("T")[0]
-
-      const { data: earn } = await (supabaseAdmin as any)
-        .from("user_earnings").select("id, daily_earnings, tasks_completed")
-        .eq("user_id", session.userId).eq("date", today).maybeSingle()
-
-      if (earn) {
-        await (supabaseAdmin as any).from("user_earnings")
-          .update({
-            daily_earnings: Number(earn.daily_earnings) + payout,
-            tasks_completed: Number(earn.tasks_completed) + 1,
-            amount: Number(earn.daily_earnings) + payout,
-          })
-          .eq("id", earn.id)
-      } else {
-        await (supabaseAdmin as any).from("user_earnings")
-          .insert({ user_id: session.userId, date: today, daily_earnings: payout, tasks_completed: 1, amount: payout })
-      }
-
-      // Create pending payment record so admin can pay
       const { data: user } = await (supabaseAdmin as any)
         .from("users").select("upi_id").eq("id", session.userId).single()
 

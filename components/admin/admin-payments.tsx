@@ -5,8 +5,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { CheckCircle, XCircle, Clock, Copy, IndianRupee, Wallet, AlertTriangle } from "lucide-react"
+import { CheckCircle, XCircle, Clock, Copy, IndianRupee, Wallet, AlertTriangle, X, ExternalLink } from "lucide-react"
 
 interface Payment {
   id: number
@@ -16,7 +15,10 @@ interface Payment {
   status: 'pending' | 'processing' | 'completed' | 'rejected' | 'failed'
   transaction_id: string | null
   created_at: string
+  description: string | null
   user_email?: string
+  user_name?: string
+  task_title?: string
 }
 
 export function AdminPayments() {
@@ -25,18 +27,16 @@ export function AdminPayments() {
   const [updating, setUpdating] = useState<number | null>(null)
   const [filter, setFilter] = useState<'all' | 'pending' | 'completed' | 'rejected'>('pending')
   const [copied, setCopied] = useState<string | null>(null)
-  const [confirmPayment, setConfirmPayment] = useState<Payment | null>(null)
+  const [payingPayment, setPayingPayment] = useState<Payment | null>(null)
   const [transactionId, setTransactionId] = useState('')
+  const [rejectingId, setRejectingId] = useState<number | null>(null)
 
   useEffect(() => { fetchPayments() }, [])
 
   const fetchPayments = async () => {
     try {
       const res = await fetch('/api/admin/payments')
-      if (res.ok) {
-        const data = await res.json()
-        setPayments(data.payments || [])
-      }
+      if (res.ok) setPayments((await res.json()).payments || [])
     } catch (error) {
       console.error('Error fetching payments:', error)
     } finally {
@@ -54,7 +54,8 @@ export function AdminPayments() {
       })
       if (res.ok) {
         fetchPayments()
-        setConfirmPayment(null)
+        setPayingPayment(null)
+        setRejectingId(null)
         setTransactionId('')
       }
     } catch (error) {
@@ -75,221 +76,263 @@ export function AdminPayments() {
   const rejectedCount = payments.filter(p => p.status === 'rejected').length
   const totalPaid = payments.filter(p => p.status === 'completed').reduce((s, p) => s + Number(p.amount), 0)
   const pendingAmount = payments.filter(p => p.status === 'pending').reduce((s, p) => s + Number(p.amount), 0)
-
   const filtered = payments.filter(p => filter === 'all' || p.status === filter)
 
   return (
     <div className="space-y-6">
+
+      {/* Pay Modal */}
+      {payingPayment && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-lg font-bold text-gray-900">Mark as Paid</h3>
+              <button onClick={() => { setPayingPayment(null); setTransactionId('') }}
+                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center">
+                <X className="w-4 h-4 text-gray-500" />
+              </button>
+            </div>
+
+            {/* Payment Summary */}
+            <div className="bg-green-50 border border-green-200 rounded-2xl p-4 mb-4">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <p className="text-xs text-gray-500">User</p>
+                  <p className="text-sm font-bold text-gray-900">{payingPayment.user_name || payingPayment.user_email || `User #${payingPayment.user_id}`}</p>
+                  <p className="text-xs text-gray-500">{payingPayment.user_email}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-gray-500">Amount</p>
+                  <div className="flex items-center gap-0.5 justify-end">
+                    <IndianRupee className="w-4 h-4 text-green-600" />
+                    <p className="text-2xl font-black text-green-600">{Number(payingPayment.amount).toFixed(0)}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 bg-white rounded-xl p-3 border border-green-100">
+                <Wallet className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                <span className="font-mono text-sm flex-1 text-gray-800">{payingPayment.upi_id}</span>
+                <button onClick={() => copyUpi(payingPayment.upi_id)}
+                  className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-semibold bg-blue-50 px-2 py-1 rounded-lg">
+                  <Copy className="w-3 h-3" />
+                  {copied === payingPayment.upi_id ? 'Copied!' : 'Copy'}
+                </button>
+              </div>
+            </div>
+
+            <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 mb-4 text-xs text-blue-700">
+              <p className="font-semibold mb-0.5">Steps:</p>
+              <p>1. Open PhonePe / GPay / Paytm</p>
+              <p>2. Send ₹{Number(payingPayment.amount).toFixed(0)} to the UPI ID above</p>
+              <p>3. Copy the transaction ID and paste below</p>
+            </div>
+
+            <div className="space-y-2 mb-5">
+              <label className="text-sm font-semibold text-gray-700">Transaction ID</label>
+              <Input
+                value={transactionId}
+                onChange={e => setTransactionId(e.target.value)}
+                placeholder="e.g. T2403011234567 (optional)"
+                className="rounded-xl h-11"
+              />
+              <p className="text-xs text-gray-400">Transaction ID is optional but recommended for records</p>
+            </div>
+
+            <div className="flex gap-3">
+              <Button variant="outline" onClick={() => { setPayingPayment(null); setTransactionId('') }} className="flex-1 rounded-xl">
+                Cancel
+              </Button>
+              <Button
+                onClick={() => updatePayment(payingPayment.id, 'completed', transactionId)}
+                disabled={updating === payingPayment.id}
+                className="flex-1 bg-green-600 hover:bg-green-700 rounded-xl"
+              >
+                <CheckCircle className="w-4 h-4 mr-2" />
+                {updating === payingPayment.id ? 'Saving...' : 'Confirm Paid'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reject Confirm */}
+      {rejectingId && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 text-center">
+            <div className="w-14 h-14 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <XCircle className="w-7 h-7 text-red-600" />
+            </div>
+            <h3 className="text-lg font-bold text-gray-900 mb-2">Reject Payment?</h3>
+            <p className="text-sm text-gray-500 mb-5">The user's earnings balance will remain unchanged. They can request again.</p>
+            <div className="flex gap-3">
+              <Button variant="outline" onClick={() => setRejectingId(null)} className="flex-1 rounded-xl">Cancel</Button>
+              <Button
+                onClick={() => updatePayment(rejectingId, 'rejected')}
+                disabled={updating === rejectingId}
+                className="flex-1 bg-red-600 hover:bg-red-700 rounded-xl"
+              >
+                {updating === rejectingId ? 'Rejecting...' : 'Yes, Reject'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Payments</h1>
-        <p className="text-gray-600 mt-1">Manage user payout requests</p>
+        <p className="text-gray-500 mt-1">Manage and process user payout requests</p>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className="border border-orange-200 bg-orange-50">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-1">
-              <Clock className="w-4 h-4 text-orange-600" />
-              <p className="text-xs text-orange-600 font-medium">Pending</p>
-            </div>
-            <p className="text-2xl font-bold text-orange-700">{pendingCount}</p>
-            <p className="text-xs text-orange-600">Rs.{pendingAmount.toFixed(2)} to pay</p>
-          </CardContent>
-        </Card>
-        <Card className="border border-green-200 bg-green-50">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-1">
-              <CheckCircle className="w-4 h-4 text-green-600" />
-              <p className="text-xs text-green-600 font-medium">Completed</p>
-            </div>
-            <p className="text-2xl font-bold text-green-700">{completedCount}</p>
-            <p className="text-xs text-green-600">Rs.{totalPaid.toFixed(2)} paid</p>
-          </CardContent>
-        </Card>
-        <Card className="border border-red-200 bg-red-50">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-1">
-              <XCircle className="w-4 h-4 text-red-600" />
-              <p className="text-xs text-red-600 font-medium">Rejected</p>
-            </div>
-            <p className="text-2xl font-bold text-red-700">{rejectedCount}</p>
-          </CardContent>
-        </Card>
-        <Card className="border border-blue-200 bg-blue-50">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-1">
-              <IndianRupee className="w-4 h-4 text-blue-600" />
-              <p className="text-xs text-blue-600 font-medium">Total</p>
-            </div>
-            <p className="text-2xl font-bold text-blue-700">{payments.length}</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Manual Payment Instructions */}
-      {pendingCount > 0 && (
-        <Card className="border border-orange-200 bg-orange-50">
-          <CardContent className="p-4 flex items-start gap-3">
-            <AlertTriangle className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm font-semibold text-orange-800">Manual Payment Required</p>
-              <p className="text-xs text-orange-700 mt-1">
-                Send money via PhonePe/GPay/Paytm to the UPI ID shown, then click Approve and enter the transaction ID.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Confirm Payment Modal */}
-      {confirmPayment && (
-        <Card className="border-2 border-green-300 bg-green-50">
-          <CardContent className="p-6">
-            <h3 className="font-semibold text-gray-900 mb-4">Confirm Payment — Rs.{confirmPayment.amount}</h3>
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 p-3 bg-white rounded-lg border">
-                <Wallet className="w-4 h-4 text-gray-500" />
-                <span className="font-mono text-sm flex-1">{confirmPayment.upi_id}</span>
-                <Button size="sm" variant="ghost" onClick={() => copyUpi(confirmPayment.upi_id)}>
-                  <Copy className="w-3 h-3" />
-                  {copied === confirmPayment.upi_id ? ' Copied!' : ' Copy'}
-                </Button>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {[
+          { label: 'Pending', value: pendingCount, sub: `₹${pendingAmount.toFixed(0)} to pay`, icon: Clock, color: 'orange' },
+          { label: 'Paid Out', value: completedCount, sub: `₹${totalPaid.toFixed(0)} total`, icon: CheckCircle, color: 'green' },
+          { label: 'Rejected', value: rejectedCount, sub: 'declined', icon: XCircle, color: 'red' },
+          { label: 'All Time', value: payments.length, sub: 'total requests', icon: IndianRupee, color: 'blue' },
+        ].map((s, i) => (
+          <Card key={i} className={`border border-${s.color}-200 bg-${s.color}-50 rounded-2xl`}>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-1.5 mb-1">
+                <s.icon className={`w-3.5 h-3.5 text-${s.color}-600`} />
+                <p className={`text-xs text-${s.color}-600 font-medium`}>{s.label}</p>
               </div>
-              <div>
-                <Label className="text-sm">Transaction ID (from your UPI app)</Label>
-                <Input
-                  value={transactionId}
-                  onChange={e => setTransactionId(e.target.value)}
-                  placeholder="e.g. T2403011234567"
-                  className="mt-1"
-                />
-              </div>
-              <div className="flex gap-2 pt-2">
-                <Button
-                  onClick={() => updatePayment(confirmPayment.id, 'completed', transactionId)}
-                  disabled={updating === confirmPayment.id}
-                  className="bg-green-600 hover:bg-green-700"
-                >
-                  <CheckCircle className="w-4 h-4 mr-2" />
-                  {updating === confirmPayment.id ? 'Processing...' : 'Mark as Paid'}
-                </Button>
-                <Button variant="outline" onClick={() => { setConfirmPayment(null); setTransactionId('') }}>
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Filter Tabs */}
-      <div className="flex gap-2 flex-wrap">
-        {(['all', 'pending', 'completed', 'rejected'] as const).map(f => (
-          <Button
-            key={f}
-            variant={filter === f ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setFilter(f)}
-            className={filter === f ? 'bg-blue-600' : ''}
-          >
-            {f.charAt(0).toUpperCase() + f.slice(1)}
-            {f === 'pending' && pendingCount > 0 && (
-              <span className="ml-1 bg-red-500 text-white text-xs rounded-full px-1.5">{pendingCount}</span>
-            )}
-          </Button>
+              <p className={`text-2xl font-black text-${s.color}-700`}>{s.value}</p>
+              <p className={`text-xs text-${s.color}-500 mt-0.5`}>{s.sub}</p>
+            </CardContent>
+          </Card>
         ))}
       </div>
 
-      {/* Payments Table */}
-      <Card className="border border-gray-200">
-        <CardContent className="p-0">
-          {loading ? (
-            <div className="p-8 text-center text-gray-500">Loading payments...</div>
-          ) : filtered.length === 0 ? (
-            <div className="p-8 text-center text-gray-500">No {filter} payments found</div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b border-gray-200">
-                  <tr>
-                    <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">User</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Amount</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">UPI ID</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Date</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Status</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {filtered.map((payment) => (
-                    <tr key={payment.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3">
-                        <p className="text-sm font-medium text-gray-900">{payment.user_email || `User #${payment.user_id}`}</p>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="text-sm font-bold text-gray-900">Rs.{Number(payment.amount).toFixed(2)}</span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-1">
-                          <span className="text-sm text-gray-600 font-mono">{payment.upi_id}</span>
-                          <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={() => copyUpi(payment.upi_id)}>
-                            <Copy className="w-3 h-3" />
-                          </Button>
-                          {copied === payment.upi_id && <span className="text-xs text-green-600">Copied!</span>}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-600">
-                        {new Date(payment.created_at).toLocaleDateString()}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="space-y-1">
-                          <Badge className={
-                            payment.status === 'completed' ? 'bg-green-100 text-green-700' :
-                            payment.status === 'rejected' || payment.status === 'failed' ? 'bg-red-100 text-red-700' :
-                            'bg-orange-100 text-orange-700'
-                          }>
-                            {payment.status === 'pending' && <Clock className="w-3 h-3 mr-1 inline" />}
-                            {payment.status === 'completed' && <CheckCircle className="w-3 h-3 mr-1 inline" />}
-                            {(payment.status === 'rejected' || payment.status === 'failed') && <XCircle className="w-3 h-3 mr-1 inline" />}
-                            {payment.status}
-                          </Badge>
-                          {payment.transaction_id && (
-                            <p className="text-xs text-gray-500 font-mono">{payment.transaction_id}</p>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        {payment.status === 'pending' && (
-                          <div className="flex gap-2">
-                            <Button
-                              size="sm"
-                              disabled={updating === payment.id}
-                              onClick={() => setConfirmPayment(payment)}
-                              className="bg-green-600 hover:bg-green-700 text-white"
-                            >
-                              <CheckCircle className="w-3 h-3 mr-1" /> Approve
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              disabled={updating === payment.id}
-                              onClick={() => updatePayment(payment.id, 'rejected')}
-                              className="text-red-600 border-red-200 hover:bg-red-50"
-                            >
-                              <XCircle className="w-3 h-3 mr-1" /> Reject
-                            </Button>
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+      {/* Pending Alert */}
+      {pendingCount > 0 && (
+        <div className="bg-orange-50 border border-orange-200 rounded-2xl p-4 flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-bold text-orange-800">{pendingCount} payment{pendingCount > 1 ? 's' : ''} waiting — ₹{pendingAmount.toFixed(0)} total</p>
+            <p className="text-xs text-orange-600 mt-0.5">Send money via PhonePe/GPay/Paytm to the UPI ID, then click Pay and enter the transaction ID.</p>
+          </div>
+        </div>
+      )}
+
+      {/* Filter Tabs */}
+      <div className="flex gap-1 p-1 bg-gray-100 rounded-xl w-fit">
+        {(['pending', 'completed', 'rejected', 'all'] as const).map(f => (
+          <button key={f} onClick={() => setFilter(f)}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${filter === f ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+            {f.charAt(0).toUpperCase() + f.slice(1)}
+            {f === 'pending' && pendingCount > 0 && (
+              <span className="ml-1.5 bg-orange-500 text-white text-xs rounded-full px-1.5 py-0.5">{pendingCount}</span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* Payments List */}
+      {loading ? (
+        <div className="space-y-3">
+          {[1,2,3].map(i => <div key={i} className="h-24 bg-gray-100 rounded-2xl animate-pulse" />)}
+        </div>
+      ) : filtered.length === 0 ? (
+        <Card className="border border-gray-200 rounded-2xl">
+          <CardContent className="p-12 text-center">
+            <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <Wallet className="w-8 h-8 text-gray-300" />
             </div>
-          )}
-        </CardContent>
-      </Card>
+            <p className="text-gray-500 font-medium">No {filter} payments</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-3">
+          {filtered.map((payment) => (
+            <Card key={payment.id} className={`border rounded-2xl transition-all ${
+              payment.status === 'pending' ? 'border-orange-200 hover:shadow-md' : 'border-gray-200'
+            }`}>
+              <CardContent className="p-5">
+                <div className="flex flex-col md:flex-row md:items-center gap-4">
+                  {/* Info */}
+                  <div className="flex-1 space-y-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm font-bold text-gray-900">
+                        {payment.user_name || payment.user_email || `User #${payment.user_id}`}
+                      </p>
+                      <Badge className={
+                        payment.status === 'completed' ? 'bg-green-100 text-green-700 border-0' :
+                        payment.status === 'rejected' || payment.status === 'failed' ? 'bg-red-100 text-red-700 border-0' :
+                        'bg-orange-100 text-orange-700 border-0'
+                      }>
+                        {payment.status === 'pending' && <Clock className="w-3 h-3 mr-1 inline" />}
+                        {payment.status === 'completed' && <CheckCircle className="w-3 h-3 mr-1 inline" />}
+                        {(payment.status === 'rejected' || payment.status === 'failed') && <XCircle className="w-3 h-3 mr-1 inline" />}
+                        {payment.status}
+                      </Badge>
+                    </div>
+
+                    <div className="flex items-center gap-3 flex-wrap">
+                      {/* Amount */}
+                      <div className="flex items-center gap-0.5">
+                        <IndianRupee className="w-4 h-4 text-gray-700" />
+                        <span className="text-lg font-black text-gray-900">{Number(payment.amount).toFixed(0)}</span>
+                      </div>
+
+                      {/* UPI */}
+                      <button onClick={() => copyUpi(payment.upi_id)}
+                        className="flex items-center gap-1.5 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-xl text-xs font-mono text-gray-700 transition-colors">
+                        <Copy className="w-3 h-3" />
+                        {payment.upi_id}
+                        {copied === payment.upi_id && <span className="text-green-600 font-semibold ml-1">Copied!</span>}
+                      </button>
+
+                      {/* Task */}
+                      {payment.description && (
+                        <span className="text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded-lg">
+                          {payment.description}
+                        </span>
+                      )}
+
+                      {/* Date */}
+                      <span className="text-xs text-gray-400">
+                        {new Date(payment.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </span>
+
+                      {/* Transaction ID */}
+                      {payment.transaction_id && (
+                        <span className="text-xs text-green-600 font-mono bg-green-50 px-2 py-1 rounded-lg">
+                          Txn: {payment.transaction_id}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  {payment.status === 'pending' && (
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        disabled={updating === payment.id}
+                        onClick={() => setPayingPayment(payment)}
+                        className="bg-green-600 hover:bg-green-700 text-white rounded-xl h-10 px-4"
+                      >
+                        <CheckCircle className="w-4 h-4 mr-1.5" /> Pay Now
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={updating === payment.id}
+                        onClick={() => setRejectingId(payment.id)}
+                        className="text-red-600 border-red-200 hover:bg-red-50 rounded-xl h-10 px-4"
+                      >
+                        <XCircle className="w-4 h-4 mr-1.5" /> Reject
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

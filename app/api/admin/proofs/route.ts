@@ -31,8 +31,8 @@ export async function GET(request: NextRequest) {
       ...c,
       user_email: userMap[c.user_id]?.email || null,
       user_name: userMap[c.user_id]?.display_name || null,
-      task_title: taskMap[c.task_id]?.title || null,
-      user_payout: c.payout || c.user_payout || taskMap[c.task_id]?.user_payout || 0,
+      task_title: taskMap[c.task_id]?.title || "Task (removed)",
+      user_payout: c.user_payout || taskMap[c.task_id]?.user_payout || 0,
     }))
 
     return NextResponse.json({ completions })
@@ -52,54 +52,52 @@ export async function PATCH(request: NextRequest) {
     if (!["approve", "reject"].includes(action))
       return NextResponse.json({ error: "Invalid action" }, { status: 400 })
 
-    const newStatus = action === "approve" ? "verified" : "rejected"
-
     const { data: completion, error: fetchError } = await (supabaseAdmin as any)
-      .from("task_completions")
-      .select("*")
-      .eq("id", completion_id)
-      .single()
-
+      .from("task_completions").select("*").eq("id", completion_id).single()
     if (fetchError || !completion)
       return NextResponse.json({ error: "Completion not found" }, { status: 404 })
 
     const { data: task } = await (supabaseAdmin as any)
-      .from("tasks")
-      .select("id, title, user_payout, reward")
-      .eq("id", completion.task_id)
-      .single()
+      .from("tasks").select("id, title, user_payout, reward").eq("id", completion.task_id).single()
 
-    await (supabaseAdmin as any)
-      .from("task_completions")
-      .update({ status: newStatus, verified_at: action === "approve" ? new Date().toISOString() : null, updated_at: new Date().toISOString() })
-      .eq("id", completion_id)
+    const payout = Number(completion.user_payout || task?.user_payout || task?.reward || 0)
+    const userId = completion.user_id
 
     if (action === "approve") {
-      const payout = Number(completion.payout || completion.user_payout || task?.user_payout || task?.reward || 0)
-      const userId = completion.user_id
-      const today = new Date().toISOString().split("T")[0]
+      // 1. Mark completion as verified
+      await (supabaseAdmin as any)
+        .from("task_completions")
+        .update({ status: "verified", verified_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+        .eq("id", completion_id)
 
+      // 2. Credit user earnings
+      const today = new Date().toISOString().split("T")[0]
       const { data: earn } = await (supabaseAdmin as any)
         .from("user_earnings").select("id, daily_earnings, tasks_completed")
         .eq("user_id", userId).eq("date", today).maybeSingle()
 
       if (earn) {
         await (supabaseAdmin as any).from("user_earnings")
-          .update({ daily_earnings: Number(earn.daily_earnings) + payout, tasks_completed: Number(earn.tasks_completed) + 1, amount: Number(earn.daily_earnings) + payout })
+          .update({
+            daily_earnings: Number(earn.daily_earnings) + payout,
+            tasks_completed: Number(earn.tasks_completed) + 1,
+            amount: Number(earn.daily_earnings) + payout,
+          })
           .eq("id", earn.id)
       } else {
         await (supabaseAdmin as any).from("user_earnings")
           .insert({ user_id: userId, date: today, daily_earnings: payout, tasks_completed: 1, amount: payout })
       }
 
-      const { data: user } = await (supabaseAdmin as any)
-        .from("users").select("upi_id").eq("id", userId).single()
-
+      // 3. Create payment record for admin to pay (only if not already exists)
       const { data: existingPayment } = await (supabaseAdmin as any)
         .from("payments").select("id").eq("completion_id", completion_id).maybeSingle()
 
       if (!existingPayment) {
-        const { error: paymentError } = await (supabaseAdmin as any).from("payments").insert({
+        const { data: user } = await (supabaseAdmin as any)
+          .from("users").select("upi_id").eq("id", userId).single()
+
+        await (supabaseAdmin as any).from("payments").insert({
           user_id: userId,
           amount: payout,
           upi_id: user?.upi_id || "NOT_SET",
@@ -109,11 +107,24 @@ export async function PATCH(request: NextRequest) {
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         })
-        if (paymentError) console.error("Payment insert error:", paymentError)
       }
+
+    } else {
+      // REJECT — mark completion rejected + delete any payment record
+      await (supabaseAdmin as any)
+        .from("task_completions")
+        .update({ status: "rejected", verified_at: null, updated_at: new Date().toISOString() })
+        .eq("id", completion_id)
+
+      // Delete payment if it was already created (shouldn't be for proof tasks, but safety net)
+      await (supabaseAdmin as any)
+        .from("payments")
+        .delete()
+        .eq("completion_id", completion_id)
+        .eq("status", "pending")
     }
 
-    return NextResponse.json({ success: true, status: newStatus })
+    return NextResponse.json({ success: true, status: action === "approve" ? "verified" : "rejected" })
   } catch (error) {
     console.error("Error updating proof:", error)
     return NextResponse.json({ error: "Failed to update" }, { status: 500 })
