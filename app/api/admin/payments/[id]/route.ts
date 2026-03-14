@@ -17,7 +17,7 @@ export async function PATCH(
     if (!["completed", "rejected"].includes(status))
       return NextResponse.json({ error: "Invalid status" }, { status: 400 })
 
-    // Fetch payment to get user_id, amount, completion_id
+    // Fetch payment
     const { data: payment, error: fetchError } = await (supabaseAdmin as any)
       .from("payments")
       .select("*")
@@ -41,8 +41,21 @@ export async function PATCH(
     if (error) throw error
 
     if (status === "completed") {
-      // Mark the task_completion as verified
+      // Check current completion status BEFORE updating
+      // Proof tasks → already "verified" + earnings already credited at proof approval → skip earnings
+      // No-proof tasks → status is "pending" → credit earnings now
+      let currentCompletionStatus = "pending"
+
       if (payment.completion_id) {
+        const { data: comp } = await (supabaseAdmin as any)
+          .from("task_completions")
+          .select("status")
+          .eq("id", payment.completion_id)
+          .single()
+
+        currentCompletionStatus = comp?.status || "pending"
+
+        // Mark completion as verified (paid)
         await (supabaseAdmin as any)
           .from("task_completions")
           .update({
@@ -53,41 +66,44 @@ export async function PATCH(
           .eq("id", payment.completion_id)
       }
 
-      // Credit user earnings
-      const payout = Number(payment.amount)
-      const userId = payment.user_id
-      const today = new Date().toISOString().split("T")[0]
+      // Only credit earnings for no-proof tasks (were "pending")
+      // Proof tasks (were "verified") already had earnings credited at proof approval
+      if (currentCompletionStatus !== "verified") {
+        const payout = Number(payment.amount)
+        const userId = payment.user_id
+        const today = new Date().toISOString().split("T")[0]
 
-      const { data: earn } = await (supabaseAdmin as any)
-        .from("user_earnings")
-        .select("id, daily_earnings, tasks_completed")
-        .eq("user_id", userId)
-        .eq("date", today)
-        .maybeSingle()
+        const { data: earn } = await (supabaseAdmin as any)
+          .from("user_earnings")
+          .select("id, daily_earnings, tasks_completed")
+          .eq("user_id", userId)
+          .eq("date", today)
+          .maybeSingle()
 
-      if (earn) {
-        await (supabaseAdmin as any)
-          .from("user_earnings")
-          .update({
-            daily_earnings: Number(earn.daily_earnings) + payout,
-            tasks_completed: Number(earn.tasks_completed) + 1,
-            amount: Number(earn.daily_earnings) + payout,
-          })
-          .eq("id", earn.id)
-      } else {
-        await (supabaseAdmin as any)
-          .from("user_earnings")
-          .insert({
-            user_id: userId,
-            date: today,
-            daily_earnings: payout,
-            tasks_completed: 1,
-            amount: payout,
-          })
+        if (earn) {
+          await (supabaseAdmin as any)
+            .from("user_earnings")
+            .update({
+              daily_earnings: Number(earn.daily_earnings) + payout,
+              tasks_completed: Number(earn.tasks_completed) + 1,
+              amount: Number(earn.daily_earnings) + payout,
+            })
+            .eq("id", earn.id)
+        } else {
+          await (supabaseAdmin as any)
+            .from("user_earnings")
+            .insert({
+              user_id: userId,
+              date: today,
+              daily_earnings: payout,
+              tasks_completed: 1,
+              amount: payout,
+            })
+        }
       }
 
     } else if (status === "rejected") {
-      // Mark the task_completion as rejected too
+      // Mark completion as rejected → frees up the slot + user can retry
       if (payment.completion_id) {
         await (supabaseAdmin as any)
           .from("task_completions")
