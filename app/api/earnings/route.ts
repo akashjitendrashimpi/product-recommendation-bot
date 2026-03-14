@@ -24,13 +24,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ earnings: monthlyEarnings })
     }
 
-    // Fetch completions directly — include task info but don't drop completion if task deleted
+    // ── FIX: removed .limit(20) so rejected completions are never silently dropped ──
+    // Without all completions, isTaskRetryable() in the frontend would never fire
     const { data: completions } = await (supabaseAdmin as any)
       .from("task_completions")
       .select("*")
       .eq("user_id", session.userId)
       .order("created_at", { ascending: false })
-      .limit(20)
 
     const completionList = completions || []
 
@@ -45,10 +45,9 @@ export async function GET(request: NextRequest) {
       ;(tasks || []).forEach((t: any) => { taskMap[t.id] = t })
     }
 
-    // Merge — if task deleted, use fallback title from completion description or "Deleted Task"
+    // Merge — if task deleted, fall back gracefully
     const enrichedCompletions = completionList.map((c: any) => ({
       ...c,
-      // task fields — fallback gracefully if task was deleted
       task_title: taskMap[c.task_id]?.title || c.task_title || "Task (removed)",
       app_name: taskMap[c.task_id]?.app_name || null,
       app_icon_url: taskMap[c.task_id]?.app_icon_url || null,
@@ -56,7 +55,7 @@ export async function GET(request: NextRequest) {
       requires_proof: taskMap[c.task_id]?.requires_proof ?? false,
       proof_instructions: taskMap[c.task_id]?.proof_instructions || null,
       user_payout: c.user_payout || taskMap[c.task_id]?.user_payout || 0,
-      task_deleted: !taskMap[c.task_id], // flag so UI can show differently
+      task_deleted: !taskMap[c.task_id],
     }))
 
     const [summary, completedPayouts, pendingPayouts] = await Promise.all([

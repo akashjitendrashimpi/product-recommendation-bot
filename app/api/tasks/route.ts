@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getAllTasks } from "@/lib/db/tasks"
+import { getSession } from "@/lib/auth/session"
 
 export async function GET(request: NextRequest) {
   try {
     const url = new URL(request.url)
     const country = url.searchParams.get("country") || "IN"
 
-    const tasks = await getAllTasks(country)
+    // Pass userId so rejected completions free up slots for that user
+    const session = await getSession()
+    const userId = session?.userId
+
+    const tasks = await getAllTasks(country, userId)
 
     return NextResponse.json({ tasks })
   } catch (error) {

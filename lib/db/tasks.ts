@@ -1,8 +1,8 @@
 import { supabaseAdmin } from '@/lib/supabase/client'
 import type { Task, TaskCompletion } from '@/lib/types'
 
-// Get all active tasks (filters out full tasks)
-export async function getAllTasks(country: string = 'IN'): Promise<Task[]> {
+// Get all active tasks — userId optional: if provided, rejected completions free up slots for that user
+export async function getAllTasks(country: string = 'IN', userId?: number): Promise<Task[]> {
   const { data, error } = await (supabaseAdmin as any)
     .from('tasks')
     .select('*')
@@ -14,30 +14,55 @@ export async function getAllTasks(country: string = 'IN'): Promise<Task[]> {
   if (error) throw error
 
   const tasks = (data || []) as any[]
+  if (tasks.length === 0) return []
 
-  // For tasks with max_completions, check count separately
-  const tasksWithLimits = tasks.filter(t => t.max_completions)
-  if (tasksWithLimits.length > 0) {
-    const { data: counts } = await (supabaseAdmin as any)
+  const allTaskIds = tasks.map((t: any) => t.id)
+
+  // Fetch global completion counts (excluding rejected) for slot tracking
+  const { data: counts } = await (supabaseAdmin as any)
+    .from('task_completions')
+    .select('task_id')
+    .in('task_id', allTaskIds)
+    .neq('status', 'rejected')
+
+  const countMap: Record<number, number> = {}
+  ;(counts || []).forEach((c: any) => {
+    countMap[c.task_id] = (countMap[c.task_id] || 0) + 1
+  })
+
+  // If userId provided, fetch that user's completions so we can check retryability
+  let userRejectedTaskIds = new Set<number>()
+  if (userId) {
+    const { data: userCompletions } = await (supabaseAdmin as any)
       .from('task_completions')
-      .select('task_id')
-      .in('task_id', tasksWithLimits.map((t: any) => t.id))
-      .neq('status', 'rejected')
+      .select('task_id, status')
+      .eq('user_id', userId)
+      .in('task_id', allTaskIds)
 
-    const countMap: Record<number, number> = {}
-    ;(counts || []).forEach((c: any) => {
-      countMap[c.task_id] = (countMap[c.task_id] || 0) + 1
+    // Track tasks where ALL of this user's completions are rejected
+    const userTaskMap: Record<number, string[]> = {}
+    ;(userCompletions || []).forEach((c: any) => {
+      if (!userTaskMap[c.task_id]) userTaskMap[c.task_id] = []
+      userTaskMap[c.task_id].push(c.status)
     })
-
-    return tasks
-      .map(t => ({ ...t, completion_count: countMap[t.id] || 0 }))
-      .filter(t => {
-        if (!t.max_completions) return true
-        return (countMap[t.id] || 0) < Number(t.max_completions)
-      }) as Task[]
+    Object.entries(userTaskMap).forEach(([taskId, statuses]) => {
+      if (statuses.length > 0 && statuses.every(s => s === 'rejected')) {
+        userRejectedTaskIds.add(Number(taskId))
+      }
+    })
   }
 
-  return tasks.map(t => ({ ...t, completion_count: 0 })) as Task[]
+  return tasks
+    .map(t => ({ ...t, completion_count: countMap[t.id] || 0 }))
+    .filter(t => {
+      if (!t.max_completions) return true
+      const count = countMap[t.id] || 0
+      const isFull = count >= Number(t.max_completions)
+      if (!isFull) return true
+      // Task is full BUT this user's slot was rejected — show it so they can retry
+      if (userRejectedTaskIds.has(t.id)) return true
+      return false
+    }) as Task[]
 }
 
 // Get task by ID
@@ -168,14 +193,15 @@ export async function getUserTaskCompletions(userId: number): Promise<TaskComple
   return (data || []) as TaskCompletion[]
 }
 
-// Check if user has completed a task
+// Check if user has completed a task — ignores rejected completions
 export async function hasUserCompletedTask(userId: number, taskId: number): Promise<TaskCompletion | null> {
   const { data, error } = await (supabaseAdmin as any)
     .from('task_completions')
     .select('*')
     .eq('user_id', userId)
     .eq('task_id', taskId)
-    .single()
+    .neq('status', 'rejected')
+    .maybeSingle()
 
   if (error && error.code !== 'PGRST116') throw error
   return (data || null) as TaskCompletion | null
