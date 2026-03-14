@@ -198,8 +198,8 @@ export function TasksTab({ userId }: TasksTabProps) {
   const availableTasks = tasks.filter(t => !isTaskCompleted(t.id) || isTaskRetryable(t.id))
   const completedTasks = tasks.filter(t => isTaskCompleted(t.id) && !isTaskRetryable(t.id))
   const deletedTaskCompletions = completions.filter(
-    c => c.status !== "rejected" && !tasks.find(t => t.id === c.task_id)
-  )
+  c => c.status !== "rejected" && !tasks.find(t => Number(t.id) === Number(c.task_id))
+)
 
   const categories = ["all", ...new Set(tasks.map(t => t.action_type || "Other"))]
   const filteredTasks = selectedCategory === "all"
