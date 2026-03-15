@@ -724,15 +724,15 @@ export function AdminTasks() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="create-title">Title *</Label>
-                <Input id="create-title" value={form.title} onChange={e => setForm({...form, title: e.target.value})} placeholder="e.g. Write a Google Review" className="mt-1" />
+                <Input id="create-title" value={form.title} onChange={e => setForm({...form, title: e.target.value})} placeholder="e.g. Install and open the app" className="mt-1" />
               </div>
               <div>
                 <Label htmlFor="create-url">Task URL *</Label>
-                <Input id="create-url" value={form.task_url} onChange={e => setForm({...form, task_url: e.target.value})} placeholder="https://maps.google.com/..." className="mt-1" />
+                <Input id="create-url" value={form.task_url} onChange={e => setForm({...form, task_url: e.target.value})} placeholder="https://..." className="mt-1" />
               </div>
               <div>
                 <Label htmlFor="create-appname">App Name</Label>
-                <Input id="create-appname" value={form.app_name} onChange={e => setForm({...form, app_name: e.target.value})} placeholder="Google Maps" className="mt-1" />
+                <Input id="create-appname" value={form.app_name} onChange={e => setForm({...form, app_name: e.target.value})} placeholder="App/Task name" className="mt-1" />
               </div>
               <div>
                 <Label htmlFor="create-icon">App Icon URL</Label>

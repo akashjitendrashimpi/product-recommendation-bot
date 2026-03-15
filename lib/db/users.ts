@@ -5,7 +5,7 @@ import type { UserProfile } from "@/lib/types"
 export interface User {
   id: number
   email: string
-  password?: string // Only present when fetching for auth
+  password?: string
   display_name: string | null
   is_admin: boolean
   upi_id: string | null
@@ -15,7 +15,7 @@ export interface User {
   updated_at: string
 }
 
-// Create a new user
+// ── Create a new user ──────────────────────────────────────────────────────
 export async function createUser(data: {
   email: string
   password: string
@@ -26,7 +26,7 @@ export async function createUser(data: {
 }): Promise<User> {
   const passwordHash = await hashPassword(data.password)
 
-  const { data: user, error } = await supabaseAdmin
+  const { data: user, error } = await (supabaseAdmin as any)
     .from('users')
     .insert({
       email: data.email,
@@ -46,53 +46,48 @@ export async function createUser(data: {
   return user as User
 }
 
-// Get user by ID (no password)
+// ── Get user by ID (no password) ───────────────────────────────────────────
 export async function getUserById(id: number): Promise<User | null> {
-  const { data: user } = await supabaseAdmin
+  const { data: user } = await (supabaseAdmin as any)
     .from('users')
     .select('id, email, display_name, is_admin, upi_id, phone, email_verified, created_at, updated_at')
     .eq('id', id)
     .single()
 
-  return user as User | null
+  return (user || null) as User | null
 }
 
-// Get user by email (with password for login only)
+// ── Get user by email (with password for auth only) ────────────────────────
 export async function getUserByEmail(email: string): Promise<User | null> {
-  const { data: user } = await supabaseAdmin
+  const { data: user } = await (supabaseAdmin as any)
     .from('users')
     .select('*')
     .eq('email', email)
     .single()
 
-  return user as User | null
+  return (user || null) as User | null
 }
 
-// Verify user credentials
+// ── Verify user credentials ────────────────────────────────────────────────
 export async function verifyUser(
   email: string,
   password: string
 ): Promise<User | null> {
   const user = await getUserByEmail(email)
 
-  if (!user || !user.password) {
-    return null
-  }
+  if (!user || !user.password) return null
 
   const isValid = await verifyPassword(password, user.password)
+  if (!isValid) return null
 
-  if (!isValid) {
-    return null
-  }
-
-  // Remove password from returned user
+  // Never return password hash
   const { password: _, ...userWithoutPassword } = user
   return userWithoutPassword as User
 }
 
-// Get all users (no password)
+// ── Get all users (no password) ────────────────────────────────────────────
 export async function getAllUsers(): Promise<User[]> {
-  const { data: users } = await supabaseAdmin
+  const { data: users } = await (supabaseAdmin as any)
     .from('users')
     .select('id, email, display_name, is_admin, upi_id, phone, email_verified, created_at, updated_at')
     .order('created_at', { ascending: false })
@@ -100,7 +95,7 @@ export async function getAllUsers(): Promise<User[]> {
   return (users || []) as User[]
 }
 
-// Update user
+// ── Update user profile ────────────────────────────────────────────────────
 export async function updateUser(
   id: number,
   data: {
@@ -110,46 +105,44 @@ export async function updateUser(
     phone?: string | null
   }
 ): Promise<void> {
-  const updates: any = {}
+  const updates: Record<string, any> = {}
 
-  if (data.display_name !== undefined) {
-    updates.display_name = data.display_name
-  }
-  if (data.is_admin !== undefined) {
-    updates.is_admin = data.is_admin
-  }
-  if (data.upi_id !== undefined) {
-    updates.upi_id = data.upi_id
-  }
-  if (data.phone !== undefined) {
-    updates.phone = data.phone
-  }
+  if (data.display_name !== undefined) updates.display_name = data.display_name
+  if (data.is_admin !== undefined) updates.is_admin = data.is_admin
+  if (data.upi_id !== undefined) updates.upi_id = data.upi_id
+  if (data.phone !== undefined) updates.phone = data.phone
 
   if (Object.keys(updates).length === 0) return
 
-  await supabaseAdmin
+  const { error } = await (supabaseAdmin as any)
     .from('users')
-    .update(updates)
+    .update({ ...updates, updated_at: new Date().toISOString() })
     .eq('id', id)
+
+  if (error) throw new Error("Failed to update user: " + error.message)
 }
 
-// Update user password
+// ── Update user password ───────────────────────────────────────────────────
 export async function updateUserPassword(id: number, passwordHash: string): Promise<void> {
-  await supabaseAdmin
+  const { error } = await (supabaseAdmin as any)
     .from('users')
-    .update({ password: passwordHash })
+    .update({ password: passwordHash, updated_at: new Date().toISOString() })
     .eq('id', id)
+
+  if (error) throw new Error("Failed to update password: " + error.message)
 }
 
-// Delete user
+// ── Delete user ────────────────────────────────────────────────────────────
 export async function deleteUser(id: number): Promise<void> {
-  await supabaseAdmin
+  const { error } = await (supabaseAdmin as any)
     .from('users')
     .delete()
     .eq('id', id)
+
+  if (error) throw new Error("Failed to delete user: " + error.message)
 }
 
-// Convert User to UserProfile format
+// ── Convert User to UserProfile ────────────────────────────────────────────
 export function userToProfile(user: User): UserProfile {
   return {
     id: user.id,
