@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { CheckCircle, XCircle, Eye, Clock, IndianRupee, User, Camera, AlertCircle, X } from "lucide-react"
+import { CheckCircle, XCircle, Clock, IndianRupee, User, Camera, AlertCircle, X, Download, Filter } from "lucide-react"
 
 interface PendingProof {
   id: number
@@ -25,6 +25,8 @@ export function AdminProofs() {
   const [updating, setUpdating] = useState<number | null>(null)
   const [previewProof, setPreviewProof] = useState<PendingProof | null>(null)
   const [confirmAction, setConfirmAction] = useState<{ proof: PendingProof; action: 'approve' | 'reject' } | null>(null)
+  const [selectedTask, setSelectedTask] = useState<string>("all")
+  const [downloading, setDownloading] = useState<number | null>(null)
 
   useEffect(() => { fetchProofs() }, [])
 
@@ -52,8 +54,40 @@ export function AdminProofs() {
     }
   }
 
-  const totalPending = proofs.length
-  const totalAmount = proofs.reduce((s, p) => s + Number(p.user_payout), 0)
+  const handleDownload = async (proof: PendingProof) => {
+    if (!proof.completion_proof) return
+    setDownloading(proof.id)
+    try {
+      const response = await fetch(proof.completion_proof)
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      // Filename: taskname_username_date.jpg
+      const taskName = (proof.task_title || 'task').replace(/\s+/g, '_').toLowerCase()
+      const userName = (proof.user_name || proof.user_email || 'user').replace(/\s+/g, '_').toLowerCase()
+      const date = new Date(proof.created_at).toISOString().split('T')[0]
+      a.download = `${taskName}_${userName}_${date}.jpg`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch {
+      alert('Failed to download. Try right-clicking the image and saving it.')
+    } finally {
+      setDownloading(null)
+    }
+  }
+
+  // Get unique task names for filter
+  const uniqueTasks = ["all", ...new Set(proofs.map(p => p.task_title || "Unknown task"))]
+
+  const filteredProofs = selectedTask === "all"
+    ? proofs
+    : proofs.filter(p => p.task_title === selectedTask)
+
+  const totalPending = filteredProofs.length
+  const totalAmount = filteredProofs.reduce((s, p) => s + Number(p.user_payout), 0)
 
   return (
     <div className="space-y-6">
@@ -68,20 +102,32 @@ export function AdminProofs() {
                 <p className="text-xs text-gray-500 mt-0.5">{previewProof.task_title} · {previewProof.user_email}</p>
               </div>
               <div className="flex items-center gap-2">
-                <Button size="sm" onClick={() => { setConfirmAction({ proof: previewProof, action: 'approve' }); setPreviewProof(null) }}
+                <button
+                  onClick={() => handleDownload(previewProof)}
+                  disabled={downloading === previewProof.id}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-xl text-gray-700 text-sm font-medium transition-colors"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  {downloading === previewProof.id ? 'Downloading...' : 'Download'}
+                </button>
+                <Button size="sm"
+                  onClick={() => { setConfirmAction({ proof: previewProof, action: 'approve' }); setPreviewProof(null) }}
                   className="bg-green-600 hover:bg-green-700 text-white rounded-xl">
                   <CheckCircle className="w-3.5 h-3.5 mr-1.5" /> Approve
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => { setConfirmAction({ proof: previewProof, action: 'reject' }); setPreviewProof(null) }}
+                <Button size="sm" variant="outline"
+                  onClick={() => { setConfirmAction({ proof: previewProof, action: 'reject' }); setPreviewProof(null) }}
                   className="text-red-600 border-red-200 hover:bg-red-50 rounded-xl">
                   <XCircle className="w-3.5 h-3.5 mr-1.5" /> Reject
                 </Button>
-                <button onClick={() => setPreviewProof(null)} className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center ml-1">
+                <button onClick={() => setPreviewProof(null)}
+                  className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center ml-1">
                   <X className="w-4 h-4 text-gray-500" />
                 </button>
               </div>
             </div>
-            <img src={previewProof.completion_proof!} alt="Proof" className="w-full max-h-[70vh] object-contain bg-gray-50 p-4" />
+            <img src={previewProof.completion_proof!} alt="Proof"
+              className="w-full max-h-[70vh] object-contain bg-gray-50 p-4" />
           </div>
         </div>
       )}
@@ -104,7 +150,7 @@ export function AdminProofs() {
             {confirmAction.action === 'approve' ? (
               <div className="bg-green-50 border border-green-200 rounded-xl p-3 mb-5 text-center">
                 <p className="text-green-700 text-sm">₹{Number(confirmAction.proof.user_payout).toFixed(2)} will be credited to user</p>
-                <p className="text-green-600 text-xs mt-0.5">A payment record will be created for you to pay</p>
+                <p className="text-green-600 text-xs mt-0.5">Earnings added to user balance</p>
               </div>
             ) : (
               <div className="bg-red-50 border border-red-200 rounded-xl p-3 mb-5 text-center">
@@ -128,27 +174,57 @@ export function AdminProofs() {
       )}
 
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Proof Verification</h1>
           <p className="text-gray-500 mt-1">Review screenshots submitted by users</p>
         </div>
-        {totalPending > 0 && (
+        {proofs.length > 0 && (
           <div className="bg-orange-100 text-orange-700 px-4 py-2 rounded-xl text-sm font-bold">
             {totalPending} pending · ₹{totalAmount.toFixed(0)} at stake
+            {selectedTask !== "all" && <span className="ml-1 text-orange-500">(filtered)</span>}
           </div>
         )}
       </div>
 
+      {/* Task Filter */}
+      {uniqueTasks.length > 2 && (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <Filter className="w-4 h-4 text-gray-500" />
+            <p className="text-sm font-semibold text-gray-700">Filter by Task</p>
+          </div>
+          <div className="flex gap-2 flex-wrap">
+            {uniqueTasks.map(task => (
+              <button
+                key={task}
+                onClick={() => setSelectedTask(task)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                  selectedTask === task
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {task === "all"
+                  ? `🎯 All (${proofs.length})`
+                  : `${task} (${proofs.filter(p => p.task_title === task).length})`
+                }
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Alert */}
-      {totalPending > 0 && (
+      {proofs.length > 0 && (
         <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 flex items-start gap-3">
           <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
           <div>
             <p className="text-sm font-semibold text-blue-900">How this works</p>
             <p className="text-xs text-blue-700 mt-0.5">
-              <span className="font-medium">Approve</span> → user earnings credited + payment record created for you to pay. &nbsp;
-              <span className="font-medium">Reject</span> → user gets nothing, no payment created.
+              <span className="font-medium">Approve</span> → earnings credited to user balance. &nbsp;
+              <span className="font-medium">Reject</span> → user gets nothing, can resubmit. &nbsp;
+              <span className="font-medium">Download</span> → save screenshot to share with client.
             </p>
           </div>
         </div>
@@ -158,19 +234,25 @@ export function AdminProofs() {
         <div className="space-y-4">
           {[1,2,3].map(i => <div key={i} className="h-28 bg-gray-100 rounded-2xl animate-pulse" />)}
         </div>
-      ) : proofs.length === 0 ? (
+      ) : filteredProofs.length === 0 ? (
         <Card className="border border-gray-200 rounded-2xl">
           <CardContent className="p-16 text-center">
             <div className="w-20 h-20 bg-green-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
               <CheckCircle className="w-10 h-10 text-green-500" />
             </div>
-            <h3 className="text-lg font-bold text-gray-900 mb-2">All caught up!</h3>
-            <p className="text-gray-500 text-sm">No pending proof verifications right now.</p>
+            <h3 className="text-lg font-bold text-gray-900 mb-2">
+              {selectedTask === "all" ? "All caught up!" : `No pending proofs for "${selectedTask}"`}
+            </h3>
+            <p className="text-gray-500 text-sm">
+              {selectedTask === "all"
+                ? "No pending proof verifications right now."
+                : "Try selecting a different task filter."}
+            </p>
           </CardContent>
         </Card>
       ) : (
         <div className="space-y-3">
-          {proofs.map((proof) => (
+          {filteredProofs.map((proof) => (
             <Card key={proof.id} className="border border-gray-200 hover:border-orange-200 hover:shadow-md transition-all rounded-2xl">
               <CardContent className="p-5">
                 <div className="flex flex-col md:flex-row md:items-center gap-4">
@@ -186,7 +268,7 @@ export function AdminProofs() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-3 flex-wrap ml-13 pl-0">
+                    <div className="flex items-center gap-3 flex-wrap">
                       <div className="bg-gray-100 rounded-xl px-3 py-1.5">
                         <p className="text-xs text-gray-500">Task</p>
                         <p className="text-sm font-semibold text-gray-800">{proof.task_title || 'Unknown task'}</p>
@@ -213,12 +295,22 @@ export function AdminProofs() {
                   {/* Actions */}
                   <div className="flex items-center gap-2 flex-wrap">
                     {proof.completion_proof ? (
-                      <button
-                        onClick={() => setPreviewProof(proof)}
-                        className="flex items-center gap-2 px-4 py-2.5 bg-blue-50 border border-blue-200 rounded-xl text-blue-600 text-sm font-semibold hover:bg-blue-100 transition-colors"
-                      >
-                        <Camera className="w-4 h-4" /> View Screenshot
-                      </button>
+                      <>
+                        <button
+                          onClick={() => setPreviewProof(proof)}
+                          className="flex items-center gap-2 px-4 py-2.5 bg-blue-50 border border-blue-200 rounded-xl text-blue-600 text-sm font-semibold hover:bg-blue-100 transition-colors"
+                        >
+                          <Camera className="w-4 h-4" /> View
+                        </button>
+                        <button
+                          onClick={() => handleDownload(proof)}
+                          disabled={downloading === proof.id}
+                          className="flex items-center gap-2 px-4 py-2.5 bg-purple-50 border border-purple-200 rounded-xl text-purple-600 text-sm font-semibold hover:bg-purple-100 transition-colors disabled:opacity-50"
+                        >
+                          <Download className="w-4 h-4" />
+                          {downloading === proof.id ? '...' : 'Download'}
+                        </button>
+                      </>
                     ) : (
                       <span className="flex items-center gap-1.5 text-sm text-gray-400 bg-gray-100 px-3 py-2 rounded-xl">
                         <Camera className="w-4 h-4" /> No screenshot
