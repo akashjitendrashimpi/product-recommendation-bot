@@ -7,11 +7,11 @@ import { Badge } from "@/components/ui/badge"
 import {
   LayoutDashboard, CheckSquare, ShoppingCart, Wallet,
   User, LogOut, Menu, X, TrendingUp, Users, Sparkles,
-  IndianRupee, Bell
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import type { UserProfile } from "@/lib/types"
+import { NotificationBell } from "@/components/dashboard/notification-bell"
 
 interface DashboardLayoutProps {
   user: { id: number; email: string }
@@ -74,7 +74,11 @@ export function DashboardLayout({ user, profile, children }: DashboardLayoutProp
       {/* Mobile Top Bar */}
       <div className="lg:hidden fixed top-0 left-0 right-0 bg-white border-b border-gray-100 z-50 shadow-sm">
         <div className="flex items-center justify-between px-4 h-16">
-          <button onClick={() => setSidebarOpen(!sidebarOpen)} className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center">
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            aria-label="Toggle menu"
+            className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center"
+          >
             {sidebarOpen ? <X className="w-5 h-5 text-gray-600" /> : <Menu className="w-5 h-5 text-gray-600" />}
           </button>
           <Link href="/dashboard" className="flex items-center gap-2">
@@ -83,9 +87,8 @@ export function DashboardLayout({ user, profile, children }: DashboardLayoutProp
             </div>
             <span className="font-black text-gray-900 text-lg">Qyantra</span>
           </Link>
-          <div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center">
-            <Bell className="w-4 h-4 text-gray-600" />
-          </div>
+          {/* ── Notification Bell in mobile top bar ── */}
+          <NotificationBell />
         </div>
       </div>
 
@@ -99,7 +102,7 @@ export function DashboardLayout({ user, profile, children }: DashboardLayoutProp
         <div className="flex flex-col h-full">
 
           {/* Logo */}
-          <div className="h-16 flex items-center px-5 border-b border-gray-100">
+          <div className="h-16 flex items-center justify-between px-5 border-b border-gray-100">
             <Link href="/dashboard" className="flex items-center gap-3" onClick={() => setSidebarOpen(false)}>
               <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-md">
                 <Sparkles className="w-5 h-5 text-white" />
@@ -109,9 +112,11 @@ export function DashboardLayout({ user, profile, children }: DashboardLayoutProp
                 <p className="text-xs text-gray-400 font-medium">Earn & Discover</p>
               </div>
             </Link>
+            {/* ── Notification Bell in desktop sidebar ── */}
+            <NotificationBell />
           </div>
 
-          {/* Earnings Card in Sidebar */}
+          {/* Earnings Card */}
           <div className="p-4">
             <div className="bg-gradient-to-br from-blue-600 to-purple-700 rounded-2xl p-4 shadow-lg">
               <div className="flex items-center justify-between mb-3">
@@ -208,7 +213,10 @@ export function DashboardLayout({ user, profile, children }: DashboardLayoutProp
 
       {/* Mobile Overlay */}
       {sidebarOpen && (
-        <div className="fixed inset-0 bg-black/50 z-30 lg:hidden backdrop-blur-sm" onClick={() => setSidebarOpen(false)} />
+        <div
+          className="fixed inset-0 bg-black/50 z-30 lg:hidden backdrop-blur-sm"
+          onClick={() => setSidebarOpen(false)}
+        />
       )}
 
       {/* Main Content */}

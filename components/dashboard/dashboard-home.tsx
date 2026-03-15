@@ -47,7 +47,6 @@ export function DashboardHome({ userId }: DashboardHomeProps) {
       const profile = profileRes.ok ? await profileRes.json() : {}
       const referral = referralRes.ok ? await referralRes.json() : {}
 
-      // Get pending proofs from completions
       const pendingProofs = (earnings.recentCompletions || []).filter(
         (c: any) => c.status === 'pending_verification'
       )
@@ -120,7 +119,6 @@ export function DashboardHome({ userId }: DashboardHomeProps) {
 
       {/* Hero Greeting Card */}
       <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-purple-700 rounded-3xl p-6 md:p-8 shadow-xl relative overflow-hidden">
-        {/* Background decoration */}
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-32 translate-x-32" />
         <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-24 -translate-x-24" />
 
@@ -166,20 +164,21 @@ export function DashboardHome({ userId }: DashboardHomeProps) {
         </div>
       </div>
 
-      {/* Alerts */}
+      {/* Pending proofs alert */}
       {data.pendingProofs.length > 0 && (
         <div className="bg-orange-50 border border-orange-200 rounded-2xl p-4 flex items-center gap-3">
           <div className="w-10 h-10 bg-orange-100 rounded-xl flex items-center justify-center flex-shrink-0">
             <AlertCircle className="w-5 h-5 text-orange-600" />
           </div>
           <div className="flex-1">
-            <p className="text-orange-800 font-bold text-sm">{data.pendingProofs.length} task{data.pendingProofs.length > 1 ? 's' : ''} under review</p>
+            <p className="text-orange-800 font-bold text-sm">
+              {data.pendingProofs.length} task{data.pendingProofs.length > 1 ? 's' : ''} under review
+            </p>
             <p className="text-orange-600 text-xs">Admin verifies within 24 hours — earnings will be credited soon</p>
           </div>
-          <Link href="/dashboard/tasks">
-            <button className="text-orange-600 hover:text-orange-700">
-              <ChevronRight className="w-5 h-5" />
-            </button>
+          {/* FIX: replaced unlabelled <button> with aria-label on Link */}
+          <Link href="/dashboard/tasks" aria-label="View tasks under review">
+            <ChevronRight className="w-5 h-5 text-orange-600 hover:text-orange-700" />
           </Link>
         </div>
       )}
@@ -215,7 +214,6 @@ export function DashboardHome({ userId }: DashboardHomeProps) {
           <h2 className="text-lg font-black text-gray-900">Quick Actions</h2>
           <div className="space-y-3">
 
-            {/* Tasks CTA */}
             <Link href="/dashboard/tasks" className="block">
               <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-2xl p-5 flex items-center justify-between group hover:from-blue-700 hover:to-blue-800 transition-all shadow-lg shadow-blue-200">
                 <div className="flex items-center gap-4">
@@ -231,7 +229,6 @@ export function DashboardHome({ userId }: DashboardHomeProps) {
               </div>
             </Link>
 
-            {/* Products */}
             <Link href="/dashboard/products" className="block">
               <div className="bg-white border border-gray-200 rounded-2xl p-5 flex items-center justify-between group hover:border-blue-300 hover:bg-blue-50 transition-all shadow-sm">
                 <div className="flex items-center gap-4">
@@ -247,7 +244,6 @@ export function DashboardHome({ userId }: DashboardHomeProps) {
               </div>
             </Link>
 
-            {/* Referral */}
             <Link href="/dashboard/referral" className="block">
               <div className="bg-gradient-to-r from-green-50 to-green-100 border border-green-200 rounded-2xl p-5 flex items-center justify-between group hover:border-green-300 transition-all">
                 <div className="flex items-center gap-4">
@@ -266,7 +262,6 @@ export function DashboardHome({ userId }: DashboardHomeProps) {
               </div>
             </Link>
 
-            {/* Payout CTA */}
             {data.pendingEarnings >= 50 && (
               <Link href="/dashboard/earnings" className="block">
                 <div className="bg-gradient-to-r from-purple-50 to-purple-100 border border-purple-200 rounded-2xl p-5 flex items-center justify-between group hover:border-purple-300 transition-all">
@@ -318,15 +313,15 @@ export function DashboardHome({ userId }: DashboardHomeProps) {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-semibold text-gray-900 truncate">
-                          {activity.task?.title || 'Task completed'}
+                          {activity.task_title || activity.task?.title || 'Task completed'}
                         </p>
                         <p className="text-xs text-gray-400">
                           {new Date(activity.created_at || activity.completed_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
                         </p>
                       </div>
                       <div className="text-right flex-shrink-0">
-                        <p className="text-sm font-black text-green-600">+₹{Number(activity.payout || activity.amount || 0).toFixed(0)}</p>
-                        <p className={`text-xs ${getStatusColor(activity.status)} px-1.5 py-0.5 rounded-full`}>
+                        <p className="text-sm font-black text-green-600">+₹{Number(activity.user_payout || activity.payout || activity.amount || 0).toFixed(0)}</p>
+                        <p className={`text-xs px-1.5 py-0.5 rounded-full ${getStatusColor(activity.status)}`}>
                           {getStatusLabel(activity.status)}
                         </p>
                       </div>
@@ -337,7 +332,7 @@ export function DashboardHome({ userId }: DashboardHomeProps) {
             </CardContent>
           </Card>
 
-          {/* UPI Status Card */}
+          {/* UPI Status */}
           {!data.upiId ? (
             <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-4">
               <div className="flex items-start gap-3">
@@ -347,10 +342,9 @@ export function DashboardHome({ userId }: DashboardHomeProps) {
                 <div>
                   <p className="text-sm font-bold text-gray-900">Add UPI to get paid</p>
                   <p className="text-xs text-gray-500 mt-0.5">Without UPI you can't receive payouts</p>
-                  <Link href="/dashboard/tasks">
-                    <button className="text-xs text-blue-600 font-bold mt-2 hover:underline">
-                      Add UPI ID →
-                    </button>
+                  {/* FIX: replaced unlabelled <button> with Link */}
+                  <Link href="/dashboard/tasks" className="text-xs text-blue-600 font-bold mt-2 hover:underline inline-block">
+                    Add UPI ID →
                   </Link>
                 </div>
               </div>
