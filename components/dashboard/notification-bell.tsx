@@ -92,12 +92,15 @@ export function NotificationBell() {
 
   // Close on outside click or scroll
   useEffect(() => {
-    const handleClick = (e: MouseEvent) => {
-      if (buttonRef.current && !buttonRef.current.closest('[data-notification-panel]')?.contains(e.target as Node)
-        && !buttonRef.current.contains(e.target as Node)) {
-        setOpen(false)
-      }
-    }
+   const handleClick = (e: MouseEvent) => {
+  if (
+    buttonRef.current &&
+    !buttonRef.current.contains(e.target as Node) &&
+    !(e.target as Element).closest('[data-notification-panel]')
+  ) {
+    setOpen(false)
+  }
+}
     const handleScroll = () => setOpen(false)
     document.addEventListener('mousedown', handleClick)
     window.addEventListener('scroll', handleScroll, true)
