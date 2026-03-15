@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
+import { useRouter } from "next/navigation"
 import type { Task, TaskCompletion } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -8,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   CheckCircle2, Circle, ExternalLink, IndianRupee, TrendingUp,
   Wallet, Clock, Upload, Camera, X, AlertCircle,
-  Zap, Trophy, Edit2, CheckCircle, Users
+  Zap, Trophy, Edit2, CheckCircle, Users, ChevronRight, LayoutTemplate
 } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
@@ -35,9 +36,13 @@ interface ProofUploadState {
 interface TaskWithSlots extends Task {
   max_completions?: number | null
   completion_count?: number
+  has_detail_page?: boolean
+  how_to_steps?: string[]
+  copy_prompts?: string[]
 }
 
 export function TasksTab({ userId }: TasksTabProps) {
+  const router = useRouter()
   const [tasks, setTasks] = useState<TaskWithSlots[]>([])
   const [completions, setCompletions] = useState<any[]>([])
   const [earnings, setEarnings] = useState<EarningsSummary>({
@@ -90,6 +95,12 @@ export function TasksTab({ userId }: TasksTabProps) {
   }
 
   const handleCompleteTask = async (task: TaskWithSlots) => {
+    // If detail page is enabled, navigate there instead
+    if (task.has_detail_page) {
+      router.push(`/dashboard/tasks/${task.id}`)
+      return
+    }
+
     if (completingTaskId) return
     try {
       const clickRes = await fetch(`/api/tasks/${task.id}/click`, { method: 'POST' })
@@ -181,7 +192,6 @@ export function TasksTab({ userId }: TasksTabProps) {
     setUpiDialogOpen(true)
   }
 
-  // ── Available: tasks not yet completed by this user (or retryable after rejection) ──
   const isTaskCompleted = (taskId: number) =>
     completions.some(c => Number(c.task_id) === Number(taskId) && c.status !== "rejected")
 
@@ -191,8 +201,6 @@ export function TasksTab({ userId }: TasksTabProps) {
   }
 
   const availableTasks = tasks.filter(t => !isTaskCompleted(t.id) || isTaskRetryable(t.id))
-
-  // ── Completed: use completions directly — never depends on tasks array ──
   const completedCompletions = completions.filter(c => c.status !== "rejected")
 
   const categories = ["all", ...new Set(tasks.map(t => t.action_type || "Other"))]
@@ -229,7 +237,6 @@ export function TasksTab({ userId }: TasksTabProps) {
     }
   }
 
-  // ── Enhanced SlotsBar — shows full state clearly ──
   const SlotsBar = ({ task }: { task: TaskWithSlots }) => {
     if (!task.max_completions) return null
     const filled = task.completion_count || 0
@@ -238,18 +245,13 @@ export function TasksTab({ userId }: TasksTabProps) {
     const pct = Math.min((filled / total) * 100, 100)
     const isFull = remaining <= 0
     const isCritical = !isFull && remaining <= Math.ceil(total * 0.1)
-
     return (
       <div className="mt-2 pt-2 border-t border-gray-100">
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-1">
             <Users className="w-3 h-3 text-gray-400" />
             <span className={`text-xs font-semibold ${isFull ? 'text-red-500' : isCritical ? 'text-orange-600' : 'text-gray-500'}`}>
-              {isFull
-                ? '🔒 All slots filled'
-                : isCritical
-                ? `🔥 Only ${remaining} spots left!`
-                : `${remaining} of ${total} spots available`}
+              {isFull ? '🔒 All slots filled' : isCritical ? `🔥 Only ${remaining} spots left!` : `${remaining} of ${total} spots available`}
             </span>
           </div>
           <span className="text-xs text-gray-400">{filled}/{total}</span>
@@ -279,7 +281,7 @@ export function TasksTab({ userId }: TasksTabProps) {
   return (
     <div className="space-y-4">
 
-      {/* ── Proof Upload Dialog — bottom sheet on mobile, centered on desktop ── */}
+      {/* ── Proof Upload Dialog ── */}
       {proofState && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
           <div className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl w-full sm:max-w-md max-h-[92vh] overflow-y-auto">
@@ -295,9 +297,7 @@ export function TasksTab({ userId }: TasksTabProps) {
                   <p className="text-green-700 font-bold text-lg">₹{proofState.payout.toFixed(2)} pending</p>
                   <p className="text-green-600 text-sm">Admin verifies within 24 hours</p>
                 </div>
-                <Button onClick={() => setProofState(null)} className="bg-blue-600 hover:bg-blue-700 w-full h-12 rounded-xl font-semibold">
-                  Done
-                </Button>
+                <Button onClick={() => setProofState(null)} className="bg-blue-600 hover:bg-blue-700 w-full h-12 rounded-xl font-semibold">Done</Button>
               </div>
             ) : (
               <div className="p-5 sm:p-6">
@@ -307,11 +307,7 @@ export function TasksTab({ userId }: TasksTabProps) {
                     <h3 className="text-lg font-bold text-gray-900">Upload Proof</h3>
                     <p className="text-xs text-gray-500">Screenshot required to receive payment</p>
                   </div>
-                  <button
-                    aria-label="Close proof upload"
-                    onClick={() => setProofState(null)}
-                    className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 active:bg-gray-300 transition-colors"
-                  >
+                  <button aria-label="Close proof upload" onClick={() => setProofState(null)} className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 active:bg-gray-300 transition-colors">
                     <X className="w-4 h-4 text-gray-500" />
                   </button>
                 </div>
@@ -325,15 +321,11 @@ export function TasksTab({ userId }: TasksTabProps) {
                 </div>
                 <div className="bg-orange-50 border border-orange-200 rounded-xl p-3 mb-4 flex items-start gap-2">
                   <AlertCircle className="w-4 h-4 text-orange-500 mt-0.5 flex-shrink-0" />
-                  <p className="text-xs text-orange-700">
-                    {proofState.instructions || "Take a screenshot proving you completed the task and upload it below."}
-                  </p>
+                  <p className="text-xs text-orange-700">{proofState.instructions || "Take a screenshot proving you completed the task and upload it below."}</p>
                 </div>
                 <div
                   onClick={() => fileInputRef.current?.click()}
-                  className={`border-2 border-dashed rounded-xl p-5 text-center cursor-pointer transition-all mb-4 ${
-                    proofPreview ? 'border-blue-400 bg-blue-50' : 'border-gray-300 hover:border-blue-400 hover:bg-blue-50 active:bg-blue-100'
-                  }`}
+                  className={`border-2 border-dashed rounded-xl p-5 text-center cursor-pointer transition-all mb-4 ${proofPreview ? 'border-blue-400 bg-blue-50' : 'border-gray-300 hover:border-blue-400 hover:bg-blue-50 active:bg-blue-100'}`}
                 >
                   {proofPreview ? (
                     <div>
@@ -350,28 +342,11 @@ export function TasksTab({ userId }: TasksTabProps) {
                     </div>
                   )}
                 </div>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleFileSelect}
-                  aria-label="Upload proof screenshot"
-                  title="Upload proof screenshot"
-                />
+                <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileSelect} aria-label="Upload proof screenshot" title="Upload proof screenshot" />
                 <div className="flex gap-3">
-                  <Button variant="outline" onClick={() => setProofState(null)} className="flex-1 rounded-xl h-12">
-                    Skip for now
-                  </Button>
-                  <Button
-                    onClick={handleUploadProof}
-                    disabled={!proofFile || uploadingProof}
-                    className="flex-1 bg-blue-600 hover:bg-blue-700 rounded-xl h-12"
-                  >
-                    {uploadingProof
-                      ? <><Clock className="w-4 h-4 mr-2 animate-spin" />Uploading...</>
-                      : <><Upload className="w-4 h-4 mr-2" />Submit Proof</>
-                    }
+                  <Button variant="outline" onClick={() => setProofState(null)} className="flex-1 rounded-xl h-12">Skip for now</Button>
+                  <Button onClick={handleUploadProof} disabled={!proofFile || uploadingProof} className="flex-1 bg-blue-600 hover:bg-blue-700 rounded-xl h-12">
+                    {uploadingProof ? <><Clock className="w-4 h-4 mr-2 animate-spin" />Uploading...</> : <><Upload className="w-4 h-4 mr-2" />Submit Proof</>}
                   </Button>
                 </div>
               </div>
@@ -459,9 +434,7 @@ export function TasksTab({ userId }: TasksTabProps) {
             </div>
             <Dialog open={upiDialogOpen} onOpenChange={setUpiDialogOpen}>
               <DialogTrigger asChild>
-                <Button size="sm" className="bg-white text-blue-600 hover:bg-blue-50 font-semibold flex-shrink-0 rounded-xl text-xs px-3">
-                  Add UPI
-                </Button>
+                <Button size="sm" className="bg-white text-blue-600 hover:bg-blue-50 font-semibold flex-shrink-0 rounded-xl text-xs px-3">Add UPI</Button>
               </DialogTrigger>
               <DialogContent className="mx-4 sm:mx-auto rounded-2xl">
                 <DialogHeader>
@@ -501,15 +474,8 @@ export function TasksTab({ userId }: TasksTabProps) {
           {categories.length > 1 && (
             <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
               {categories.map(cat => (
-                <button
-                  key={cat}
-                  onClick={() => setSelectedCategory(cat)}
-                  className={`flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
-                    selectedCategory === cat
-                      ? 'bg-blue-600 text-white shadow-sm'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200 active:bg-gray-300'
-                  }`}
-                >
+                <button key={cat} onClick={() => setSelectedCategory(cat)}
+                  className={`flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${selectedCategory === cat ? 'bg-blue-600 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 active:bg-gray-300'}`}>
                   {cat === 'all' ? '🎯 All' : `${getActionTypeIcon(cat)} ${cat}`}
                 </button>
               ))}
@@ -554,21 +520,16 @@ export function TasksTab({ userId }: TasksTabProps) {
           ) : (
             <div className="grid gap-3 grid-cols-1 md:grid-cols-2">
               {filteredTasks.map(task => {
-                const isFull = task.max_completions
-                  ? (task.completion_count || 0) >= Number(task.max_completions)
-                  : false
+                const isFull = task.max_completions ? (task.completion_count || 0) >= Number(task.max_completions) : false
                 const isRetryable = isTaskRetryable(task.id)
+                const hasDetailPage = task.has_detail_page
 
                 return (
                   <Card key={task.id} className="border border-gray-200 shadow-sm hover:shadow-lg active:shadow-sm transition-all duration-200 overflow-hidden rounded-2xl">
                     <CardContent className="p-4 sm:p-5">
                       <div className="flex items-start gap-3 mb-3">
                         {task.app_icon_url ? (
-                          <img
-                            src={task.app_icon_url}
-                            alt={task.app_name || task.title}
-                            className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl object-cover border border-gray-200 shadow-sm flex-shrink-0"
-                          />
+                          <img src={task.app_icon_url} alt={task.app_name || task.title} className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl object-cover border border-gray-200 shadow-sm flex-shrink-0" />
                         ) : (
                           <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center flex-shrink-0 text-2xl shadow-sm">
                             {getActionTypeIcon(task.action_type || 'other')}
@@ -586,6 +547,11 @@ export function TasksTab({ userId }: TasksTabProps) {
                                 <Camera className="w-2.5 h-2.5" /> Proof needed
                               </span>
                             )}
+                            {hasDetailPage && (
+                              <span className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                <LayoutTemplate className="w-2.5 h-2.5" /> Guide
+                              </span>
+                            )}
                           </div>
                         </div>
                         <div className="text-right flex-shrink-0 ml-1">
@@ -601,10 +567,8 @@ export function TasksTab({ userId }: TasksTabProps) {
                         <p className="text-xs text-gray-500 line-clamp-2 mb-2">{task.description}</p>
                       )}
 
-                      {/* Enhanced SlotsBar */}
                       <SlotsBar task={task} />
 
-                      {/* Rejection retry banner */}
                       {isRetryable && (
                         <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-3 py-2 mt-3">
                           <span className="text-red-500 text-xs flex-shrink-0">❌</span>
@@ -612,7 +576,14 @@ export function TasksTab({ userId }: TasksTabProps) {
                         </div>
                       )}
 
-                      {/* Button — locked if full (and not retryable), otherwise normal */}
+                      {/* Guide hint when detail page is on */}
+                      {hasDetailPage && !isFull && (
+                        <div className="flex items-center gap-2 bg-blue-50 border border-blue-100 rounded-xl px-3 py-2 mt-3">
+                          <LayoutTemplate className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
+                          <p className="text-xs text-blue-600 font-medium">View step-by-step guide & copy prompts before starting</p>
+                        </div>
+                      )}
+
                       {isFull && !isRetryable ? (
                         <div className="w-full bg-gray-100 border border-gray-200 rounded-xl h-11 flex items-center justify-center gap-2 mt-3">
                           <span className="text-gray-400 text-sm font-semibold">🔒 All slots filled</span>
@@ -625,6 +596,8 @@ export function TasksTab({ userId }: TasksTabProps) {
                         >
                           {completingTaskId === task.id
                             ? <><Clock className="w-4 h-4 mr-2 animate-spin" />Opening task...</>
+                            : hasDetailPage
+                            ? <><ChevronRight className="w-4 h-4 mr-1" />View Task Guide</>
                             : <><ExternalLink className="w-4 h-4 mr-2" />Start & Earn ₹{Number(task.user_payout).toFixed(0)}</>
                           }
                         </Button>
@@ -637,7 +610,7 @@ export function TasksTab({ userId }: TasksTabProps) {
           )}
         </TabsContent>
 
-        {/* ── Completed Tab — uses completions directly, always shows full history ── */}
+        {/* ── Completed Tab ── */}
         <TabsContent value="completed" className="space-y-3 mt-0">
           {completedCompletions.length === 0 ? (
             <Card className="border border-dashed border-gray-300 rounded-2xl">
@@ -656,31 +629,20 @@ export function TasksTab({ userId }: TasksTabProps) {
                   c.status === 'pending_verification' &&
                   c.requires_proof === true
                 return (
-                  <Card
-                    key={c.id}
-                    className={`border shadow-sm rounded-2xl transition-all ${needsProof ? 'border-orange-200 bg-orange-50/40' : 'border-gray-200'}`}
-                  >
+                  <Card key={c.id} className={`border shadow-sm rounded-2xl transition-all ${needsProof ? 'border-orange-200 bg-orange-50/40' : 'border-gray-200'}`}>
                     <CardContent className="p-4">
                       <div className="flex items-center gap-3">
                         {c.app_icon_url ? (
-                          <img
-                            src={c.app_icon_url}
-                            alt={c.app_name || c.task_title}
-                            className="w-11 h-11 rounded-xl object-cover border border-gray-200 flex-shrink-0"
-                          />
+                          <img src={c.app_icon_url} alt={c.app_name || c.task_title} className="w-11 h-11 rounded-xl object-cover border border-gray-200 flex-shrink-0" />
                         ) : (
                           <div className="w-11 h-11 rounded-xl bg-gray-100 flex items-center justify-center flex-shrink-0 text-lg">
                             {getActionTypeIcon(c.action_type || 'other')}
                           </div>
                         )}
                         <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold text-gray-900 text-sm truncate">
-                            {c.task_title || "Completed Task"}
-                          </h3>
+                          <h3 className="font-semibold text-gray-900 text-sm truncate">{c.task_title || "Completed Task"}</h3>
                           {c.app_name && <p className="text-xs text-gray-500 truncate">{c.app_name}</p>}
-                          {c.task_deleted && (
-                            <p className="text-xs text-gray-400">Task no longer available</p>
-                          )}
+                          {c.task_deleted && <p className="text-xs text-gray-400">Task no longer available</p>}
                           {needsProof && (
                             <button
                               onClick={() => setProofState({
