@@ -1,4 +1,4 @@
-﻿import { supabaseAdmin } from '@/lib/supabase/client'
+import { supabaseAdmin } from '@/lib/supabase/client'
 import { hashPassword, verifyPassword } from "../auth/password"
 import type { UserProfile } from "@/lib/types"
 
