@@ -1,7 +1,10 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { Bell, BellOff, Check, CheckCheck, X, ExternalLink, Info, CheckCircle2, AlertTriangle, XCircle } from "lucide-react"
+import {
+  Bell, BellOff, CheckCheck, X, ExternalLink,
+  CheckCircle2, AlertTriangle, XCircle, Info, Sparkles
+} from "lucide-react"
 import Link from "next/link"
 
 interface Notification {
@@ -29,26 +32,32 @@ export function NotificationBell() {
   const [open, setOpen] = useState(false)
   const [pushEnabled, setPushEnabled] = useState(false)
   const [pushLoading, setPushLoading] = useState(false)
+  const [isRight, setIsRight] = useState(true)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const buttonRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
     fetchNotifications()
-    // Poll every 30 seconds for new notifications
     const interval = setInterval(fetchNotifications, 30000)
 
-    // Check if push is already enabled
     if ('serviceWorker' in navigator && 'PushManager' in window) {
       navigator.serviceWorker.ready.then(reg => {
-        reg.pushManager.getSubscription().then(sub => {
-          setPushEnabled(!!sub)
-        })
+        reg.pushManager.getSubscription().then(sub => setPushEnabled(!!sub))
       })
     }
 
     return () => clearInterval(interval)
   }, [])
 
-  // Close dropdown when clicking outside
+  // Detect if dropdown would go off-screen and flip it
+  useEffect(() => {
+    if (open && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect()
+      const spaceOnRight = window.innerWidth - rect.right
+      setIsRight(spaceOnRight >= 320)
+    }
+  }, [open])
+
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
@@ -67,9 +76,7 @@ export function NotificationBell() {
         setNotifications(data.notifications || [])
         setUnreadCount(data.unreadCount || 0)
       }
-    } catch (e) {
-      console.error('Failed to fetch notifications:', e)
-    }
+    } catch (e) {}
   }
 
   const markRead = async (id: number) => {
@@ -92,61 +99,43 @@ export function NotificationBell() {
     })
   }
 
-  const enablePushNotifications = async () => {
+  const enablePush = async () => {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-      alert('Push notifications are not supported in this browser.')
+      alert('Push notifications not supported in this browser.')
       return
     }
-
     const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
-    if (!VAPID_PUBLIC_KEY) {
-      alert('Push notifications are not configured yet.')
-      return
-    }
+    if (!VAPID_PUBLIC_KEY) { alert('Push not configured.'); return }
 
     setPushLoading(true)
     try {
-      // Request permission
       const permission = await Notification.requestPermission()
       if (permission !== 'granted') {
-        alert('Please allow notifications in your browser settings.')
-        setPushLoading(false)
+        alert('Please allow notifications in browser settings.')
         return
       }
-
-      // Register service worker
       const reg = await navigator.serviceWorker.register('/sw.js')
       await navigator.serviceWorker.ready
-
-      // Subscribe to push
       const sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
       })
-
       const subJson = sub.toJSON()
-
-      // Save to server
       await fetch('/api/push-subscription', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          endpoint: sub.endpoint,
-          p256dh: subJson.keys?.p256dh,
-          auth: subJson.keys?.auth,
-        })
+        body: JSON.stringify({ endpoint: sub.endpoint, p256dh: subJson.keys?.p256dh, auth: subJson.keys?.auth })
       })
-
       setPushEnabled(true)
-    } catch (error) {
-      console.error('Error enabling push notifications:', error)
+    } catch (e) {
+      console.error(e)
       alert('Failed to enable push notifications.')
     } finally {
       setPushLoading(false)
     }
   }
 
-  const disablePushNotifications = async () => {
+  const disablePush = async () => {
     setPushLoading(true)
     try {
       const reg = await navigator.serviceWorker.ready
@@ -160,143 +149,204 @@ export function NotificationBell() {
         await sub.unsubscribe()
       }
       setPushEnabled(false)
-    } catch (error) {
-      console.error('Error disabling push notifications:', error)
+    } catch (e) {
+      console.error(e)
     } finally {
       setPushLoading(false)
     }
   }
 
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case 'success': return <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
-      case 'warning': return <AlertTriangle className="w-4 h-4 text-orange-500 flex-shrink-0" />
-      case 'error': return <XCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
-      default: return <Info className="w-4 h-4 text-blue-500 flex-shrink-0" />
-    }
-  }
-
-  const getTypeBg = (type: string, isRead: boolean) => {
-    if (isRead) return 'bg-white'
-    switch (type) {
-      case 'success': return 'bg-green-50'
-      case 'warning': return 'bg-orange-50'
-      case 'error': return 'bg-red-50'
-      default: return 'bg-blue-50'
-    }
+  const typeConfig = {
+    success: { icon: <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />, dot: 'bg-green-500', bar: 'bg-green-500' },
+    warning: { icon: <AlertTriangle className="w-3.5 h-3.5 text-orange-500" />, dot: 'bg-orange-500', bar: 'bg-orange-500' },
+    error: { icon: <XCircle className="w-3.5 h-3.5 text-red-500" />, dot: 'bg-red-500', bar: 'bg-red-500' },
+    info: { icon: <Info className="w-3.5 h-3.5 text-blue-500" />, dot: 'bg-blue-500', bar: 'bg-blue-500' },
   }
 
   const timeAgo = (date: string) => {
-    const seconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000)
-    if (seconds < 60) return 'just now'
-    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`
-    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`
-    return `${Math.floor(seconds / 86400)}d ago`
+    const s = Math.floor((Date.now() - new Date(date).getTime()) / 1000)
+    if (s < 60) return 'just now'
+    if (s < 3600) return `${Math.floor(s / 60)}m ago`
+    if (s < 86400) return `${Math.floor(s / 3600)}h ago`
+    return `${Math.floor(s / 86400)}d ago`
   }
 
   return (
     <div className="relative" ref={dropdownRef}>
-      {/* Bell Button */}
+
+      {/* ── Bell Button ── */}
       <button
+        ref={buttonRef}
         onClick={() => setOpen(!open)}
         aria-label="Notifications"
-        className="relative w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center hover:bg-gray-200 active:bg-gray-300 transition-colors"
+        className={`relative w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-150 ${
+          open
+            ? 'bg-blue-600 text-white shadow-lg shadow-blue-200'
+            : 'bg-gray-100 hover:bg-gray-200 text-gray-600'
+        }`}
       >
-        <Bell className="w-4 h-4 text-gray-600" />
+        <Bell className="w-4 h-4" />
         {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center leading-none">
+          <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1 leading-none ring-2 ring-white">
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}
       </button>
 
-      {/* Dropdown */}
+      {/* ── Dropdown Panel ── */}
       {open && (
-        <div className="absolute right-0 top-12 w-80 sm:w-96 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden">
+        <>
+          {/* Mobile full-screen overlay backdrop */}
+          <div className="fixed inset-0 bg-black/20 z-40 sm:hidden" onClick={() => setOpen(false)} />
 
-          {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-            <div className="flex items-center gap-2">
-              <Bell className="w-4 h-4 text-gray-700" />
-              <h3 className="text-sm font-bold text-gray-900">Notifications</h3>
-              {unreadCount > 0 && (
-                <span className="text-xs bg-red-100 text-red-600 font-bold px-1.5 py-0.5 rounded-full">{unreadCount} new</span>
-              )}
+          <div
+            className={`
+              fixed sm:absolute z-50
+              bottom-0 left-0 right-0 sm:bottom-auto
+              sm:top-11 sm:left-auto sm:right-0
+              w-full sm:w-80
+              bg-white
+              rounded-t-2xl sm:rounded-2xl
+              shadow-2xl border-0 sm:border sm:border-gray-100
+              overflow-hidden
+              transition-all duration-200
+            `}
+            style={{ maxHeight: 'min(520px, 90vh)' }}
+          >
+            {/* Drag handle — mobile only */}
+            <div className="flex justify-center pt-3 pb-1 sm:hidden">
+              <div className="w-10 h-1 bg-gray-200 rounded-full" />
             </div>
-            <div className="flex items-center gap-2">
-              {unreadCount > 0 && (
-                <button onClick={markAllRead} className="text-xs text-blue-600 hover:text-blue-700 font-semibold flex items-center gap-1">
-                  <CheckCheck className="w-3 h-3" /> All read
+
+            {/* ── Header ── */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-bold text-gray-900">Notifications</p>
+                {unreadCount > 0 && (
+                  <span className="text-xs bg-red-100 text-red-600 font-bold px-1.5 py-0.5 rounded-full">
+                    {unreadCount}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                {unreadCount > 0 && (
+                  <button
+                    onClick={markAllRead}
+                    className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-semibold"
+                  >
+                    <CheckCheck className="w-3 h-3" /> Mark all read
+                  </button>
+                )}
+                <button
+                  onClick={() => setOpen(false)}
+                  aria-label="Close"
+                  className="w-6 h-6 rounded-lg bg-gray-100 hover:bg-gray-200 flex items-center justify-center"
+                >
+                  <X className="w-3.5 h-3.5 text-gray-500" />
                 </button>
-              )}
-              <button onClick={() => setOpen(false)} aria-label="Close notifications" className="w-6 h-6 rounded-lg bg-gray-100 flex items-center justify-center hover:bg-gray-200">
-                <X className="w-3.5 h-3.5 text-gray-500" />
+              </div>
+            </div>
+
+            {/* ── Push toggle ── */}
+            <div className="flex items-center justify-between px-4 py-2.5 bg-gray-50/80 border-b border-gray-100">
+              <div className="flex items-center gap-2">
+                <div className={`w-1.5 h-1.5 rounded-full ${pushEnabled ? 'bg-green-500' : 'bg-gray-300'}`} />
+                <span className="text-xs text-gray-500 font-medium">
+                  {pushEnabled ? 'Push notifications on' : 'Push notifications off'}
+                </span>
+              </div>
+              <button
+                onClick={pushEnabled ? disablePush : enablePush}
+                disabled={pushLoading}
+                className={`text-xs font-semibold px-2.5 py-1 rounded-lg transition-colors disabled:opacity-50 ${
+                  pushEnabled
+                    ? 'text-gray-600 hover:text-red-600 hover:bg-red-50'
+                    : 'text-blue-600 hover:bg-blue-50'
+                }`}
+              >
+                {pushLoading ? '...' : pushEnabled ? 'Turn off' : 'Enable'}
               </button>
             </div>
-          </div>
 
-          {/* Push notification toggle */}
-          <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              {pushEnabled
-                ? <Bell className="w-3.5 h-3.5 text-green-500" />
-                : <BellOff className="w-3.5 h-3.5 text-gray-400" />
-              }
-              <span className="text-xs text-gray-600 font-medium">
-                {pushEnabled ? 'Push notifications ON' : 'Enable push notifications'}
-              </span>
-            </div>
-            <button
-              onClick={pushEnabled ? disablePushNotifications : enablePushNotifications}
-              disabled={pushLoading}
-              className={`text-xs font-semibold px-2.5 py-1 rounded-lg transition-colors ${
-                pushEnabled
-                  ? 'bg-red-100 text-red-600 hover:bg-red-200'
-                  : 'bg-blue-600 text-white hover:bg-blue-700'
-              }`}
-            >
-              {pushLoading ? '...' : pushEnabled ? 'Turn off' : 'Enable'}
-            </button>
-          </div>
-
-          {/* Notifications list */}
-          <div className="max-h-80 overflow-y-auto">
-            {notifications.length === 0 ? (
-              <div className="py-10 text-center">
-                <Bell className="w-10 h-10 text-gray-200 mx-auto mb-3" />
-                <p className="text-sm font-medium text-gray-500">No notifications yet</p>
-                <p className="text-xs text-gray-400 mt-1">We'll notify you when something happens</p>
-              </div>
-            ) : (
-              notifications.map(n => (
-                <div
-                  key={n.id}
-                  className={`px-4 py-3 border-b border-gray-50 last:border-0 transition-colors ${getTypeBg(n.type, n.is_read)} ${!n.is_read ? 'cursor-pointer hover:brightness-95' : ''}`}
-                  onClick={() => !n.is_read && markRead(n.id)}
-                >
-                  <div className="flex items-start gap-3">
-                    {getTypeIcon(n.type)}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className={`text-xs font-semibold truncate ${n.is_read ? 'text-gray-600' : 'text-gray-900'}`}>{n.title}</p>
-                        <span className="text-xs text-gray-400 flex-shrink-0">{timeAgo(n.created_at)}</span>
-                      </div>
-                      <p className={`text-xs mt-0.5 leading-relaxed ${n.is_read ? 'text-gray-400' : 'text-gray-600'}`}>{n.body}</p>
-                      {n.action_url && (
-                        <Link href={n.action_url} className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium mt-1" onClick={() => setOpen(false)}>
-                          View <ExternalLink className="w-3 h-3" />
-                        </Link>
-                      )}
-                    </div>
-                    {!n.is_read && (
-                      <div className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0 mt-1" />
-                    )}
+            {/* ── Notifications List ── */}
+            <div className="overflow-y-auto" style={{ maxHeight: '340px' }}>
+              {notifications.length === 0 ? (
+                <div className="py-12 text-center px-6">
+                  <div className="w-12 h-12 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                    <Bell className="w-5 h-5 text-gray-300" />
                   </div>
+                  <p className="text-sm font-semibold text-gray-500">All caught up!</p>
+                  <p className="text-xs text-gray-400 mt-1">No notifications yet</p>
                 </div>
-              ))
+              ) : (
+                <div>
+                  {notifications.map((n, idx) => {
+                    const config = typeConfig[n.type] || typeConfig.info
+                    return (
+                      <div
+                        key={n.id}
+                        onClick={() => !n.is_read && markRead(n.id)}
+                        className={`relative flex items-start gap-3 px-4 py-3 border-b border-gray-50 last:border-0 transition-colors ${
+                          !n.is_read ? 'bg-blue-50/40 cursor-pointer hover:bg-blue-50/70' : 'bg-white'
+                        }`}
+                      >
+                        {/* Left color bar */}
+                        {!n.is_read && (
+                          <div className={`absolute left-0 top-3 bottom-3 w-0.5 rounded-full ${config.bar}`} />
+                        )}
+
+                        {/* Type icon */}
+                        <div className={`w-7 h-7 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5 ${
+                          n.type === 'success' ? 'bg-green-100' :
+                          n.type === 'warning' ? 'bg-orange-100' :
+                          n.type === 'error' ? 'bg-red-100' : 'bg-blue-100'
+                        }`}>
+                          {config.icon}
+                        </div>
+
+                        {/* Content */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-2">
+                            <p className={`text-xs font-semibold leading-tight ${n.is_read ? 'text-gray-500' : 'text-gray-900'}`}>
+                              {n.title}
+                            </p>
+                            <span className="text-[10px] text-gray-400 flex-shrink-0 mt-0.5">{timeAgo(n.created_at)}</span>
+                          </div>
+                          <p className={`text-xs mt-0.5 leading-relaxed ${n.is_read ? 'text-gray-400' : 'text-gray-600'}`}>
+                            {n.body}
+                          </p>
+                          {n.action_url && (
+                            <Link
+                              href={n.action_url}
+                              onClick={() => setOpen(false)}
+                              className="inline-flex items-center gap-1 text-[11px] text-blue-600 font-medium mt-1.5 hover:underline"
+                            >
+                              View details <ExternalLink className="w-2.5 h-2.5" />
+                            </Link>
+                          )}
+                        </div>
+
+                        {/* Unread dot */}
+                        {!n.is_read && (
+                          <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 mt-1.5 ${config.dot}`} />
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* ── Footer ── */}
+            {notifications.length > 0 && (
+              <div className="px-4 py-2.5 border-t border-gray-100 bg-gray-50/50">
+                <p className="text-[10px] text-gray-400 text-center">
+                  Showing last {notifications.length} notification{notifications.length !== 1 ? 's' : ''}
+                </p>
+              </div>
             )}
           </div>
-        </div>
+        </>
       )}
     </div>
   )
