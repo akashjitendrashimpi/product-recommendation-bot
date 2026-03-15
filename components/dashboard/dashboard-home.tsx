@@ -72,12 +72,13 @@ export function DashboardHome({ userId }: DashboardHomeProps) {
     }
   }
 
-  const getGreeting = () => {
-    const hour = new Date().getHours()
-    if (hour < 12) return 'Good morning'
-    if (hour < 17) return 'Good afternoon'
-    return 'Good evening'
-  }
+  const [greeting, setGreeting] = useState('Good morning')
+useEffect(() => {
+  const hour = new Date().getHours()
+  if (hour < 12) setGreeting('Good morning')
+  else if (hour < 17) setGreeting('Good afternoon')
+  else setGreeting('Good evening')
+}, [])
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -124,7 +125,7 @@ export function DashboardHome({ userId }: DashboardHomeProps) {
 
         <div className="relative flex items-center justify-between flex-wrap gap-4">
           <div>
-            <p className="text-blue-200 text-sm font-medium mb-1">{getGreeting()} 👋</p>
+            <p className="text-blue-200 text-sm font-medium mb-1">{greeting} 👋</p>
             <h1 className="text-2xl md:text-3xl font-black text-white capitalize">{data.displayName}</h1>
             <p className="text-blue-200 text-sm mt-2">
               {data.tasksAvailable > 0
