@@ -56,6 +56,15 @@ export function DashboardLayout({ user, profile, children }: DashboardLayoutProp
     fetchStats()
   }, [])
 
+  // Bottom nav — 4 primary items (mobile only)
+  const bottomNav = [
+    { name: 'Home', href: '/dashboard', icon: LayoutDashboard, badge: null },
+    { name: 'Tasks', href: '/dashboard/tasks', icon: CheckSquare, badge: stats.tasksAvailable > 0 ? String(stats.tasksAvailable) : null },
+    { name: 'Earnings', href: '/dashboard/earnings', icon: Wallet, badge: null },
+    { name: 'Profile', href: '/dashboard/profile', icon: User, badge: null },
+  ]
+
+  // Sidebar nav — all items (desktop)
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, badge: null },
     { name: 'Tasks', href: '/dashboard/tasks', icon: CheckSquare, badge: stats.tasksAvailable > 0 ? stats.tasksAvailable : null },
@@ -71,9 +80,9 @@ export function DashboardLayout({ user, profile, children }: DashboardLayoutProp
   return (
     <div className="min-h-screen bg-gray-50">
 
-      {/* Mobile Top Bar */}
+      {/* ── Mobile Top Bar ── */}
       <div className="lg:hidden fixed top-0 left-0 right-0 bg-white border-b border-gray-100 z-50 shadow-sm">
-        <div className="flex items-center justify-between px-4 h-16">
+        <div className="flex items-center justify-between px-4 h-14">
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
             aria-label="Toggle menu"
@@ -81,18 +90,19 @@ export function DashboardLayout({ user, profile, children }: DashboardLayoutProp
           >
             {sidebarOpen ? <X className="w-5 h-5 text-gray-600" /> : <Menu className="w-5 h-5 text-gray-600" />}
           </button>
+
           <Link href="/dashboard" className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-sm">
-              <Sparkles className="w-4 h-4 text-white" />
+            <div className="w-7 h-7 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-sm">
+              <Sparkles className="w-3.5 h-3.5 text-white" />
             </div>
-            <span className="font-black text-gray-900 text-lg">Qyantra</span>
+            <span className="font-black text-gray-900 text-base">Qyantra</span>
           </Link>
-          {/* ── Notification Bell in mobile top bar ── */}
+
           <NotificationBell />
         </div>
       </div>
 
-      {/* Sidebar */}
+      {/* ── Sidebar (desktop always visible, mobile slide-in) ── */}
       <aside className={`
         fixed top-0 left-0 h-full bg-white z-40 w-64
         transition-transform duration-300 ease-in-out shadow-xl
@@ -112,11 +122,10 @@ export function DashboardLayout({ user, profile, children }: DashboardLayoutProp
                 <p className="text-xs text-gray-400 font-medium">Earn & Discover</p>
               </div>
             </Link>
-            {/* ── Notification Bell in desktop sidebar ── */}
             <NotificationBell />
           </div>
 
-          {/* Earnings Card */}
+          {/* Earnings Card in sidebar */}
           <div className="p-4">
             <div className="bg-gradient-to-br from-blue-600 to-purple-700 rounded-2xl p-4 shadow-lg">
               <div className="flex items-center justify-between mb-3">
@@ -219,12 +228,51 @@ export function DashboardLayout({ user, profile, children }: DashboardLayoutProp
         />
       )}
 
-      {/* Main Content */}
-      <main className="lg:ml-64 pt-16 lg:pt-0 min-h-screen">
+      {/* ── Main Content ── */}
+      {/* pb-20 on mobile to avoid bottom nav overlap */}
+      <main className="lg:ml-64 pt-14 lg:pt-0 min-h-screen pb-20 lg:pb-0">
         <div className="p-4 md:p-6 lg:p-8">
           {children}
         </div>
       </main>
+
+      {/* ── Mobile Bottom Navigation ── */}
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 z-50 shadow-[0_-4px_20px_rgba(0,0,0,0.08)]">
+        <div className="flex items-center justify-around h-16 px-2">
+          {bottomNav.map((item) => {
+            const Icon = item.icon
+            const isActive = pathname === item.href
+            return (
+              <Link
+                key={item.name}
+                href={item.href}
+                className="flex flex-col items-center justify-center gap-0.5 flex-1 h-full relative py-2"
+              >
+                <div className="relative">
+                  <div className={`w-10 h-10 rounded-2xl flex items-center justify-center transition-all ${
+                    isActive
+                      ? 'bg-blue-600 shadow-md shadow-blue-200'
+                      : 'bg-transparent'
+                  }`}>
+                    <Icon className={`w-5 h-5 transition-colors ${isActive ? 'text-white' : 'text-gray-400'}`} />
+                  </div>
+                  {/* Badge for tasks count */}
+                  {item.badge && !isActive && (
+                    <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-blue-600 text-white text-[10px] font-black rounded-full flex items-center justify-center px-1 shadow-sm">
+                      {item.badge}
+                    </span>
+                  )}
+                </div>
+                <span className={`text-[10px] font-semibold transition-colors leading-none ${
+                  isActive ? 'text-blue-600' : 'text-gray-400'
+                }`}>
+                  {item.name}
+                </span>
+              </Link>
+            )
+          })}
+        </div>
+      </nav>
     </div>
   )
 }
