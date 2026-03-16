@@ -1,38 +1,37 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import type { Task, TaskCompletion } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import {
-  CheckCircle2, Circle, ExternalLink, IndianRupee, TrendingUp,
-  Wallet, Clock, Upload, Camera, X, AlertCircle,
-  Zap, Trophy, Edit2, CheckCircle, Users, ChevronRight, LayoutTemplate
-} from "lucide-react"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import {
+  CheckCircle2, Circle, ExternalLink, IndianRupee, TrendingUp,
+  Wallet, Clock, Upload, Camera, X, AlertCircle, Zap, Trophy,
+  Edit2, CheckCircle, Users, ChevronRight, LayoutTemplate,
+  Search, SlidersHorizontal, ArrowUpDown, Filter, RefreshCw
+} from "lucide-react"
+import {
+  Dialog, DialogContent, DialogDescription,
+  DialogHeader, DialogTitle, DialogTrigger
+} from "@/components/ui/dialog"
 
-interface TasksTabProps {
-  userId: number
-}
-
+interface TasksTabProps { userId: number }
 interface EarningsSummary {
   totalEarnings: number
   dailyEarnings: number
   monthlyEarnings: number
   tasksCompleted: number
 }
-
 interface ProofUploadState {
   completionId: number
   taskTitle: string
   payout: number
   instructions: string | null
 }
-
 interface TaskWithSlots extends Task {
   max_completions?: number | null
   completion_count?: number
@@ -40,6 +39,8 @@ interface TaskWithSlots extends Task {
   how_to_steps?: string[]
   copy_prompts?: string[]
 }
+
+type SortOption = 'payout_high' | 'payout_low' | 'newest' | 'slots'
 
 export function TasksTab({ userId }: TasksTabProps) {
   const router = useRouter()
@@ -49,6 +50,7 @@ export function TasksTab({ userId }: TasksTabProps) {
     totalEarnings: 0, dailyEarnings: 0, monthlyEarnings: 0, tasksCompleted: 0,
   })
   const [isLoading, setIsLoading] = useState(true)
+  const [isRefreshing, setIsRefreshing] = useState(false)
   const [completingTaskId, setCompletingTaskId] = useState<number | null>(null)
   const [upiDialogOpen, setUpiDialogOpen] = useState(false)
   const [upiId, setUpiId] = useState("")
@@ -62,10 +64,18 @@ export function TasksTab({ userId }: TasksTabProps) {
   const [proofSuccess, setProofSuccess] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  // Search & sort state
+  const [searchQuery, setSearchQuery] = useState("")
+  const [sortBy, setSortBy] = useState<SortOption>('newest')
+  const [showFilters, setShowFilters] = useState(false)
+  const [minPayout, setMinPayout] = useState("")
+  const [onlyWithGuide, setOnlyWithGuide] = useState(false)
+
   useEffect(() => { loadData() }, [])
 
-  const loadData = async () => {
-    setIsLoading(true)
+  const loadData = async (silent = false) => {
+    if (!silent) setIsLoading(true)
+    else setIsRefreshing(true)
     try {
       const [tasksRes, earningsRes, profileRes] = await Promise.all([
         fetch("/api/tasks?country=IN"),
@@ -75,11 +85,9 @@ export function TasksTab({ userId }: TasksTabProps) {
       const tasksData = await tasksRes.json()
       const earningsData = await earningsRes.json()
       const profileData = await profileRes.json()
-
       setTasks(tasksData.tasks || [])
       setCompletions(earningsData.recentCompletions || [])
       setUserUpiId(profileData.user?.upi_id || null)
-
       const summary = earningsData.summary || {}
       setEarnings({
         totalEarnings: Number(summary.totalEarnings) || 0,
@@ -91,52 +99,32 @@ export function TasksTab({ userId }: TasksTabProps) {
       console.error("Error loading data:", error)
     } finally {
       setIsLoading(false)
+      setIsRefreshing(false)
     }
   }
 
   const handleCompleteTask = async (task: TaskWithSlots) => {
-    // If detail page is enabled, navigate there instead
-    if (task.has_detail_page) {
-      router.push(`/dashboard/tasks/${task.id}`)
-      return
-    }
-
+    if (task.has_detail_page) { router.push(`/dashboard/tasks/${task.id}`); return }
     if (completingTaskId) return
     try {
       const clickRes = await fetch(`/api/tasks/${task.id}/click`, { method: 'POST' })
       const clickData = await clickRes.json()
       window.open(clickData.redirect_url || task.task_url, "_blank", "noopener,noreferrer")
-    } catch {
-      window.open(task.task_url, "_blank", "noopener,noreferrer")
-    }
+    } catch { window.open(task.task_url, "_blank", "noopener,noreferrer") }
     setCompletingTaskId(task.id)
     try {
       setTimeout(async () => {
         const response = await fetch(`/api/tasks/${task.id}/complete`, { method: "POST" })
         const data = await response.json()
-        if (!response.ok) {
-          alert(data.error || "Failed to complete task")
-          setCompletingTaskId(null)
-          return
-        }
-        await loadData()
+        if (!response.ok) { alert(data.error || "Failed to complete task"); setCompletingTaskId(null); return }
+        await loadData(true)
         setCompletingTaskId(null)
         if (data.requiresProof && data.completion?.id) {
-          setProofState({
-            completionId: data.completion.id,
-            taskTitle: task.title,
-            payout: Number(task.user_payout),
-            instructions: (task as any).proof_instructions || null
-          })
-          setProofSuccess(false)
-          setProofFile(null)
-          setProofPreview(null)
+          setProofState({ completionId: data.completion.id, taskTitle: task.title, payout: Number(task.user_payout), instructions: (task as any).proof_instructions || null })
+          setProofSuccess(false); setProofFile(null); setProofPreview(null)
         }
       }, 2000)
-    } catch {
-      alert("Failed to complete task. Please try again.")
-      setCompletingTaskId(null)
-    }
+    } catch { alert("Failed to complete task. Please try again."); setCompletingTaskId(null) }
   }
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -156,11 +144,9 @@ export function TasksTab({ userId }: TasksTabProps) {
     try {
       const formData = new FormData()
       formData.append('screenshot', proofFile)
-      const res = await fetch(`/api/task-completions/${proofState.completionId}/proof`, {
-        method: 'POST', body: formData
-      })
+      const res = await fetch(`/api/task-completions/${proofState.completionId}/proof`, { method: 'POST', body: formData })
       const data = await res.json()
-      if (res.ok) { setProofSuccess(true); await loadData() }
+      if (res.ok) { setProofSuccess(true); await loadData(true) }
       else alert(data.error || 'Failed to upload proof')
     } catch { alert('Failed to upload. Please try again.') }
     finally { setUploadingProof(false) }
@@ -168,18 +154,18 @@ export function TasksTab({ userId }: TasksTabProps) {
 
   const handleSaveUpi = async () => {
     if (!upiId.trim()) { alert("Please enter a valid UPI ID"); return }
+    // Basic UPI format validation
+    const upiRegex = /^[\w.-]+@[\w]+$/
+    if (!upiRegex.test(upiId.trim())) { alert("Please enter a valid UPI ID format (e.g. name@paytm)"); return }
     setIsSavingUpi(true)
     try {
       const response = await fetch("/api/user/profile", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ upi_id: upiId }),
+        body: JSON.stringify({ upi_id: upiId.trim() }),
       })
-      if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.error || "Failed to save UPI ID")
-      }
-      setUserUpiId(upiId)
+      if (!response.ok) { const data = await response.json(); throw new Error(data.error || "Failed to save UPI ID") }
+      setUserUpiId(upiId.trim())
       setUpiDialogOpen(false)
       setUpiId("")
     } catch (error) {
@@ -187,26 +173,70 @@ export function TasksTab({ userId }: TasksTabProps) {
     } finally { setIsSavingUpi(false) }
   }
 
-  const openUpiDialog = () => {
-    setUpiId(userUpiId || "")
-    setUpiDialogOpen(true)
-  }
-
   const isTaskCompleted = (taskId: number) =>
     completions.some(c => Number(c.task_id) === Number(taskId) && c.status !== "rejected")
-
   const isTaskRetryable = (taskId: number) => {
-    const taskCompletions = completions.filter(c => Number(c.task_id) === Number(taskId))
-    return taskCompletions.length > 0 && taskCompletions.every(c => c.status === "rejected")
+    const tc = completions.filter(c => Number(c.task_id) === Number(taskId))
+    return tc.length > 0 && tc.every(c => c.status === "rejected")
   }
 
   const availableTasks = tasks.filter(t => !isTaskCompleted(t.id) || isTaskRetryable(t.id))
   const completedCompletions = completions.filter(c => c.status !== "rejected")
 
   const categories = ["all", ...new Set(tasks.map(t => t.action_type || "Other"))]
-  const filteredTasks = selectedCategory === "all"
-    ? availableTasks
-    : availableTasks.filter(t => t.action_type === selectedCategory)
+
+  // ── Advanced filtering & sorting ──
+  const filteredAndSortedTasks = useMemo(() => {
+    let result = selectedCategory === "all"
+      ? availableTasks
+      : availableTasks.filter(t => t.action_type === selectedCategory)
+
+    // Search
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase()
+      result = result.filter(t =>
+        t.title.toLowerCase().includes(q) ||
+        (t.app_name || '').toLowerCase().includes(q) ||
+        (t.description || '').toLowerCase().includes(q)
+      )
+    }
+
+    // Min payout filter
+    if (minPayout && !isNaN(Number(minPayout))) {
+      result = result.filter(t => Number(t.user_payout) >= Number(minPayout))
+    }
+
+    // Guide filter
+    if (onlyWithGuide) {
+      result = result.filter(t => t.has_detail_page)
+    }
+
+    // Sort
+    switch (sortBy) {
+      case 'payout_high': return [...result].sort((a, b) => Number(b.user_payout) - Number(a.user_payout))
+      case 'payout_low': return [...result].sort((a, b) => Number(a.user_payout) - Number(b.user_payout))
+      case 'slots': return [...result].sort((a, b) => {
+        const aRem = a.max_completions ? (a.max_completions - (a.completion_count || 0)) : 999
+        const bRem = b.max_completions ? (b.max_completions - (b.completion_count || 0)) : 999
+        return bRem - aRem
+      })
+      default: return result // newest = original order
+    }
+  }, [availableTasks, selectedCategory, searchQuery, sortBy, minPayout, onlyWithGuide])
+
+  const activeFilterCount = [
+    minPayout ? 1 : 0,
+    onlyWithGuide ? 1 : 0,
+    sortBy !== 'newest' ? 1 : 0,
+  ].reduce((a, b) => a + b, 0)
+
+  const clearFilters = () => {
+    setSearchQuery("")
+    setSortBy('newest')
+    setMinPayout("")
+    setOnlyWithGuide(false)
+    setSelectedCategory("all")
+  }
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -257,10 +287,7 @@ export function TasksTab({ userId }: TasksTabProps) {
           <span className="text-xs text-gray-400">{filled}/{total}</span>
         </div>
         <div className="w-full bg-gray-100 rounded-full h-1.5">
-          <div
-            className={`h-1.5 rounded-full transition-all ${isFull ? 'bg-red-400' : pct > 80 ? 'bg-orange-500' : 'bg-blue-400'}`}
-            style={{ width: `${pct}%` }}
-          />
+          <div className={`h-1.5 rounded-full transition-all ${isFull ? 'bg-red-400' : pct > 80 ? 'bg-orange-500' : 'bg-blue-400'}`} style={{ width: `${pct}%` }} />
         </div>
       </div>
     )
@@ -269,9 +296,7 @@ export function TasksTab({ userId }: TasksTabProps) {
   if (isLoading) {
     return (
       <div className="animate-pulse space-y-4 w-full">
-        <div className="grid gap-2 grid-cols-2">
-          {[1,2,3,4].map(i => <div key={i} className="h-24 bg-gray-200 rounded-2xl" />)}
-        </div>
+        <div className="grid gap-2 grid-cols-2">{[1,2,3,4].map(i => <div key={i} className="h-24 bg-gray-200 rounded-2xl" />)}</div>
         <div className="h-20 bg-gray-200 rounded-2xl" />
         <div className="h-48 bg-gray-200 rounded-2xl" />
       </div>
@@ -307,7 +332,7 @@ export function TasksTab({ userId }: TasksTabProps) {
                     <h3 className="text-lg font-bold text-gray-900">Upload Proof</h3>
                     <p className="text-xs text-gray-500">Screenshot required to receive payment</p>
                   </div>
-                  <button aria-label="Close proof upload" onClick={() => setProofState(null)} className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 active:bg-gray-300 transition-colors">
+                  <button aria-label="Close" onClick={() => setProofState(null)} className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors">
                     <X className="w-4 h-4 text-gray-500" />
                   </button>
                 </div>
@@ -321,16 +346,14 @@ export function TasksTab({ userId }: TasksTabProps) {
                 </div>
                 <div className="bg-orange-50 border border-orange-200 rounded-xl p-3 mb-4 flex items-start gap-2">
                   <AlertCircle className="w-4 h-4 text-orange-500 mt-0.5 flex-shrink-0" />
-                  <p className="text-xs text-orange-700">{proofState.instructions || "Take a screenshot proving you completed the task and upload it below."}</p>
+                  <p className="text-xs text-orange-700">{proofState.instructions || "Take a screenshot proving you completed the task."}</p>
                 </div>
-                <div
-                  onClick={() => fileInputRef.current?.click()}
-                  className={`border-2 border-dashed rounded-xl p-5 text-center cursor-pointer transition-all mb-4 ${proofPreview ? 'border-blue-400 bg-blue-50' : 'border-gray-300 hover:border-blue-400 hover:bg-blue-50 active:bg-blue-100'}`}
-                >
+                <div onClick={() => fileInputRef.current?.click()}
+                  className={`border-2 border-dashed rounded-xl p-5 text-center cursor-pointer transition-all mb-4 ${proofPreview ? 'border-blue-400 bg-blue-50' : 'border-gray-300 hover:border-blue-400 hover:bg-blue-50'}`}>
                   {proofPreview ? (
                     <div>
                       <img src={proofPreview} alt="Preview" className="max-h-40 mx-auto rounded-xl object-contain shadow-sm" />
-                      <p className="text-xs text-blue-600 mt-3 font-semibold">✓ Screenshot ready — tap to change</p>
+                      <p className="text-xs text-blue-600 mt-3 font-semibold">✓ Ready — tap to change</p>
                     </div>
                   ) : (
                     <div>
@@ -342,7 +365,7 @@ export function TasksTab({ userId }: TasksTabProps) {
                     </div>
                   )}
                 </div>
-                <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileSelect} aria-label="Upload proof screenshot" title="Upload proof screenshot" />
+                <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileSelect} aria-label="Upload proof" title="Upload proof screenshot" />
                 <div className="flex gap-3">
                   <Button variant="outline" onClick={() => setProofState(null)} className="flex-1 rounded-xl h-12">Skip for now</Button>
                   <Button onClick={handleUploadProof} disabled={!proofFile || uploadingProof} className="flex-1 bg-blue-600 hover:bg-blue-700 rounded-xl h-12">
@@ -382,8 +405,8 @@ export function TasksTab({ userId }: TasksTabProps) {
         <div className="bg-gradient-to-r from-green-600 to-green-700 rounded-2xl p-4 sm:p-5">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-10 h-10 sm:w-11 sm:h-11 bg-white/20 rounded-xl flex items-center justify-center flex-shrink-0">
-                <CheckCircle className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+              <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center flex-shrink-0">
+                <CheckCircle className="w-5 h-5 text-white" />
               </div>
               <div className="min-w-0">
                 <p className="text-white/80 text-xs font-medium">Payout UPI ID</p>
@@ -393,7 +416,7 @@ export function TasksTab({ userId }: TasksTabProps) {
             </div>
             <Dialog open={upiDialogOpen} onOpenChange={setUpiDialogOpen}>
               <DialogTrigger asChild>
-                <Button size="sm" onClick={openUpiDialog} className="bg-white/20 hover:bg-white/30 text-white border-0 flex-shrink-0 rounded-xl text-xs px-3">
+                <Button size="sm" onClick={() => { setUpiId(userUpiId || ""); setUpiDialogOpen(true) }} className="bg-white/20 hover:bg-white/30 text-white border-0 flex-shrink-0 rounded-xl text-xs px-3">
                   <Edit2 className="w-3 h-3 mr-1" /> Change
                 </Button>
               </DialogTrigger>
@@ -424,8 +447,8 @@ export function TasksTab({ userId }: TasksTabProps) {
         <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-2xl p-4 sm:p-5">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 sm:w-11 sm:h-11 bg-white/20 rounded-xl flex items-center justify-center flex-shrink-0">
-                <Wallet className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+              <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center flex-shrink-0">
+                <Wallet className="w-5 h-5 text-white" />
               </div>
               <div>
                 <p className="text-white font-semibold text-sm">Set up UPI to get paid</p>
@@ -471,59 +494,170 @@ export function TasksTab({ userId }: TasksTabProps) {
             </TabsTrigger>
           </TabsList>
 
-          {categories.length > 1 && (
-            <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
-              {categories.map(cat => (
-                <button key={cat} onClick={() => setSelectedCategory(cat)}
-                  className={`flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${selectedCategory === cat ? 'bg-blue-600 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 active:bg-gray-300'}`}>
-                  {cat === 'all' ? '🎯 All' : `${getActionTypeIcon(cat)} ${cat}`}
-                </button>
-              ))}
-            </div>
-          )}
+          {/* Refresh button */}
+          <button onClick={() => loadData(true)} aria-label="Refresh tasks"
+            className={`flex items-center gap-1.5 text-xs text-gray-500 hover:text-blue-600 font-medium transition-colors ${isRefreshing ? 'opacity-50 pointer-events-none' : ''}`}>
+            <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+            {isRefreshing ? 'Refreshing...' : 'Refresh'}
+          </button>
         </div>
 
         {/* ── Available Tab ── */}
         <TabsContent value="available" className="space-y-3 mt-0">
-          {filteredTasks.length === 0 ? (
-            <Card className="border-0 shadow-lg rounded-2xl overflow-hidden">
-              <CardContent className="p-0">
-                <div className="bg-gradient-to-r from-orange-500 to-pink-500 px-4 py-3 flex items-center gap-2">
-                  <span className="relative flex h-2.5 w-2.5 flex-shrink-0">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
-                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-white" />
-                  </span>
-                  <p className="text-white text-xs font-bold">🔥 High demand — tasks fill up fast!</p>
+
+          {/* Search + Filter bar */}
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              {/* Search */}
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  placeholder="Search tasks..."
+                  className="w-full pl-9 pr-4 py-2.5 text-sm bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
+                />
+                {searchQuery && (
+                  <button onClick={() => setSearchQuery("")} aria-label="Clear search" title="Clear search" className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+  <X className="w-3.5 h-3.5" />
+</button>
+                )}
+              </div>
+
+              {/* Sort */}
+              <select
+                value={sortBy}
+                onChange={e => setSortBy(e.target.value as SortOption)}
+                title="Sort tasks"
+                className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 text-gray-700 flex-shrink-0"
+              >
+                <option value="newest">🆕 Newest</option>
+                <option value="payout_high">💰 Highest Pay</option>
+                <option value="payout_low">📉 Lowest Pay</option>
+                <option value="slots">🎯 Most Slots</option>
+              </select>
+
+              {/* Filter toggle */}
+              <button
+  onClick={() => setShowFilters(!showFilters)}
+  aria-label="Toggle filters"
+  title="Toggle filters"
+  className={`flex items-center gap-1.5 px-3 py-2.5 rounded-xl border text-sm font-medium transition-all flex-shrink-0 ${showFilters || activeFilterCount > 0 ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300'}`}
+>
+                <SlidersHorizontal className="w-4 h-4" />
+                {activeFilterCount > 0 && <span className="text-xs">{activeFilterCount}</span>}
+              </button>
+            </div>
+
+            {/* Advanced filters panel */}
+            {showFilters && (
+              <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-bold text-gray-700 uppercase tracking-wide">Filters</p>
+                  {activeFilterCount > 0 && (
+                    <button onClick={clearFilters} className="text-xs text-red-500 hover:text-red-600 font-semibold">Clear all</button>
+                  )}
                 </div>
-                <div className="p-6 text-center">
-                  <div className="w-16 h-16 bg-gradient-to-br from-orange-100 to-pink-100 rounded-2xl flex items-center justify-center mx-auto mb-4 text-3xl">⏳</div>
-                  <h3 className="text-lg font-black text-gray-900 mb-1">All slots grabbed!</h3>
-                  <p className="text-gray-500 text-sm mb-5">Tasks get claimed within minutes.<br />The early bird gets the earnings. 🐦</p>
-                  <div className="grid grid-cols-2 gap-3 mb-5">
-                    <div className="bg-orange-50 border border-orange-100 rounded-xl p-3">
-                      <p className="text-2xl font-black text-orange-600">⚡</p>
-                      <p className="text-xs font-semibold text-gray-700 mt-1">Tasks go live</p>
-                      <p className="text-xs text-gray-500">multiple times a day</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-medium text-gray-600 block mb-1">Min payout (₹)</label>
+                    <input
+                      type="number"
+                      value={minPayout}
+                      onChange={e => setMinPayout(e.target.value)}
+                      placeholder="e.g. 50"
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    />
+                  </div>
+                  <div className="flex items-center gap-3 pt-4">
+                    <button
+                      onClick={() => setOnlyWithGuide(!onlyWithGuide)}
+                      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${onlyWithGuide ? 'bg-blue-600' : 'bg-gray-300'}`}
+                      aria-label="Toggle guide filter"
+                    >
+                      <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform shadow ${onlyWithGuide ? 'translate-x-4' : 'translate-x-1'}`} />
+                    </button>
+                    <label className="text-xs font-medium text-gray-600">Only tasks with guide</label>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Category pills */}
+            {categories.length > 1 && (
+              <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
+                {categories.map(cat => (
+                  <button key={cat} onClick={() => setSelectedCategory(cat)}
+                    className={`flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${selectedCategory === cat ? 'bg-blue-600 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+                    {cat === 'all' ? `🎯 All (${availableTasks.length})` : `${getActionTypeIcon(cat)} ${cat}`}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Active search result count */}
+            {(searchQuery || activeFilterCount > 0) && (
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-gray-500">
+                  {filteredAndSortedTasks.length === 0 ? 'No tasks match' : `${filteredAndSortedTasks.length} task${filteredAndSortedTasks.length !== 1 ? 's' : ''} found`}
+                </p>
+                <button onClick={clearFilters} className="text-xs text-blue-600 font-semibold">Clear</button>
+              </div>
+            )}
+          </div>
+
+          {filteredAndSortedTasks.length === 0 ? (
+            searchQuery || activeFilterCount > 0 ? (
+              // No results for search/filter
+              <Card className="border border-dashed border-gray-300 rounded-2xl">
+                <CardContent className="py-12 text-center">
+                  <div className="w-14 h-14 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4 text-2xl">🔍</div>
+                  <h3 className="text-base font-semibold text-gray-900 mb-1">No tasks found</h3>
+                  <p className="text-gray-500 text-sm mb-3">Try adjusting your search or filters</p>
+                  <button onClick={clearFilters} className="text-sm text-blue-600 font-semibold hover:underline">Clear all filters</button>
+                </CardContent>
+              </Card>
+            ) : (
+              // No tasks available
+              <Card className="border-0 shadow-lg rounded-2xl overflow-hidden">
+                <CardContent className="p-0">
+                  <div className="bg-gradient-to-r from-orange-500 to-pink-500 px-4 py-3 flex items-center gap-2">
+                    <span className="relative flex h-2.5 w-2.5 flex-shrink-0">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-white" />
+                    </span>
+                    <p className="text-white text-xs font-bold">🔥 High demand — tasks fill up fast!</p>
+                  </div>
+                  <div className="p-6 text-center">
+                    <div className="w-16 h-16 bg-gradient-to-br from-orange-100 to-pink-100 rounded-2xl flex items-center justify-center mx-auto mb-4 text-3xl">⏳</div>
+                    <h3 className="text-lg font-black text-gray-900 mb-1">All slots grabbed!</h3>
+                    <p className="text-gray-500 text-sm mb-5">Tasks get claimed within minutes.<br />The early bird gets the earnings. 🐦</p>
+                    <div className="grid grid-cols-2 gap-3 mb-5">
+                      <div className="bg-orange-50 border border-orange-100 rounded-xl p-3">
+                        <p className="text-2xl font-black text-orange-600">⚡</p>
+                        <p className="text-xs font-semibold text-gray-700 mt-1">Tasks go live</p>
+                        <p className="text-xs text-gray-500">multiple times a day</p>
+                      </div>
+                      <div className="bg-pink-50 border border-pink-100 rounded-xl p-3">
+                        <p className="text-2xl font-black text-pink-600">🎯</p>
+                        <p className="text-xs font-semibold text-gray-700 mt-1">Limited slots</p>
+                        <p className="text-xs text-gray-500">per task always</p>
+                      </div>
                     </div>
-                    <div className="bg-pink-50 border border-pink-100 rounded-xl p-3">
-                      <p className="text-2xl font-black text-pink-600">🎯</p>
-                      <p className="text-xs font-semibold text-gray-700 mt-1">Limited slots</p>
-                      <p className="text-xs text-gray-500">per task always</p>
+                    <div className="bg-gray-50 rounded-xl px-4 py-3">
+                      <p className="text-xs text-gray-500">💡 <span className="font-semibold text-gray-700">Pro tip:</span> Check morning & evening — that's when most tasks drop.</p>
                     </div>
                   </div>
-                  <div className="bg-gray-50 rounded-xl px-4 py-3">
-                    <p className="text-xs text-gray-500">💡 <span className="font-semibold text-gray-700">Pro tip:</span> Check morning & evening — that's when most tasks drop.</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            )
           ) : (
             <div className="grid gap-3 grid-cols-1 md:grid-cols-2">
-              {filteredTasks.map(task => {
+              {filteredAndSortedTasks.map(task => {
                 const isFull = task.max_completions ? (task.completion_count || 0) >= Number(task.max_completions) : false
                 const isRetryable = isTaskRetryable(task.id)
                 const hasDetailPage = task.has_detail_page
-
                 return (
                   <Card key={task.id} className="border border-gray-200 shadow-sm hover:shadow-lg active:shadow-sm transition-all duration-200 overflow-hidden rounded-2xl">
                     <CardContent className="p-4 sm:p-5">
@@ -539,12 +673,10 @@ export function TasksTab({ userId }: TasksTabProps) {
                           <h3 className="font-bold text-gray-900 text-sm leading-tight line-clamp-2">{task.title}</h3>
                           {task.app_name && <p className="text-xs text-gray-500 mt-0.5 truncate">{task.app_name}</p>}
                           <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-                            <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
-                              {getActionTypeIcon(task.action_type || 'other')} {task.action_type}
-                            </span>
+                            <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{getActionTypeIcon(task.action_type || 'other')} {task.action_type}</span>
                             {(task as any).requires_proof && (
                               <span className="text-xs bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full flex items-center gap-1">
-                                <Camera className="w-2.5 h-2.5" /> Proof needed
+                                <Camera className="w-2.5 h-2.5" /> Proof
                               </span>
                             )}
                             {hasDetailPage && (
@@ -563,10 +695,7 @@ export function TasksTab({ userId }: TasksTabProps) {
                         </div>
                       </div>
 
-                      {task.description && (
-                        <p className="text-xs text-gray-500 line-clamp-2 mb-2">{task.description}</p>
-                      )}
-
+                      {task.description && <p className="text-xs text-gray-500 line-clamp-2 mb-2">{task.description}</p>}
                       <SlotsBar task={task} />
 
                       {isRetryable && (
@@ -576,11 +705,10 @@ export function TasksTab({ userId }: TasksTabProps) {
                         </div>
                       )}
 
-                      {/* Guide hint when detail page is on */}
                       {hasDetailPage && !isFull && (
                         <div className="flex items-center gap-2 bg-blue-50 border border-blue-100 rounded-xl px-3 py-2 mt-3">
                           <LayoutTemplate className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
-                          <p className="text-xs text-blue-600 font-medium">View step-by-step guide & copy prompts before starting</p>
+                          <p className="text-xs text-blue-600 font-medium">Step-by-step guide & copy prompts available</p>
                         </div>
                       )}
 
@@ -589,11 +717,8 @@ export function TasksTab({ userId }: TasksTabProps) {
                           <span className="text-gray-400 text-sm font-semibold">🔒 All slots filled</span>
                         </div>
                       ) : (
-                        <Button
-                          onClick={() => handleCompleteTask(task)}
-                          disabled={completingTaskId === task.id}
-                          className="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 rounded-xl h-11 font-semibold mt-3 text-sm"
-                        >
+                        <Button onClick={() => handleCompleteTask(task)} disabled={completingTaskId === task.id}
+                          className="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 rounded-xl h-11 font-semibold mt-3 text-sm">
                           {completingTaskId === task.id
                             ? <><Clock className="w-4 h-4 mr-2 animate-spin" />Opening task...</>
                             : hasDetailPage
@@ -625,9 +750,7 @@ export function TasksTab({ userId }: TasksTabProps) {
           ) : (
             <div className="space-y-3">
               {completedCompletions.map(c => {
-                const needsProof = !c.completion_proof &&
-                  c.status === 'pending_verification' &&
-                  c.requires_proof === true
+                const needsProof = !c.completion_proof && c.status === 'pending_verification' && c.requires_proof === true
                 return (
                   <Card key={c.id} className={`border shadow-sm rounded-2xl transition-all ${needsProof ? 'border-orange-200 bg-orange-50/40' : 'border-gray-200'}`}>
                     <CardContent className="p-4">
@@ -643,15 +766,11 @@ export function TasksTab({ userId }: TasksTabProps) {
                           <h3 className="font-semibold text-gray-900 text-sm truncate">{c.task_title || "Completed Task"}</h3>
                           {c.app_name && <p className="text-xs text-gray-500 truncate">{c.app_name}</p>}
                           {c.task_deleted && <p className="text-xs text-gray-400">Task no longer available</p>}
+                          <p className="text-xs text-gray-400 mt-0.5">{new Date(c.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
                           {needsProof && (
                             <button
-                              onClick={() => setProofState({
-                                completionId: c.id,
-                                taskTitle: c.task_title || "Task",
-                                payout: Number(c.user_payout),
-                                instructions: c.proof_instructions || null
-                              })}
-                              className="mt-1.5 flex items-center gap-1 text-xs text-orange-600 hover:text-orange-700 font-semibold bg-orange-100 hover:bg-orange-200 active:bg-orange-300 px-2.5 py-1 rounded-lg transition-colors"
+                              onClick={() => setProofState({ completionId: c.id, taskTitle: c.task_title || "Task", payout: Number(c.user_payout), instructions: c.proof_instructions || null })}
+                              className="mt-1.5 flex items-center gap-1 text-xs text-orange-600 hover:text-orange-700 font-semibold bg-orange-100 hover:bg-orange-200 px-2.5 py-1 rounded-lg transition-colors"
                             >
                               <Upload className="w-3 h-3" /> Upload proof to get paid
                             </button>
