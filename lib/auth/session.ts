@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server"
 import crypto from 'crypto'
 
 const SESSION_COOKIE_NAME = "auth_session"
-const SESSION_MAX_AGE = 60 * 60 * 24 * 7 // 7 days
+const SESSION_MAX_AGE = 60 * 60 * 24 * 365 * 10 // 10 years
 
 export interface Session {
   userId: number
