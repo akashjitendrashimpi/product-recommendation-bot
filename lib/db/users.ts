@@ -8,6 +8,8 @@ export interface User {
   password?: string
   display_name: string | null
   is_admin: boolean
+  is_banned: boolean
+  ban_reason: string | null
   upi_id: string | null
   phone: string | null
   email_verified: boolean
@@ -36,7 +38,7 @@ export async function createUser(data: {
       upi_id: data.upi_id || null,
       is_admin: data.is_admin || false,
     })
-    .select('id, email, display_name, is_admin, upi_id, phone, email_verified, created_at, updated_at')
+    .select('id, email, display_name, is_admin, is_banned, ban_reason, upi_id, phone, email_verified, created_at, updated_at')
     .single()
 
   if (error || !user) {
@@ -98,9 +100,11 @@ export async function getAllUsers(): Promise<User[]> {
 // ── Update user profile ────────────────────────────────────────────────────
 export async function updateUser(
   id: number,
-  data: {
+ data: {
     display_name?: string | null
     is_admin?: boolean
+    is_banned?: boolean
+    ban_reason?: string | null
     upi_id?: string | null
     phone?: string | null
   }
@@ -111,6 +115,8 @@ export async function updateUser(
   if (data.is_admin !== undefined) updates.is_admin = data.is_admin
   if (data.upi_id !== undefined) updates.upi_id = data.upi_id
   if (data.phone !== undefined) updates.phone = data.phone
+  if (data.is_banned !== undefined) updates.is_banned = data.is_banned
+  if (data.ban_reason !== undefined) updates.ban_reason = data.ban_reason
 
   if (Object.keys(updates).length === 0) return
 

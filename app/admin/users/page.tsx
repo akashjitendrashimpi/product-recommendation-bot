@@ -7,9 +7,7 @@ import { AdminUsers } from "@/components/admin/admin-users"
 export default async function AdminUsersPage() {
   const session = await getSession()
   if (!session) redirect("/auth/login")
-
   const user = await getUserById(session.userId)
   if (!user || !user.is_admin) redirect("/dashboard")
-
   return <AdminUsers />
 }
