@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Search, Shield, ShieldOff, User, Users, Crown, Ban, CheckCircle, X, AlertTriangle } from "lucide-react"
+import { Search, Shield, ShieldOff, User, Users, Crown, Ban, CheckCircle, AlertTriangle, Trash2 } from "lucide-react"
 
 interface UserType {
   id: number
@@ -27,6 +27,7 @@ export function AdminUsers() {
   const [filter, setFilter] = useState<'all' | 'admins' | 'users' | 'banned'>('all')
   const [banModal, setBanModal] = useState<UserType | null>(null)
   const [banReason, setBanReason] = useState("")
+  const [deleteModal, setDeleteModal] = useState<UserType | null>(null)
 
   useEffect(() => { fetchUsers() }, [])
 
@@ -64,7 +65,6 @@ export function AdminUsers() {
 
   const handleBan = async (user: UserType) => {
     if (user.is_banned) {
-      // Unban directly
       setUpdating(user.id)
       try {
         const res = await fetch(`/api/admin/users/${user.id}`, {
@@ -77,7 +77,6 @@ export function AdminUsers() {
         setUpdating(null)
       }
     } else {
-      // Show ban modal
       setBanModal(user)
       setBanReason("")
     }
@@ -98,11 +97,26 @@ export function AdminUsers() {
     }
   }
 
+  const confirmDelete = async () => {
+    if (!deleteModal) return
+    setUpdating(deleteModal.id)
+    try {
+      const res = await fetch(`/api/admin/users/${deleteModal.id}`, { method: 'DELETE' })
+      const data = await res.json()
+      if (!res.ok) { alert(data.error || 'Failed to delete'); return }
+      fetchUsers()
+      setDeleteModal(null)
+    } finally {
+      setUpdating(null)
+    }
+  }
+
   const adminCount = users.filter(u => u.is_admin).length
   const bannedCount = users.filter(u => u.is_banned).length
 
   const filtered = users.filter(u => {
-    const matchesSearch = u.email.toLowerCase().includes(search.toLowerCase()) ||
+    const matchesSearch =
+      u.email.toLowerCase().includes(search.toLowerCase()) ||
       (u.display_name || '').toLowerCase().includes(search.toLowerCase())
     const matchesFilter =
       filter === 'all' ||
@@ -146,6 +160,34 @@ export function AdminUsers() {
                 className="flex-1 bg-red-600 hover:bg-red-700 rounded-xl"
               >
                 {updating === banModal.id ? 'Banning...' : 'Yes, Ban User'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Modal */}
+      {deleteModal && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6">
+            <div className="w-14 h-14 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <Trash2 className="w-7 h-7 text-red-600" />
+            </div>
+            <h3 className="text-lg font-bold text-gray-900 text-center mb-1">Delete User?</h3>
+            <p className="text-sm text-gray-500 text-center mb-1">{deleteModal.display_name || deleteModal.email}</p>
+            <p className="text-xs text-gray-400 text-center mb-5">{deleteModal.email}</p>
+            <div className="bg-red-50 border border-red-200 rounded-xl p-3 mb-5">
+              <p className="text-red-700 text-xs font-semibold mb-1">⚠️ This action is permanent!</p>
+              <p className="text-red-600 text-xs">All their task completions, earnings and payment history will be deleted forever.</p>
+            </div>
+            <div className="flex gap-3">
+              <Button variant="outline" onClick={() => setDeleteModal(null)} className="flex-1 rounded-xl">Cancel</Button>
+              <Button
+                onClick={confirmDelete}
+                disabled={updating === deleteModal.id}
+                className="flex-1 bg-red-600 hover:bg-red-700 rounded-xl"
+              >
+                {updating === deleteModal.id ? 'Deleting...' : 'Yes, Delete'}
               </Button>
             </div>
           </div>
@@ -291,7 +333,7 @@ export function AdminUsers() {
                               }
                             </Button>
                           )}
-                          {/* Ban/Unban — never ban yourself or last admin */}
+                          {/* Ban/Unban — never for admins */}
                           {!user.is_admin && (
                             <Button
                               variant="outline"
@@ -300,13 +342,26 @@ export function AdminUsers() {
                               onClick={() => handleBan(user)}
                               className={`rounded-xl ${user.is_banned
                                 ? 'text-green-600 border-green-200 hover:bg-green-50'
-                                : 'text-red-600 border-red-200 hover:bg-red-50'
+                                : 'text-orange-600 border-orange-200 hover:bg-orange-50'
                               }`}
                             >
                               {updating === user.id ? '...' : user.is_banned
                                 ? <><CheckCircle className="w-3 h-3 mr-1" /> Unban</>
                                 : <><Ban className="w-3 h-3 mr-1" /> Ban</>
                               }
+                            </Button>
+                          )}
+                          {/* Delete — never for admins */}
+                          {!user.is_admin && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={updating === user.id}
+                              onClick={() => setDeleteModal(user)}
+                              className="rounded-xl text-red-600 border-red-200 hover:bg-red-50"
+                              title="Delete user permanently"
+                            >
+                              <Trash2 className="w-3 h-3" />
                             </Button>
                           )}
                         </div>
