@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+
+import { useState, useEffect, useRef, useMemo } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -369,16 +370,25 @@ export function AdminTasks() {
   // ── Drag reorder ──
   const handleDragStart = (id: number) => setDragId(id)
   const handleDragOver = (e: React.DragEvent, id: number) => { e.preventDefault(); setDragOverId(id) }
-  const handleDrop = (targetId: number) => {
-    if (!dragId || dragId === targetId) { setDragId(null); setDragOverId(null); return }
-    const from = tasks.findIndex(t => t.id === dragId)
-    const to = tasks.findIndex(t => t.id === targetId)
-    const newTasks = [...tasks]
-    const [moved] = newTasks.splice(from, 1)
-    newTasks.splice(to, 0, moved)
-    setTasks(newTasks)
-    setDragId(null); setDragOverId(null)
-  }
+ const handleDrop = async (targetId: number) => {
+  if (!dragId || dragId === targetId) { setDragId(null); setDragOverId(null); return }
+  const from = tasks.findIndex(t => t.id === dragId)
+  const to = tasks.findIndex(t => t.id === targetId)
+  const newTasks = [...tasks]
+  const [moved] = newTasks.splice(from, 1)
+  newTasks.splice(to, 0, moved)
+  setTasks(newTasks)
+  setDragId(null); setDragOverId(null)
+  await Promise.allSettled(
+    newTasks.map((t: Task, idx: number) =>
+      fetch(`/api/admin/tasks/${t.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sort_order: idx })
+      })
+    )
+  )
+}
 
   // ── Broadcast notification ──
   const sendBroadcast = async () => {
@@ -422,9 +432,10 @@ export function AdminTasks() {
   const eAddPrompt = () => { const v = editPrompt.trim(); if (!v) return; setEditForm(f => ({ ...f, copy_prompts: [...(f.copy_prompts || []), v] })); setEditPrompt("") }
   const eRemovePrompt = (i: number) => setEditForm(f => ({ ...f, copy_prompts: (f.copy_prompts || []).filter((_, j) => j !== i) }))
 
-  const filtered = tasks
-    .filter(t => filterStatus === 'all' || (filterStatus === 'active' ? t.is_active : !t.is_active))
-    .filter(t => t.title.toLowerCase().includes(search.toLowerCase()) || (t.app_name || '').toLowerCase().includes(search.toLowerCase()))
+  const filtered = useMemo(() => tasks
+  .filter(t => filterStatus === 'all' || (filterStatus === 'active' ? t.is_active : !t.is_active))
+  .filter(t => t.title.toLowerCase().includes(search.toLowerCase()) || (t.app_name || '').toLowerCase().includes(search.toLowerCase()))
+, [tasks, filterStatus, search])
 
   const taskCompletions = selectedTask ? completions.filter(c => c.task_id === selectedTask.id) : []
   const getConversionColor = (r: string) => { const n = parseFloat(r); return n >= 50 ? 'text-green-600' : n >= 20 ? 'text-yellow-600' : 'text-red-500' }

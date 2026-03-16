@@ -9,7 +9,14 @@ const ALLOWED_COLUMNS = new Set([
   'country_code', 'country', 'currency', 'is_active', 'requires_proof',
   'proof_instructions', 'max_completions', 'has_detail_page',
   'how_to_steps', 'copy_prompts', 'expires_at', 'requirements',
+  'sort_order', // ← for drag reorder
 ])
+
+// Always coerce these to arrays
+const JSONB_ARRAY_COLUMNS = new Set(['how_to_steps', 'copy_prompts'])
+
+// Always coerce these to numbers
+const NUMERIC_COLUMNS = new Set(['network_payout', 'user_payout', 'reward', 'max_completions', 'sort_order'])
 
 export async function PATCH(
   request: NextRequest,
@@ -28,18 +35,33 @@ export async function PATCH(
     }
 
     const data = await request.json()
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
+      return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
+    }
 
-    // Only keep allowed columns — drop computed fields like completion_count etc
+    // Strip computed/unknown fields, coerce types
     const updates: Record<string, any> = { updated_at: new Date().toISOString() }
+
     for (const [key, value] of Object.entries(data)) {
-      if (ALLOWED_COLUMNS.has(key)) {
-        // Ensure jsonb arrays are proper arrays
-        if (key === 'how_to_steps' || key === 'copy_prompts') {
-          updates[key] = Array.isArray(value) ? value : []
+      if (!ALLOWED_COLUMNS.has(key)) continue
+
+      if (JSONB_ARRAY_COLUMNS.has(key)) {
+        updates[key] = Array.isArray(value) ? value : []
+      } else if (NUMERIC_COLUMNS.has(key)) {
+        if (value === null || value === '') {
+          updates[key] = null
         } else {
-          updates[key] = value
+          const num = Number(value)
+          updates[key] = isNaN(num) ? null : num
         }
+      } else {
+        updates[key] = value
       }
+    }
+
+    // Nothing to update
+    if (Object.keys(updates).length <= 1) {
+      return NextResponse.json({ error: "No valid fields to update" }, { status: 400 })
     }
 
     const { error } = await (supabaseAdmin as any)
@@ -49,7 +71,7 @@ export async function PATCH(
 
     if (error) {
       console.error('Supabase update error:', error)
-      throw error
+      return NextResponse.json({ error: error.message || 'Database error' }, { status: 500 })
     }
 
     return NextResponse.json({ success: true })
@@ -80,7 +102,10 @@ export async function DELETE(
       .delete()
       .eq('id', taskId)
 
-    if (error) throw error
+    if (error) {
+      console.error('Supabase delete error:', error)
+      return NextResponse.json({ error: error.message || 'Database error' }, { status: 500 })
+    }
 
     return NextResponse.json({ success: true })
   } catch (error) {
