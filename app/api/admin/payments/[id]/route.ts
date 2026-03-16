@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getSession } from "@/lib/auth/session"
 import { supabaseAdmin } from "@/lib/supabase/client"
+import { createNotification, sendPushNotification } from "@/app/api/admin/send-notification/route"
 
 export async function PATCH(
   request: NextRequest,
@@ -14,7 +15,6 @@ export async function PATCH(
     const { id } = await params
     const paymentId = parseInt(id)
 
-    // Security: validate payment ID
     if (isNaN(paymentId) || paymentId <= 0)
       return NextResponse.json({ error: "Invalid payment ID" }, { status: 400 })
 
@@ -25,12 +25,11 @@ export async function PATCH(
       return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
     }
 
-    const { status, transaction_id } = body
+    const { status, transaction_id, rejection_reason } = body
 
     if (!["completed", "rejected"].includes(status))
       return NextResponse.json({ error: "Invalid status" }, { status: 400 })
 
-    // Security: sanitize transaction_id
     const safeTxnId = transaction_id
       ? String(transaction_id).trim().slice(0, 100)
       : null
@@ -40,7 +39,7 @@ export async function PATCH(
       .from("payments")
       .select("*")
       .eq("id", paymentId)
-      .eq("status", "pending") // Security: can only act on pending payments
+      .eq("status", "pending")
       .single()
 
     if (fetchError || !payment)
@@ -59,19 +58,29 @@ export async function PATCH(
 
     if (error) throw error
 
-    // Option B: This payment is a MANUAL PAYOUT REQUEST
-    // Earnings were already credited when tasks were completed/approved
-    // We just need to record the payment as done — NO earnings adjustment needed
+    const userId = payment.user_id
+    const amount = Number(payment.amount).toFixed(0)
 
-    if (status === "rejected") {
-      // Payment rejected — user's balance stays intact, they can request again
-      // No earnings adjustment needed — balance was never deducted
-      // Just log it and let the user know via the status change
+    // ── Notify user on approve ──
+    if (status === "completed") {
+      const title = "Payment Sent! 💸"
+      const notifBody = `₹${amount} has been sent to ${payment.upi_id}.${safeTxnId ? ` Txn: ${safeTxnId}` : ''}`
+      await Promise.allSettled([
+        createNotification({ userId, title, body: notifBody, type: 'success', actionUrl: '/dashboard/earnings' }),
+        sendPushNotification({ userId, title, body: notifBody, actionUrl: '/dashboard/earnings' }),
+      ])
     }
 
-    // Note: We intentionally do NOT touch user_earnings here
-    // Balance deduction happens via getUserPendingPaymentTotal and getUserCompletedPaymentTotal
-    // which are calculated dynamically from the payments table
+    // ── Notify user on reject ──
+    if (status === "rejected") {
+      const reason = rejection_reason?.trim() || "Please contact support for details."
+      const title = "Payout Rejected ❌"
+      const notifBody = `Your ₹${amount} payout request was rejected. ${reason}`
+      await Promise.allSettled([
+        createNotification({ userId, title, body: notifBody, type: 'error', actionUrl: '/dashboard/earnings' }),
+        sendPushNotification({ userId, title, body: notifBody, actionUrl: '/dashboard/earnings' }),
+      ])
+    }
 
     return NextResponse.json({ success: true })
   } catch (error) {
