@@ -157,7 +157,7 @@ export function TaskDetailClient({ task, userId }: TaskDetailProps) {
   // ── Success Screen ──
   if (stage === 'success') {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6">
+      <div className="flex items-center justify-center py-16 px-6">
         <div className="text-center max-w-sm">
           <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
             <CheckCircle2 className="w-12 h-12 text-green-600" />
@@ -189,7 +189,7 @@ export function TaskDetailClient({ task, userId }: TaskDetailProps) {
   // ── Proof Upload Screen ──
   if (stage === 'proof' || stage === 'uploading') {
     return (
-      <div className="space-y-4 pb-28">
+      <div className="space-y-4 pb-44 lg:pb-32">
         <button onClick={() => router.back()} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800 transition-colors group">
           <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
           Back to Tasks
@@ -272,7 +272,7 @@ export function TaskDetailClient({ task, userId }: TaskDetailProps) {
         />
 
         {/* Bottom actions */}
-        <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/90 backdrop-blur-md border-t border-gray-100 z-40">
+        <div className="fixed bottom-16 left-0 right-0 p-4 bg-white/90 backdrop-blur-md border-t border-gray-100 z-[60] lg:bottom-0">
           <div className="max-w-2xl mx-auto space-y-2">
             <Button
               onClick={handleUploadProof}
@@ -299,7 +299,7 @@ export function TaskDetailClient({ task, userId }: TaskDetailProps) {
 
   // ── Main Detail Page ──
   return (
-    <div className="space-y-4 pb-28">
+    <div className="space-y-4 pb-44 lg:pb-32">
 
       {/* ── Completion Confirmation Dialog ── */}
       {stage === 'confirming' && (
@@ -458,7 +458,7 @@ export function TaskDetailClient({ task, userId }: TaskDetailProps) {
       )}
 
       {/* ── Sticky Bottom ── */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/90 backdrop-blur-md border-t border-gray-100 z-40">
+      <div className="fixed bottom-16 left-0 right-0 p-4 bg-white/90 backdrop-blur-md border-t border-gray-100 z-[60] lg:bottom-0">
         <div className="max-w-2xl mx-auto space-y-2">
           {stage === 'idle' ? (
             <>

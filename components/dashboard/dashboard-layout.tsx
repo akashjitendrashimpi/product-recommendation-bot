@@ -159,7 +159,9 @@ export function DashboardLayout({ user, profile, children }: DashboardLayoutProp
             <ul className="space-y-1">
               {navigation.map((item) => {
                 const Icon = item.icon
-                const isActive = pathname === item.href
+                const isActive = item.href === '/dashboard'
+                  ? pathname === '/dashboard'
+                  : pathname.startsWith(item.href)
                 return (
                   <li key={item.name}>
                     <Link
@@ -241,7 +243,9 @@ export function DashboardLayout({ user, profile, children }: DashboardLayoutProp
         <div className="flex items-center justify-around h-16 px-2">
           {bottomNav.map((item) => {
             const Icon = item.icon
-            const isActive = pathname === item.href
+            const isActive = item.href === '/dashboard'
+              ? pathname === '/dashboard'
+              : pathname.startsWith(item.href)
             return (
               <Link
                 key={item.name}
