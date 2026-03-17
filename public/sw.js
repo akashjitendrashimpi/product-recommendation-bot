@@ -1,6 +1,59 @@
-// public/sw.js — Service Worker for Push Notifications
-// Place this file in your /public folder
+// public/sw.js — Qyantra Service Worker
+// Handles push notifications + basic offline caching
 
+const CACHE_NAME = 'qyantra-v1'
+const OFFLINE_URLS = ['/dashboard', '/auth/login']
+
+// ── Install: pre-cache key pages ──
+self.addEventListener('install', event => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then(cache => {
+      return cache.addAll(OFFLINE_URLS).catch(() => {})
+    }).then(() => self.skipWaiting())
+  )
+})
+
+// ── Activate: clean up old caches ──
+self.addEventListener('activate', event => {
+  event.waitUntil(
+    caches.keys().then(keys =>
+      Promise.all(
+        keys
+          .filter(key => key !== CACHE_NAME)
+          .map(key => caches.delete(key))
+      )
+    ).then(() => self.clients.claim())
+  )
+})
+
+// ── Fetch: network first, fallback to cache ──
+self.addEventListener('fetch', event => {
+  if (event.request.method !== 'GET') return
+  if (!event.request.url.startsWith(self.location.origin)) return
+  if (event.request.url.includes('/api/')) return
+
+  event.respondWith(
+    fetch(event.request)
+      .then(response => {
+        if (response.ok) {
+          const clone = response.clone()
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone))
+        }
+        return response
+      })
+      .catch(() => {
+        return caches.match(event.request).then(cached => {
+          if (cached) return cached
+          if (event.request.mode === 'navigate') {
+            return caches.match('/dashboard')
+          }
+          return new Response('Offline', { status: 503 })
+        })
+      })
+  )
+})
+
+// ── Push: show notification ──
 self.addEventListener('push', function(event) {
   if (!event.data) return
 
@@ -14,16 +67,17 @@ self.addEventListener('push', function(event) {
   const options = {
     body: data.body || '',
     icon: data.icon || '/icon-192x192.png',
-    badge: data.badge || '/badge-72x72.png',
+    badge: data.badge || '/icon-192x192.png',
     vibrate: [100, 50, 100],
     data: { url: data.url || '/dashboard' },
     actions: [
-      { action: 'open', title: 'Open App' },
+      { action: 'open', title: '📱 Open App' },
       { action: 'close', title: 'Dismiss' }
     ],
     requireInteraction: false,
     tag: 'qyantra-notification',
     renotify: true,
+    silent: false,
   }
 
   event.waitUntil(
@@ -31,24 +85,22 @@ self.addEventListener('push', function(event) {
   )
 })
 
+// ── Notification click ──
 self.addEventListener('notificationclick', function(event) {
   event.notification.close()
-
   if (event.action === 'close') return
 
   const url = event.notification.data?.url || '/dashboard'
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clientList) {
-      // If app is already open, focus it
       for (const client of clientList) {
-        if (client.url.includes(self.location.origin) && 'focus' in client) {
+        if (client.url.startsWith(self.location.origin) && 'focus' in client) {
           client.focus()
           if ('navigate' in client) client.navigate(url)
           return
         }
       }
-      // Otherwise open new window
       if (clients.openWindow) {
         return clients.openWindow(url)
       }
@@ -56,10 +108,7 @@ self.addEventListener('notificationclick', function(event) {
   )
 })
 
-self.addEventListener('install', event => {
-  self.skipWaiting()
-})
-
-self.addEventListener('activate', event => {
-  event.waitUntil(clients.claim())
+// ── Notification dismissed ──
+self.addEventListener('notificationclose', function(event) {
+  // track dismissals here if needed in future
 })
