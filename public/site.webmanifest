@@ -1,5 +1,5 @@
 {
-  "name": "Qyantra",
+  "name": "Qyantra - Earn & Shop Smart",
   "short_name": "Qyantra",
   "description": "Earn real cash by completing simple tasks. Minimum payout ₹50.",
   "start_url": "/dashboard",
@@ -9,13 +9,13 @@
   "orientation": "portrait",
   "icons": [
     {
-      "src": "/icon-192x192.png",
+      "src": "/web-app-manifest-192x192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/icon-512x512.png",
+      "src": "/web-app-manifest-512x512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
