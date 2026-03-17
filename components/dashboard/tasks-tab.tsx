@@ -1,5 +1,5 @@
 "use client"
-
+import Link from "next/link"
 import { useState, useEffect, useRef, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import type { Task, TaskCompletion } from "@/lib/types"
@@ -378,27 +378,24 @@ export function TasksTab({ userId }: TasksTabProps) {
         </div>
       )}
 
-      {/* ── Earnings Summary ── */}
-      <div className="grid gap-2 grid-cols-2 sm:gap-3 md:grid-cols-4">
-        {[
-          { label: 'Total Earned', value: `₹${earnings.totalEarnings.toFixed(2)}`, icon: Trophy, bg: 'from-blue-500 to-blue-700' },
-          { label: 'Today', value: `₹${earnings.dailyEarnings.toFixed(2)}`, icon: Zap, bg: 'from-green-500 to-green-700' },
-          { label: 'This Month', value: `₹${earnings.monthlyEarnings.toFixed(2)}`, icon: TrendingUp, bg: 'from-purple-500 to-purple-700' },
-          { label: 'Tasks Done', value: `${earnings.tasksCompleted}`, icon: CheckCircle2, bg: 'from-orange-500 to-orange-700' },
-        ].map((s, i) => (
-          <Card key={i} className="border-0 shadow-md overflow-hidden rounded-2xl">
-            <CardContent className="p-0">
-              <div className={`bg-gradient-to-br ${s.bg} p-3 sm:p-4`}>
-                <div className="w-8 h-8 sm:w-9 sm:h-9 bg-white/20 rounded-xl flex items-center justify-center mb-2 sm:mb-3">
-                  <s.icon className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-                </div>
-                <p className="text-white/70 text-xs font-medium mb-0.5 truncate">{s.label}</p>
-                <p className="text-white text-lg sm:text-xl font-black truncate">{s.value}</p>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+     {/* ── Compact earnings pill — tasks page focuses on tasks ── */}
+<div className="flex items-center justify-between">
+  <div className="flex items-center gap-3">
+    <div className="flex items-center gap-1.5 bg-green-50 border border-green-100 px-3 py-1.5 rounded-xl">
+      <IndianRupee className="w-3.5 h-3.5 text-green-600" />
+      <span className="text-sm font-black text-green-700">{earnings.totalEarnings.toFixed(0)}</span>
+      <span className="text-xs text-green-500 font-medium">earned</span>
+    </div>
+    <div className="flex items-center gap-1.5 bg-blue-50 border border-blue-100 px-3 py-1.5 rounded-xl">
+      <CheckCircle2 className="w-3.5 h-3.5 text-blue-600" />
+      <span className="text-sm font-black text-blue-700">{earnings.tasksCompleted}</span>
+      <span className="text-xs text-blue-500 font-medium">done</span>
+    </div>
+  </div>
+  <Link href="/dashboard/earnings" className="text-xs text-gray-400 hover:text-blue-600 font-medium transition-colors">
+    View earnings →
+  </Link>
+</div>
 
       {/* ── UPI Section ── */}
       {userUpiId ? (
