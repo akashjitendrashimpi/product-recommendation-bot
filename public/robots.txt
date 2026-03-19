@@ -1,0 +1,205 @@
+# ============================================================
+# Qyantra robots.txt
+# https://www.qyantra.online
+# Last updated: March 2026
+# ============================================================
+
+# ── Default: All crawlers ────────────────────────────────────
+User-agent: *
+Allow: /
+Allow: /privacy
+Allow: /terms
+Allow: /contact
+
+# Protected — never index these
+Disallow: /api/
+Disallow: /admin/
+Disallow: /auth/
+Disallow: /dashboard/
+Disallow: /profile/
+Disallow: /settings/
+Disallow: /withdraw/
+Disallow: /tasks/complete/
+Disallow: /_next/
+Disallow: /404
+Disallow: /500
+Disallow: /*?*token=
+Disallow: /*?*session=
+Disallow: /*?*ref=
+
+# ── Google ───────────────────────────────────────────────────
+User-agent: Googlebot
+Allow: /
+Disallow: /api/
+Disallow: /admin/
+Disallow: /auth/
+Disallow: /dashboard/
+Disallow: /profile/
+Disallow: /settings/
+Disallow: /withdraw/
+Disallow: /_next/
+
+User-agent: Googlebot-Image
+Allow: /*.png
+Allow: /*.jpg
+Allow: /*.svg
+Allow: /*.webp
+Allow: /*.ico
+
+User-agent: Googlebot-Video
+Disallow: /
+
+# ── Google AI ────────────────────────────────────────────────
+User-agent: Google-Extended
+Allow: /
+Allow: /privacy
+Allow: /terms
+
+# ── Bing / Microsoft / Copilot ───────────────────────────────
+User-agent: Bingbot
+Allow: /
+Disallow: /api/
+Disallow: /admin/
+Disallow: /auth/
+Disallow: /dashboard/
+Disallow: /_next/
+
+User-agent: adidxbot
+Allow: /
+
+User-agent: MSNBot
+Allow: /
+
+# ── OpenAI / ChatGPT ─────────────────────────────────────────
+User-agent: GPTBot
+Allow: /
+Allow: /privacy
+Allow: /terms
+Allow: /contact
+
+# ── Anthropic / Claude ───────────────────────────────────────
+User-agent: anthropic-ai
+Allow: /
+Allow: /privacy
+Allow: /terms
+
+User-agent: ClaudeBot
+Allow: /
+
+# ── Perplexity ───────────────────────────────────────────────
+User-agent: PerplexityBot
+Allow: /
+Allow: /privacy
+Allow: /terms
+
+# ── Apple ────────────────────────────────────────────────────
+User-agent: Applebot
+Allow: /
+Disallow: /api/
+Disallow: /admin/
+Disallow: /auth/
+Disallow: /dashboard/
+
+# ── Meta / Llama ─────────────────────────────────────────────
+User-agent: meta-externalagent
+Allow: /
+Allow: /privacy
+Allow: /terms
+
+User-agent: FacebookExternalHit
+Allow: /
+
+# ── Twitter / X ──────────────────────────────────────────────
+User-agent: Twitterbot
+Allow: /
+Allow: /*.png
+Allow: /*.jpg
+
+# ── LinkedIn ─────────────────────────────────────────────────
+User-agent: LinkedInBot
+Allow: /
+
+# ── WhatsApp ─────────────────────────────────────────────────
+User-agent: WhatsApp
+Allow: /
+
+# ── DuckDuckGo ───────────────────────────────────────────────
+User-agent: DuckDuckBot
+Allow: /
+Disallow: /api/
+Disallow: /admin/
+Disallow: /auth/
+Disallow: /dashboard/
+
+# ── Yandex ───────────────────────────────────────────────────
+User-agent: Yandex
+Allow: /
+Disallow: /api/
+Disallow: /admin/
+Disallow: /auth/
+Disallow: /dashboard/
+
+# ── SEO Tools (allow for your own auditing) ──────────────────
+User-agent: AhrefsBot
+Disallow: /
+
+User-agent: SemrushBot
+Disallow: /
+
+User-agent: MJ12bot
+Disallow: /
+
+User-agent: DotBot
+Disallow: /
+
+# ── Bad AI training scrapers — block completely ───────────────
+User-agent: CCBot
+Disallow: /
+
+User-agent: Bytespider
+Disallow: /
+
+User-agent: omgili
+Disallow: /
+
+User-agent: omgilibot
+Disallow: /
+
+User-agent: PetalBot
+Disallow: /
+
+User-agent: DataForSeoBot
+Disallow: /
+
+User-agent: Diffbot
+Disallow: /
+
+User-agent: ia_archiver
+Disallow: /
+
+User-agent: MegaIndex
+Disallow: /
+
+User-agent: SeznamBot
+Disallow: /
+
+User-agent: BLEXBot
+Disallow: /
+
+User-agent: YisouSpider
+Disallow: /
+
+User-agent: proximic
+Disallow: /
+
+User-agent: Scrapy
+Disallow: /
+
+User-agent: python-requests
+Disallow: /
+
+User-agent: curl
+Disallow: /
+
+# ── Sitemap ───────────────────────────────────────────────────
+Sitemap: https://www.qyantra.online/sitemap.xml
