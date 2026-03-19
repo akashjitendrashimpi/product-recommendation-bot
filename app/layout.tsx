@@ -124,7 +124,7 @@ export const metadata: Metadata = {
     },
   },
   verification: {
-    // google: "your-google-search-console-code",
+    google: "RvM0Lp4ki__Szzp-slBslAZCC_ZNxvHDAFF-8Rp8FMA",
     // yandex: "your-yandex-code",
     // bing: "your-bing-code",
   },
@@ -155,13 +155,39 @@ export default function RootLayout({
         <meta name="geo.placename" content="India" />
         <meta name="language" content="English" />
 
-        {/* Performance — preconnect critical origins */}
+        {/* Performance */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link rel="preconnect" href="https://cdn.onesignal.com" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
         <link rel="dns-prefetch" href="https://cdn.onesignal.com" />
         <link rel="dns-prefetch" href="https://onesignal.com" />
+
+        {/* JSON-LD — Organization schema */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "Organization",
+              name: "Qyantra",
+              url: "https://www.qyantra.online",
+              logo: {
+                "@type": "ImageObject",
+                url: "https://www.qyantra.online/web-app-manifest-512x512.png",
+                width: 512,
+                height: 512,
+              },
+              contactPoint: {
+                "@type": "ContactPoint",
+                email: "contact@qyantra.online",
+                contactType: "customer support",
+                availableLanguage: ["English", "Hindi"],
+              },
+              sameAs: ["https://qyantra.vercel.app"],
+            }),
+          }}
+        />
 
         {/* JSON-LD — WebApplication schema */}
         <script
@@ -188,17 +214,32 @@ export default function RootLayout({
                 "@type": "Organization",
                 name: "Qyantra",
                 url: "https://www.qyantra.online",
-                logo: {
-                  "@type": "ImageObject",
-                  url: "https://www.qyantra.online/web-app-manifest-512x512.png",
-                },
-                contactPoint: {
-                  "@type": "ContactPoint",
-                  email: "contact@qyantra.online",
-                  contactType: "customer support",
-                },
               },
-              sameAs: ["https://qyantra.vercel.app"],
+            }),
+          }}
+        />
+
+        {/* JSON-LD — WebSite schema with SearchAction */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "WebSite",
+              name: "Qyantra",
+              url: "https://www.qyantra.online",
+              description:
+                "Earn real money daily by completing simple tasks. UPI payouts. Free to join.",
+              inLanguage: "en-IN",
+              potentialAction: {
+                "@type": "SearchAction",
+                target: {
+                  "@type": "EntryPoint",
+                  urlTemplate:
+                    "https://www.qyantra.online/tasks?q={search_term_string}",
+                },
+                "query-input": "required name=search_term_string",
+              },
             }),
           }}
         />
@@ -243,6 +284,22 @@ export default function RootLayout({
                     text: "Install apps, write reviews, sign up on platforms, complete surveys, and try products. Tasks take 2–10 minutes and require no special skills.",
                   },
                 },
+                {
+                  "@type": "Question",
+                  name: "Which UPI apps are supported for payout?",
+                  acceptedAnswer: {
+                    "@type": "Answer",
+                    text: "All major UPI apps are supported — Paytm, Google Pay, PhonePe, BHIM, and any standard UPI ID.",
+                  },
+                },
+                {
+                  "@type": "Question",
+                  name: "Is my personal data safe on Qyantra?",
+                  acceptedAnswer: {
+                    "@type": "Answer",
+                    text: "Yes. We use industry-standard encryption. Your password is hashed and never stored in plain text. We never sell your personal data.",
+                  },
+                },
               ],
             }),
           }}
@@ -254,14 +311,14 @@ export default function RootLayout({
 
         <Analytics />
 
-        {/* OneSignal SDK — loaded after page is interactive */}
+        {/* OneSignal SDK */}
         <Script
           src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js"
           strategy="afterInteractive"
           defer
         />
 
-        {/* OneSignal Init — runs after SDK loads */}
+        {/* OneSignal Init */}
         <Script
           id="onesignal-init"
           strategy="afterInteractive"
