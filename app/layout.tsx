@@ -2,6 +2,7 @@ import { Analytics } from "@vercel/analytics/next"
 import type React from "react"
 import type { Metadata, Viewport } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
+import Script from "next/script"
 import "./globals.css"
 
 const _geist = Geist({ subsets: ["latin"] })
@@ -21,7 +22,7 @@ export const metadata: Metadata = {
     template: "%s | Qyantra",
   },
   description:
-    "Qyantra is India's trusted earn-money platform. Complete simple tasks — install apps, write reviews, fill surveys — and get paid directly to Paytm, GPay or PhonePe. Minimum payout ₹50. 100% free. No investment.",
+    "Qyantra is India's trusted earn-money platform. Complete simple tasks — install apps, write reviews, fill surveys — and get paid directly to Paytm, GPay or PhonePe. 100% free. No investment.",
   keywords: [
     "earn money online india",
     "earning for students",
@@ -61,7 +62,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Qyantra — Earn Real Money Daily with UPI Payout",
     description:
-      "Complete simple tasks and earn real cash to your UPI. Install apps, write reviews, take surveys. Minimum payout ₹50. 100% free to join. No investment ever.",
+      "Complete simple tasks and earn real cash to your UPI. Install apps, write reviews, take surveys. 100% free to join. No investment ever.",
     url: "https://www.qyantra.online",
     siteName: "Qyantra",
     locale: "en_IN",
@@ -129,6 +130,9 @@ export const metadata: Metadata = {
   },
 }
 
+const ONESIGNAL_APP_ID =
+  process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID || "74c8eb14-3255-4156-b7b4-5aa9a9163f5f"
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -143,109 +147,146 @@ export default function RootLayout({
         <meta name="application-name" content="Qyantra" />
         <meta name="apple-mobile-web-app-title" content="Qyantra" />
 
-        {/* Security — only referrer works as meta, rest handled by next.config.mjs headers */}
+        {/* Security */}
         <meta name="referrer" content="strict-origin-when-cross-origin" />
 
-        {/* Geo targeting India */}
+        {/* Geo targeting */}
         <meta name="geo.region" content="IN" />
         <meta name="geo.placename" content="India" />
         <meta name="language" content="English" />
 
-        {/* Performance */}
+        {/* Performance — preconnect critical origins */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link rel="preconnect" href="https://cdn.onesignal.com" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
-        <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
+        <link rel="dns-prefetch" href="https://cdn.onesignal.com" />
+        <link rel="dns-prefetch" href="https://onesignal.com" />
 
-        {/* JSON-LD Structured Data — WebApplication schema for Google rich results */}
+        {/* JSON-LD — WebApplication schema */}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
             __html: JSON.stringify({
               "@context": "https://schema.org",
               "@type": "WebApplication",
-              "name": "Qyantra",
-              "url": "https://www.qyantra.online",
-              "description": "India's trusted platform to earn real money by completing simple tasks. UPI payouts to Paytm, GPay, PhonePe. Free to join. No investment.",
-              "applicationCategory": "FinanceApplication",
-              "operatingSystem": "Web, Android, iOS",
-              "inLanguage": "en-IN",
-              "isAccessibleForFree": true,
-              "offers": {
+              name: "Qyantra",
+              url: "https://www.qyantra.online",
+              description:
+                "India's trusted platform to earn real money by completing simple tasks. UPI payouts to Paytm, GPay, PhonePe. Free to join. No investment.",
+              applicationCategory: "FinanceApplication",
+              operatingSystem: "Web, Android, iOS",
+              inLanguage: "en-IN",
+              isAccessibleForFree: true,
+              offers: {
                 "@type": "Offer",
-                "price": "0",
-                "priceCurrency": "INR",
-                "description": "Free to join. Earn ₹50–₹500 per day by completing simple tasks."
+                price: "0",
+                priceCurrency: "INR",
+                description: "Free to join. Earn by completing simple tasks daily.",
               },
-              "publisher": {
+              publisher: {
                 "@type": "Organization",
-                "name": "Qyantra",
-                "url": "https://www.qyantra.online",
-                "logo": {
+                name: "Qyantra",
+                url: "https://www.qyantra.online",
+                logo: {
                   "@type": "ImageObject",
-                  "url": "https://www.qyantra.online/web-app-manifest-512x512.png"
+                  url: "https://www.qyantra.online/web-app-manifest-512x512.png",
                 },
-                "contactPoint": {
+                contactPoint: {
                   "@type": "ContactPoint",
-                  "email": "support@qyantra.online",
-                  "contactType": "customer support"
-                }
+                  email: "contact@qyantra.online",
+                  contactType: "customer support",
+                },
               },
-              "sameAs": [
-                "https://qyantra.vercel.app"
-              ]
-            })
+              sameAs: ["https://qyantra.vercel.app"],
+            }),
           }}
         />
 
-        {/* JSON-LD — FAQ schema for Google FAQ rich results */}
+        {/* JSON-LD — FAQ schema */}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
             __html: JSON.stringify({
               "@context": "https://schema.org",
               "@type": "FAQPage",
-              "mainEntity": [
+              mainEntity: [
                 {
                   "@type": "Question",
-                  "name": "Is Qyantra really free? No hidden charges?",
-                  "acceptedAnswer": {
+                  name: "Is Qyantra really free? No hidden charges?",
+                  acceptedAnswer: {
                     "@type": "Answer",
-                    "text": "100% free. We will never ask you to pay, invest, or buy anything. We earn from advertisers when users complete tasks and share that revenue with you."
-                  }
+                    text: "100% free. We will never ask you to pay, invest, or buy anything. We earn from advertisers when users complete tasks and share that revenue with you.",
+                  },
                 },
                 {
                   "@type": "Question",
-                  "name": "How much can I earn per day on Qyantra?",
-                  "acceptedAnswer": {
+                  name: "How much can I earn per day on Qyantra?",
+                  acceptedAnswer: {
                     "@type": "Answer",
-                    "text": "Typical users earn ₹50–₹250 per day spending 20–40 minutes. Earnings depend on task availability and are not guaranteed."
-                  }
+                    text: "Typical users earn ₹50–₹250 per day spending 20–40 minutes. Earnings depend on task availability and are not guaranteed.",
+                  },
                 },
                 {
                   "@type": "Question",
-                  "name": "How do I get paid on Qyantra?",
-                  "acceptedAnswer": {
+                  name: "How do I get paid on Qyantra?",
+                  acceptedAnswer: {
                     "@type": "Answer",
-                    "text": "Once your balance reaches ₹50, you can request a withdrawal to your UPI ID (Paytm, GPay, PhonePe). Processed within 24 hours."
-                  }
+                    text: "Once your balance reaches the minimum withdrawal amount shown in your dashboard, you can request a withdrawal to your UPI ID (Paytm, GPay, PhonePe). Processed within 24 hours.",
+                  },
                 },
                 {
                   "@type": "Question",
-                  "name": "What tasks can I complete on Qyantra?",
-                  "acceptedAnswer": {
+                  name: "What tasks can I complete on Qyantra?",
+                  acceptedAnswer: {
                     "@type": "Answer",
-                    "text": "Install apps, write reviews, sign up on platforms, complete surveys, and try products. Tasks take 2–10 minutes and require no special skills."
-                  }
-                }
-              ]
-            })
+                    text: "Install apps, write reviews, sign up on platforms, complete surveys, and try products. Tasks take 2–10 minutes and require no special skills.",
+                  },
+                },
+              ],
+            }),
           }}
         />
       </head>
+
       <body className="font-sans antialiased">
         {children}
+
         <Analytics />
+
+        {/* OneSignal SDK — loaded after page is interactive */}
+        <Script
+          src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js"
+          strategy="afterInteractive"
+          defer
+        />
+
+        {/* OneSignal Init — runs after SDK loads */}
+        <Script
+          id="onesignal-init"
+          strategy="afterInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.OneSignalDeferred = window.OneSignalDeferred || [];
+              OneSignalDeferred.push(async function(OneSignal) {
+                try {
+                  await OneSignal.init({
+                    appId: "${ONESIGNAL_APP_ID}",
+                    safari_web_id: "web.onesignal.auto.49d2239d-a04e-422a-89e0-14dbda97fb4d",
+                    notifyButton: { enable: false },
+                    autoResubscribe: true,
+                    allowLocalhostAsSecureOrigin: true,
+                    promptOptions: {
+                      slidedown: { enabled: false }
+                    }
+                  });
+                } catch (err) {
+                  console.warn("OneSignal init failed:", err);
+                }
+              });
+            `,
+          }}
+        />
       </body>
     </html>
   )

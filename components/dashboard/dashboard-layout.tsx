@@ -98,7 +98,7 @@ export function DashboardLayout({ user, profile, children }: DashboardLayoutProp
             <span className="font-black text-gray-900 text-base">Qyantra</span>
           </Link>
 
-          <NotificationBell />
+         <NotificationBell userId={user.id} />
         </div>
       </div>
 
@@ -122,7 +122,7 @@ export function DashboardLayout({ user, profile, children }: DashboardLayoutProp
                 <p className="text-xs text-gray-400 font-medium">Earn & Discover</p>
               </div>
             </Link>
-            <NotificationBell />
+            <NotificationBell userId={user.id} />
           </div>
 
           {/* Earnings Card in sidebar */}
