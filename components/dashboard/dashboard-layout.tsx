@@ -28,7 +28,25 @@ export function DashboardLayout({ user, profile, children }: DashboardLayoutProp
     tasksCompleted: 0,
   })
   const pathname = usePathname()
-
+// Auto-request push permission after 5 seconds on dashboard
+useEffect(() => {
+  const timer = setTimeout(() => {
+    if (typeof window !== 'undefined' && (window as any).OneSignalDeferred) {
+      (window as any).OneSignalDeferred.push(async (OneSignal: any) => {
+        try {
+          const isSubscribed = OneSignal.User.PushSubscription.optedIn
+          if (!isSubscribed) {
+            await OneSignal.Notifications.requestPermission()
+            if (user?.id) {
+              await OneSignal.login(String(user.id))
+            }
+          }
+        } catch (e) {}
+      })
+    }
+  }, 5000) // 5 seconds after dashboard loads
+  return () => clearTimeout(timer)
+}, [user?.id])
   useEffect(() => {
     async function fetchStats() {
       try {
