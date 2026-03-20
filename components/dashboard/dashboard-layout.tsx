@@ -249,8 +249,8 @@ useEffect(() => {
       )}
 
       {/* ── Main Content ── */}
-      {/* pb-20 on mobile to avoid bottom nav overlap */}
-      <main className="lg:ml-64 pt-14 lg:pt-0 min-h-screen pb-24 lg:pb-0">
+      {/* pb-[calc(6rem+env(safe-area-inset-bottom))] on mobile to avoid bottom nav overlap fully */}
+      <main className="lg:ml-64 pt-14 lg:pt-0 min-h-screen pb-[calc(6rem+env(safe-area-inset-bottom))] lg:pb-0">
         <div className="p-4 md:p-6 lg:p-8">
           {children}
         </div>
@@ -258,7 +258,7 @@ useEffect(() => {
 
       {/* ── Mobile Bottom Navigation ── */}
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 z-50 shadow-[0_-4px_20px_rgba(0,0,0,0.08)]">
-       <div className="flex items-center justify-around h-16 px-2 pb-safe">
+       <div className="flex items-center justify-around h-[calc(4rem+env(safe-area-inset-bottom))] px-2 pb-[env(safe-area-inset-bottom)]">
           {bottomNav.map((item) => {
             const Icon = item.icon
             const isActive = item.href === '/dashboard'

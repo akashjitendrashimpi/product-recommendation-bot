@@ -308,8 +308,8 @@ export function TasksTab({ userId }: TasksTabProps) {
 
       {/* ── Proof Upload Dialog ── */}
       {proofState && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-          <div className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl w-full sm:max-w-md max-h-[92vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/60 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl w-full sm:max-w-md max-h-[92vh] overflow-y-auto pb-[env(safe-area-inset-bottom)]">
             {proofSuccess ? (
               <div className="p-8 text-center">
                 <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-6 sm:hidden" />
