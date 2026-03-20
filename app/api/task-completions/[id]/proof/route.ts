@@ -9,41 +9,49 @@ export async function POST(
 ) {
   try {
     const session = await getSession()
-    if (!session) {
+    if (!session)
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
 
     const { id } = await params
     const completionId = parseInt(id)
-    if (isNaN(completionId) || completionId <= 0) {
+    if (isNaN(completionId) || completionId <= 0)
       return NextResponse.json({ error: "Invalid completion ID" }, { status: 400 })
-    }
 
     const formData = await request.formData()
     const file = formData.get("screenshot") as File
 
-    if (!file) return NextResponse.json({ error: "Screenshot required" }, { status: 400 })
-    if (!file.type.startsWith("image/")) return NextResponse.json({ error: "Only image files allowed" }, { status: 400 })
-    if (file.size > 5 * 1024 * 1024) return NextResponse.json({ error: "File too large. Max 5MB" }, { status: 400 })
+    if (!file)
+      return NextResponse.json({ error: "Screenshot required" }, { status: 400 })
+    if (!file.type.startsWith("image/"))
+      return NextResponse.json({ error: "Only image files allowed" }, { status: 400 })
+    if (file.size > 5 * 1024 * 1024)
+      return NextResponse.json({ error: "File too large. Max 5MB" }, { status: 400 })
 
-    // Verify completion belongs to this user and is not already verified
+    // Verify completion belongs to this user
     const { data: completion, error: compError } = await (supabaseAdmin as any)
       .from("task_completions")
-      .select("*, tasks(title)")
+      .select("*")
       .eq("id", completionId)
       .eq("user_id", session.userId)
       .single()
 
-    if (compError || !completion) {
+    if (compError || !completion)
       return NextResponse.json({ error: "Completion not found" }, { status: 404 })
-    }
 
-    if (completion.status === "verified") {
+    if (completion.status === "verified")
       return NextResponse.json({ error: "Already verified" }, { status: 400 })
-    }
 
-    // Upload file
-    const fileExt = file.name.split(".").pop() || "jpg"
+    // Fetch task title separately — avoids join issues
+    const { data: task } = await (supabaseAdmin as any)
+      .from("tasks")
+      .select("title")
+      .eq("id", completion.task_id)
+      .maybeSingle()
+
+    const taskTitle = task?.title || "a task"
+
+    // Upload file to Supabase storage
+    const fileExt = file.name.split(".").pop()?.toLowerCase() || "jpg"
     const fileName = `proof_${completionId}_${session.userId}_${Date.now()}.${fileExt}`
     const fileBuffer = await file.arrayBuffer()
 
@@ -54,7 +62,7 @@ export async function POST(
 
     if (uploadError) {
       console.error("Upload error:", uploadError)
-      return NextResponse.json({ error: "Failed to upload screenshot" }, { status: 500 })
+      return NextResponse.json({ error: "Failed to upload screenshot. Please try again." }, { status: 500 })
     }
 
     const { data: urlData } = (supabaseAdmin as any)
@@ -64,44 +72,47 @@ export async function POST(
 
     const proofUrl = urlData?.publicUrl || fileName
 
-    // Update completion with proof
+    // Update completion
     const { error: updateError } = await (supabaseAdmin as any)
       .from("task_completions")
       .update({
         completion_proof: proofUrl,
         status: "pending_verification",
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
       })
       .eq("id", completionId)
 
     if (updateError) throw updateError
 
-    // ── Notify all admins that a new proof is waiting ──
-    const taskTitle = completion.tasks?.title || "a task"
+    // Notify admins — fixed: added .select('id')
+    try {
+      const { data: admins } = await (supabaseAdmin as any)
+        .from("users")
+        .select("id")
+        .eq("is_admin", true)
 
-    const { data: admins } = await (supabaseAdmin as any)
-      .from("users")
-      .select("id")
-      .eq("is_admin", true)
-
-    if (admins?.length) {
-      await Promise.allSettled(
-        admins.map((admin: any) =>
-          createNotification({
-            userId: admin.id,
-            title: "New Proof Submitted 📸",
-            body: `User #${session.userId} submitted proof for "${taskTitle}". Review it now.`,
-            type: 'info',
-            actionUrl: '/admin/proofs',
-          })
+      if (admins?.length) {
+        await Promise.allSettled(
+          admins.map((admin: any) =>
+            createNotification({
+              userId: admin.id,
+              title: "New Proof Submitted 📸",
+              body: `User submitted proof for "${taskTitle}". Review it now.`,
+              type: "info",
+              actionUrl: "/admin/proofs",
+            })
+          )
         )
-      )
+      }
+    } catch (notifError) {
+      // Don't fail the upload if notification fails
+      console.error("Notification error:", notifError)
     }
 
     return NextResponse.json({
       success: true,
-      message: "Screenshot uploaded. Admin will verify within 24 hours.",
-      proof_url: proofUrl
+      message: "Screenshot uploaded successfully. Admin will verify within 24 hours.",
+      proof_url: proofUrl,
     })
 
   } catch (error) {

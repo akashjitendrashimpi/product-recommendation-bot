@@ -7,7 +7,7 @@ const ONESIGNAL_APP_ID =
   process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID || "74c8eb14-3255-4156-b7b4-5aa9a9163f5f"
 const ONESIGNAL_REST_API_KEY = process.env.ONESIGNAL_REST_API_KEY
 const BASE_URL = "https://www.qyantra.online"
-const ICON_URL = `${BASE_URL}/icon-192x192.png`
+const ICON_URL = `${BASE_URL}/web-app-manifest-192x192.png`
 const ONESIGNAL_API = "https://api.onesignal.com/notifications"
 
 // ── Rate limiting (in-memory, per admin session) ─────────────────────────────

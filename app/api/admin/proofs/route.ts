@@ -129,6 +129,32 @@ export async function PATCH(request: NextRequest) {
             amount: payout,
           })
       }
+      
+      // 3. Create payment record so admin can pay user
+      const { data: existingPayment } = await (supabaseAdmin as any)
+        .from("payments")
+        .select("id")
+        .eq("completion_id", completion_id)
+        .maybeSingle()
+
+      if (!existingPayment) {
+        const { data: user } = await (supabaseAdmin as any)
+          .from("users")
+          .select("upi_id")
+          .eq("id", userId)
+          .single()
+
+        await (supabaseAdmin as any).from("payments").insert({
+          user_id: userId,
+          amount: payout,
+          upi_id: user?.upi_id || "NOT_SET",
+          status: "pending",
+          completion_id: completion_id,
+          description: "Task: " + taskTitle,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+      }
 
       // 3. Send in-app + push notification to user
       const notifTitle = "Task Verified! ✅"
