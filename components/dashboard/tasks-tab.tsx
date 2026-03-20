@@ -714,15 +714,25 @@ export function TasksTab({ userId }: TasksTabProps) {
                           <span className="text-gray-400 text-sm font-semibold">🔒 All slots filled</span>
                         </div>
                       ) : (
-                        <Button onClick={() => handleCompleteTask(task)} disabled={completingTaskId === task.id}
-                          className="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 rounded-xl h-11 font-semibold mt-3 text-sm">
-                          {completingTaskId === task.id
-                            ? <><Clock className="w-4 h-4 mr-2 animate-spin" />Opening task...</>
-                            : hasDetailPage
-                            ? <><ChevronRight className="w-4 h-4 mr-1" />View Task Guide</>
-                            : <><ExternalLink className="w-4 h-4 mr-2" />Start & Earn ₹{Number(task.user_payout).toFixed(0)}</>
-                          }
-                        </Button>
+                        (task as any).has_detail_page ? (
+  <Link href={`/dashboard/tasks/${task.id}`} className="block mt-3">
+    <div className="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 rounded-xl h-11 font-semibold text-sm text-white flex items-center justify-center gap-2 transition-colors">
+      <LayoutTemplate className="w-4 h-4" />
+      View Task Guide →
+    </div>
+  </Link>
+) : (
+  <Button
+    onClick={() => handleCompleteTask(task)}
+    disabled={completingTaskId === task.id}
+    className="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 rounded-xl h-11 font-semibold mt-3 text-sm"
+  >
+    {completingTaskId === task.id
+      ? <><Clock className="w-4 h-4 mr-2 animate-spin" />Opening task...</>
+      : <><ExternalLink className="w-4 h-4 mr-2" />Start & Earn ₹{Number(task.user_payout).toFixed(0)}</>
+    }
+  </Button>
+)
                       )}
                     </CardContent>
                   </Card>

@@ -54,6 +54,19 @@ const nextConfig = {
             ].join(", "),
           },
           {
+  key: "Content-Security-Policy",
+  value: [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.onesignal.com https://onesignal.com https://va.vercel-scripts.com https://static.cloudflareinsights.com https://api.onesignal.com",
+    "connect-src 'self' https://api.onesignal.com https://onesignal.com https://*.supabase.co wss://*.supabase.co https://static.cloudflareinsights.com https://cloudflareinsights.com",
+    "img-src 'self' data: blob: https://*.supabase.co https://www.qyantra.online",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' https://fonts.gstatic.com",
+    "frame-src 'self' https://onesignal.com",
+    "worker-src 'self' blob:",
+  ].join("; "),
+},
+          {
             key: "Strict-Transport-Security",
             value: "max-age=63072000; includeSubDomains; preload",
           },
