@@ -278,7 +278,7 @@ const nextConfig = {
 
       // ── Service worker — no cache ────────────────────────────────────────
       {
-        source: "/sw.js",
+        source: "/(sw\\.js|OneSignalSDKWorker\\.js|OneSignalSDK\\.sw\\.js)",
         headers: [
           {
             key: "Cache-Control",

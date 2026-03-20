@@ -331,11 +331,6 @@ export default function RootLayout({
                     appId: "${ONESIGNAL_APP_ID}",
                     safari_web_id: "web.onesignal.auto.49d2239d-a04e-422a-89e0-14dbda97fb4d",
                     notifyButton: { enable: false },
-                    autoResubscribe: true,
-                    allowLocalhostAsSecureOrigin: true,
-                    promptOptions: {
-                      slidedown: { enabled: false }
-                    }
                   });
                 } catch (err) {
                   console.warn("OneSignal init failed:", err);
