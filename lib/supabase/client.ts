@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient, SupabaseClient } from '@supabase/supabase-js'
 
 let _supabaseAdmin: any = null
 
@@ -60,4 +60,4 @@ export const supabaseAdmin = new Proxy({}, {
     }
     return (client as any)[prop]
   }
-})
+}) as unknown as SupabaseClient

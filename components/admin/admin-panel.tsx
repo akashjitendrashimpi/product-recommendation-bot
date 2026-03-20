@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { UsersTab } from "./users-tab"
-import { AdminProductsTab } from "./admin-products-tab"
+import { AdminProducts } from "./admin-products"
 import { AdminCampaignsTab } from "./admin-campaigns-tab"
 import { AdminTasksTab } from "./admin-tasks-tab"
 
@@ -158,13 +158,7 @@ export function AdminPanel({
           </TabsContent>
 
           <TabsContent value="products">
-            <AdminProductsTab
-              products={filteredProducts}
-              setProducts={setProducts}
-              categories={categories}
-              users={users}
-              selectedUserId={selectedUserId}
-            />
+            <AdminProducts />
           </TabsContent>
 
           <TabsContent value="campaigns">

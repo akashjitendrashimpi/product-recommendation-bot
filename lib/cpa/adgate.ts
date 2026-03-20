@@ -158,7 +158,6 @@ export async function syncAdGateOffersToTasks(): Promise<number> {
           currency: offer.currency,
           country: offer.country,
           requirements: offer.requirements,
-          is_active: true,
         })
         synced++
       } else {
