@@ -102,8 +102,7 @@ const nextConfig = {
               "default-src 'self'",
 
               // Scripts: self + Next.js inline + OneSignal + Vercel Analytics
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.onesignal.com https://onesignal.com https://va.vercel-scripts.com",
-
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.onesignal.com https://onesignal.com https://api.onesignal.com https://va.vercel-scripts.com https://static.cloudflareinsights.com",
               // Styles: self + inline (Tailwind) + Google Fonts
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
 
@@ -114,7 +113,7 @@ const nextConfig = {
               "img-src 'self' data: blob: https:",
 
               // Connections: self + Supabase + OneSignal + Vercel Analytics
-              "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://onesignal.com https://api.onesignal.com https://cdn.onesignal.com https://vitals.vercel-insights.com https://va.vercel-scripts.com",
+              "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://onesignal.com https://api.onesignal.com https://cdn.onesignal.com https://vitals.vercel-insights.com https://va.vercel-scripts.com https://static.cloudflareinsights.com https://cloudflareinsights.com",
 
               // Frames: block all
               "frame-src 'none'",
