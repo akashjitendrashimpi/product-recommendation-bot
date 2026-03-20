@@ -236,7 +236,10 @@ export function NotificationBell({ userId }: NotificationBellProps) {
         setOpen(false)
       }
     }
-    const handleScroll = () => setOpen(false)
+    const handleScroll = (e: Event) => {
+  if (panelRef.current?.contains(e.target as Node)) return
+  setOpen(false)
+}
 
     document.addEventListener("keydown", handleKey)
     document.addEventListener("mousedown", handleClick)

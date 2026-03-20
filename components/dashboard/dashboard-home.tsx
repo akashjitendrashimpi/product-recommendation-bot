@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import {
   TrendingUp, CheckCircle2, Target, ArrowRight,
@@ -12,6 +12,12 @@ import Link from "next/link"
 
 interface DashboardHomeProps {
   userId: number
+}
+
+// ── Safe number parser ────────────────────────────────────────────────────
+function safeNum(val: unknown): number {
+  const n = Number(val)
+  return isNaN(n) || !isFinite(n) ? 0 : Math.max(0, n)
 }
 
 export function DashboardHome({ userId }: DashboardHomeProps) {
@@ -26,29 +32,31 @@ export function DashboardHome({ userId }: DashboardHomeProps) {
     referralEarnings: 0,
     totalReferrals: 0,
     upiId: null as string | null,
-    displayName: '',
+    displayName: "",
     recentActivity: [] as any[],
     pendingProofs: [] as any[],
   })
   const [loading, setLoading] = useState(true)
-  const [greeting, setGreeting] = useState('Good morning')
+  const [error, setError] = useState(false)
+  const [greeting, setGreeting] = useState("Good morning")
 
+  // ── Greeting ─────────────────────────────────────────────────────────
   useEffect(() => {
     const hour = new Date().getHours()
-    if (hour < 12) setGreeting('Good morning')
-    else if (hour < 17) setGreeting('Good afternoon')
-    else setGreeting('Good evening')
+    if (hour < 12) setGreeting("Good morning")
+    else if (hour < 17) setGreeting("Good afternoon")
+    else setGreeting("Good evening")
   }, [])
 
-  useEffect(() => { fetchAll() }, [userId])
-
-  const fetchAll = async () => {
+  // ── Fetch all data ────────────────────────────────────────────────────
+  const fetchAll = useCallback(async () => {
     try {
+      setError(false)
       const [earningsRes, tasksRes, profileRes, referralRes] = await Promise.all([
-        fetch('/api/earnings'),
-        fetch('/api/tasks?country=IN'),
-        fetch('/api/user/profile'),
-        fetch('/api/referral'),
+        fetch("/api/earnings", { credentials: "same-origin" }),
+        fetch("/api/tasks?country=IN", { credentials: "same-origin" }),
+        fetch("/api/user/profile", { credentials: "same-origin" }),
+        fetch("/api/referral", { credentials: "same-origin" }),
       ])
 
       const earnings = earningsRes.ok ? await earningsRes.json() : {}
@@ -56,50 +64,73 @@ export function DashboardHome({ userId }: DashboardHomeProps) {
       const profile = profileRes.ok ? await profileRes.json() : {}
       const referral = referralRes.ok ? await referralRes.json() : {}
 
-      const pendingProofs = (earnings.recentCompletions || []).filter(
-        (c: any) => c.status === 'pending_verification'
+      const recentCompletions = Array.isArray(earnings.recentCompletions)
+        ? earnings.recentCompletions
+        : []
+
+      const pendingProofs = recentCompletions.filter(
+        (c: any) => c?.status === "pending_verification"
       )
 
       setData({
-        totalEarnings: Number(earnings.summary?.totalEarnings || 0),
-        availableBalance: Number(earnings.summary?.availableBalance || 0),
-        pendingEarnings: Number(earnings.summary?.pendingEarnings || 0),
-        weeklyEarnings: Number(earnings.summary?.weeklyEarnings || 0),
-        dailyEarnings: Number(earnings.summary?.dailyEarnings || 0),
-        tasksCompleted: Number(earnings.summary?.tasksCompleted || 0),
-        tasksAvailable: tasks.tasks?.length || 0,
-        referralEarnings: Number(referral.referral_earnings || 0),
-        totalReferrals: Number(referral.total_referrals || 0),
-        upiId: profile.user?.upi_id || null,
-        displayName: profile.user?.display_name || profile.user?.email?.split('@')[0] || 'there',
-        recentActivity: earnings.recentCompletions?.slice(0, 4) || [],
+        totalEarnings: safeNum(earnings.summary?.totalEarnings),
+        availableBalance: safeNum(earnings.summary?.availableBalance),
+        pendingEarnings: safeNum(earnings.summary?.pendingEarnings),
+        weeklyEarnings: safeNum(earnings.summary?.weeklyEarnings),
+        dailyEarnings: safeNum(earnings.summary?.dailyEarnings),
+        tasksCompleted: safeNum(earnings.summary?.tasksCompleted),
+        tasksAvailable: safeNum(Array.isArray(tasks.tasks) ? tasks.tasks.length : 0),
+        referralEarnings: safeNum(referral.referral_earnings),
+        totalReferrals: safeNum(referral.total_referrals),
+        upiId: typeof profile.user?.upi_id === "string" ? profile.user.upi_id : null,
+        displayName:
+          profile.user?.display_name ||
+          profile.user?.email?.split("@")[0] ||
+          "there",
+        recentActivity: recentCompletions.slice(0, 4),
         pendingProofs,
       })
     } catch (error) {
-      console.error('Error fetching dashboard data:', error)
+      console.error("[dashboard] Error fetching data:", error)
+      setError(true)
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
+  useEffect(() => {
+    if (userId && userId > 0) fetchAll()
+  }, [userId, fetchAll])
+
+  // ── Status helpers ────────────────────────────────────────────────────
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'verified': return 'text-green-600 bg-green-50'
-      case 'pending_verification': return 'text-orange-600 bg-orange-50'
-      case 'rejected': return 'text-red-600 bg-red-50'
-      default: return 'text-blue-600 bg-blue-50'
+      case "verified": return "text-green-600 bg-green-50"
+      case "pending_verification": return "text-orange-600 bg-orange-50"
+      case "rejected": return "text-red-600 bg-red-50"
+      default: return "text-blue-600 bg-blue-50"
     }
   }
 
   const getStatusLabel = (status: string) => {
     switch (status) {
-      case 'verified': return '✅ Paid'
-      case 'pending_verification': return '⏳ Reviewing'
-      case 'rejected': return '❌ Rejected'
-      default: return '🎯 Completed'
+      case "verified": return "Paid"
+      case "pending_verification": return "Reviewing"
+      case "rejected": return "Rejected"
+      default: return "Completed"
     }
   }
 
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case "verified": return "✅"
+      case "pending_verification": return "⏳"
+      case "rejected": return "❌"
+      default: return "🎯"
+    }
+  }
+
+  // ── Loading skeleton ──────────────────────────────────────────────────
   if (loading) {
     return (
       <div className="animate-pulse space-y-4 max-w-2xl mx-auto lg:max-w-none">
@@ -114,38 +145,59 @@ export function DashboardHome({ userId }: DashboardHomeProps) {
     )
   }
 
+  // ── Error state ───────────────────────────────────────────────────────
+  if (error) {
+    return (
+      <div className="max-w-2xl mx-auto lg:max-w-none">
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-6 text-center">
+          <AlertCircle className="w-10 h-10 text-red-400 mx-auto mb-3" />
+          <p className="text-sm font-bold text-red-700 mb-2">Failed to load dashboard</p>
+          <button
+            onClick={fetchAll}
+            className="text-xs text-red-600 font-semibold bg-red-100 px-4 py-2 rounded-xl"
+          >
+            Try again
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-5 max-w-2xl mx-auto lg:max-w-none">
 
-      {/* ── Greeting ── */}
+      {/* Greeting */}
       <div>
         <p className="text-gray-500 text-sm font-medium">{greeting} 👋</p>
-        <h1 className="text-2xl font-black text-gray-900 mt-0.5">{data.displayName}</h1>
+        <h1 className="text-2xl font-black text-gray-900 mt-0.5 truncate">
+          {data.displayName}
+        </h1>
       </div>
 
-      {/* ── Hero Balance Card ── */}
+      {/* Hero Balance Card */}
       <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-purple-700 rounded-3xl p-5 shadow-xl relative overflow-hidden">
-        {/* Background decoration */}
         <div className="absolute top-0 right-0 w-48 h-48 bg-white/5 rounded-full -translate-y-24 translate-x-24" />
         <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/5 rounded-full translate-y-16 -translate-x-16" />
 
         <div className="relative">
-          {/* Balance */}
-          <p className="text-blue-200 text-xs font-semibold uppercase tracking-widest mb-1">Available Balance</p>
+          <p className="text-blue-200 text-xs font-semibold uppercase tracking-widest mb-1">
+            Available Balance
+          </p>
           <div className="flex items-baseline gap-1 mb-4">
             <span className="text-white/80 text-lg font-bold">₹</span>
             <span className="text-white text-5xl font-black leading-none tracking-tight">
               {data.availableBalance.toFixed(0)}
             </span>
-            <span className="text-white/50 text-base mb-1">.{data.availableBalance.toFixed(2).split('.')[1]}</span>
+            <span className="text-white/50 text-base mb-1">
+              .{data.availableBalance.toFixed(2).split(".")[1]}
+            </span>
           </div>
 
-          {/* 3 stats in a row */}
           <div className="grid grid-cols-3 gap-2 mb-4">
             {[
-              { label: 'Total Earned', value: `₹${data.totalEarnings.toFixed(0)}`, icon: Trophy },
-              { label: 'Today', value: `₹${data.dailyEarnings.toFixed(0)}`, icon: Zap },
-              { label: 'Tasks Done', value: String(data.tasksCompleted), icon: CheckCircle2 },
+              { label: "Total Earned", value: `₹${data.totalEarnings.toFixed(0)}`, icon: Trophy },
+              { label: "Today", value: `₹${data.dailyEarnings.toFixed(0)}`, icon: Zap },
+              { label: "Tasks Done", value: String(data.tasksCompleted), icon: CheckCircle2 },
             ].map((s, i) => (
               <div key={i} className="bg-white/10 rounded-2xl p-2.5 text-center">
                 <p className="text-white/90 text-sm font-black">{s.value}</p>
@@ -154,7 +206,6 @@ export function DashboardHome({ userId }: DashboardHomeProps) {
             ))}
           </div>
 
-          {/* Withdraw button */}
           <Link href="/dashboard/earnings">
             <div className="bg-white/15 hover:bg-white/25 active:bg-white/10 transition-all rounded-2xl px-4 py-3 flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -167,19 +218,20 @@ export function DashboardHome({ userId }: DashboardHomeProps) {
         </div>
       </div>
 
-      {/* ── Tasks Card — Primary CTA ── */}
-      {/* This is the most important element after balance */}
+      {/* Tasks Card */}
       <Link href="/dashboard/tasks">
         <div className={`rounded-2xl p-4 flex items-center justify-between transition-all active:scale-[0.98] ${
           data.tasksAvailable > 0
-            ? 'bg-gradient-to-r from-green-500 to-emerald-600 shadow-lg shadow-green-100'
-            : 'bg-gray-100'
+            ? "bg-gradient-to-r from-green-500 to-emerald-600 shadow-lg shadow-green-100"
+            : "bg-gray-100"
         }`}>
           <div className="flex items-center gap-3">
             <div className={`w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 ${
-              data.tasksAvailable > 0 ? 'bg-white/20' : 'bg-gray-200'
+              data.tasksAvailable > 0 ? "bg-white/20" : "bg-gray-200"
             }`}>
-              <CheckSquare className={`w-6 h-6 ${data.tasksAvailable > 0 ? 'text-white' : 'text-gray-500'}`} />
+              <CheckSquare className={`w-6 h-6 ${
+                data.tasksAvailable > 0 ? "text-white" : "text-gray-500"
+              }`} />
             </div>
             <div>
               {data.tasksAvailable > 0 ? (
@@ -205,7 +257,7 @@ export function DashboardHome({ userId }: DashboardHomeProps) {
         </div>
       </Link>
 
-      {/* ── Alerts (contextual, only shown when needed) ── */}
+      {/* Alerts */}
       {!data.upiId && (
         <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-center gap-3">
           <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center flex-shrink-0">
@@ -216,7 +268,9 @@ export function DashboardHome({ userId }: DashboardHomeProps) {
             <p className="text-xs text-gray-500 mt-0.5">Required for withdrawals</p>
           </div>
           <Link href="/dashboard/profile" className="flex-shrink-0">
-            <span className="text-xs text-amber-700 font-bold bg-amber-100 px-3 py-1.5 rounded-xl">Add →</span>
+            <span className="text-xs text-amber-700 font-bold bg-amber-100 px-3 py-1.5 rounded-xl">
+              Add →
+            </span>
           </Link>
         </div>
       )}
@@ -227,36 +281,40 @@ export function DashboardHome({ userId }: DashboardHomeProps) {
             <Clock className="w-5 h-5 text-orange-600" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-gray-900">{data.pendingProofs.length} task{data.pendingProofs.length > 1 ? 's' : ''} under review</p>
+            <p className="text-sm font-bold text-gray-900">
+              {data.pendingProofs.length} task{data.pendingProofs.length > 1 ? "s" : ""} under review
+            </p>
             <p className="text-xs text-gray-500 mt-0.5">Admin will verify within 24 hours</p>
           </div>
           <Link href="/dashboard/tasks" className="flex-shrink-0">
-            <span className="text-xs text-orange-700 font-bold bg-orange-100 px-3 py-1.5 rounded-xl">View →</span>
+            <span className="text-xs text-orange-700 font-bold bg-orange-100 px-3 py-1.5 rounded-xl">
+              View →
+            </span>
           </Link>
         </div>
       )}
 
-      {/* ── Quick Actions Grid ── */}
+      {/* Quick Actions */}
       <div className="grid grid-cols-2 gap-3">
         {[
           {
-            href: '/dashboard/referral',
+            href: "/dashboard/referral",
             icon: Users,
-            title: 'Refer & Earn',
-            subtitle: '₹20 per friend',
-            color: 'bg-purple-50 border-purple-100',
-            iconBg: 'bg-purple-100',
-            iconColor: 'text-purple-600',
+            title: "Refer & Earn",
+            subtitle: "₹20 per friend",
+            color: "bg-purple-50 border-purple-100",
+            iconBg: "bg-purple-100",
+            iconColor: "text-purple-600",
             badge: data.totalReferrals > 0 ? `${data.totalReferrals} referred` : null,
           },
           {
-            href: '/dashboard/products',
+            href: "/dashboard/products",
             icon: ShoppingBag,
-            title: 'Products',
-            subtitle: 'Affiliate deals',
-            color: 'bg-blue-50 border-blue-100',
-            iconBg: 'bg-blue-100',
-            iconColor: 'text-blue-600',
+            title: "Products",
+            subtitle: "Discover deals", // ← Fixed: removed "Affiliate"
+            color: "bg-blue-50 border-blue-100",
+            iconBg: "bg-blue-100",
+            iconColor: "text-blue-600",
             badge: null,
           },
         ].map((item, i) => (
@@ -277,7 +335,7 @@ export function DashboardHome({ userId }: DashboardHomeProps) {
         ))}
       </div>
 
-      {/* ── Recent Activity ── */}
+      {/* Recent Activity */}
       <div>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-base font-black text-gray-900">Recent Activity</h2>
@@ -302,24 +360,38 @@ export function DashboardHome({ userId }: DashboardHomeProps) {
         ) : (
           <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
             {data.recentActivity.map((activity: any, i: number) => (
-              <div key={activity.id || i} className={`flex items-center gap-3 px-4 py-3 ${i < data.recentActivity.length - 1 ? 'border-b border-gray-50' : ''}`}>
-                <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 text-sm ${getStatusColor(activity.status)}`}>
-                  {activity.status === 'verified' ? '✅' :
-                   activity.status === 'pending_verification' ? '⏳' :
-                   activity.status === 'rejected' ? '❌' : '🎯'}
+              <div
+                key={activity?.id || i}
+                className={`flex items-center gap-3 px-4 py-3 ${
+                  i < data.recentActivity.length - 1 ? "border-b border-gray-50" : ""
+                }`}
+              >
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 text-sm ${
+                  getStatusColor(activity?.status)
+                }`}>
+                  {getStatusIcon(activity?.status)}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-gray-900 truncate">
-                    {activity.task_title || 'Task completed'}
+                    {activity?.task_title || activity?.title || "Task"}
                   </p>
-                  <p className="text-xs text-gray-400">
-                    {new Date(activity.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    {activity?.created_at
+                      ? new Date(activity.created_at).toLocaleDateString("en-IN", {
+                          day: "numeric",
+                          month: "short",
+                        })
+                      : ""}
                   </p>
                 </div>
-                <div className="text-right flex-shrink-0">
-                  <p className="text-sm font-black text-green-600">+₹{Number(activity.user_payout).toFixed(0)}</p>
-                  <p className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${getStatusColor(activity.status)}`}>
-                    {getStatusLabel(activity.status)}
+                <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                  <p className="text-sm font-black text-green-600">
+                    +₹{safeNum(activity?.user_payout).toFixed(0)}
+                  </p>
+                  <p className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
+                    getStatusColor(activity?.status)
+                  }`}>
+                    {getStatusLabel(activity?.status)}
                   </p>
                 </div>
               </div>
@@ -328,25 +400,23 @@ export function DashboardHome({ userId }: DashboardHomeProps) {
         )}
       </div>
 
-      {/* ── Referral Teaser (bottom, low pressure) ── */}
-      {data.upiId && (
-        <Link href="/dashboard/referral">
-          <div className="bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-100 rounded-2xl p-4 flex items-center gap-3 transition-all active:scale-[0.98]">
-            <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center flex-shrink-0">
-              <Gift className="w-5 h-5 text-purple-600" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-gray-900">Invite friends, earn ₹20 each</p>
-              <p className="text-xs text-gray-500 mt-0.5">
-                {data.totalReferrals > 0
-                  ? `${data.totalReferrals} friends joined · ₹${data.referralEarnings} earned`
-                  : 'Share your referral link'}
-              </p>
-            </div>
-            <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
+      {/* Referral Teaser */}
+      <Link href="/dashboard/referral">
+        <div className="bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-100 rounded-2xl p-4 flex items-center gap-3 transition-all active:scale-[0.98]">
+          <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center flex-shrink-0">
+            <Gift className="w-5 h-5 text-purple-600" />
           </div>
-        </Link>
-      )}
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold text-gray-900">Invite friends, earn ₹20 each</p>
+            <p className="text-xs text-gray-500 mt-0.5">
+              {data.totalReferrals > 0
+                ? `${data.totalReferrals} friends joined · ₹${data.referralEarnings} earned`
+                : "Share your referral link"}
+            </p>
+          </div>
+          <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
+        </div>
+      </Link>
 
     </div>
   )
