@@ -86,10 +86,14 @@ function StepsSection({ steps, stepInput, onStepInputChange, onAddStep, onRemove
         </div>
       )}
       <div className="flex gap-2">
-        <Input value={stepInput} onChange={e => onStepInputChange(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); onAddStep() } }}
-          placeholder="e.g. Open the app and complete signup" className="bg-white text-sm" />
-        <Button type="button" onClick={onAddStep} className="bg-purple-600 hover:bg-purple-700 px-3 flex-shrink-0"><Plus className="w-4 h-4" /></Button>
+        <input
+  type="text"
+  value={stepInput}
+  onChange={e => onStepInputChange(e.target.value)}
+  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); onAddStep() } }}
+  placeholder="e.g. Open the app and complete signup"
+  className="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-purple-400"
+/>        <Button type="button" onClick={onAddStep} className="bg-purple-600 hover:bg-purple-700 px-3 flex-shrink-0"><Plus className="w-4 h-4" /></Button>
       </div>
       <p className="text-xs text-gray-400">Press Enter or + to add</p>
     </div>
@@ -141,7 +145,7 @@ function DetailPageToggle({ value, onChange }: { value: boolean; onChange: (v: b
             <p className="text-xs text-gray-500">{value ? 'User sees full detail page with steps & prompts' : 'User goes directly to task URL'}</p>
           </div>
         </div>
-        <button aria-label="Toggle detail page" onClick={() => onChange(!value)}
+        <button aria-label="Toggle detail page" type="button" onClick={() => onChange(!value)}
           className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ${value ? 'bg-blue-600' : 'bg-gray-300'}`}>
           <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow ${value ? 'translate-x-6' : 'translate-x-1'}`} />
         </button>
@@ -287,14 +291,21 @@ export function AdminTasks() {
     setEditStep(""); setEditPrompt("")
   }
 
-  const saveEdit = async () => {
-    if (!editingTask) return
-    setSavingEdit(true)
-    try {
-      const res = await fetch(`/api/admin/tasks/${editingTask.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(editForm) })
-      if (res.ok) { setEditingTask(null); setEditForm({}); fetchAll() } else alert('Failed to save')
-    } catch (e) { console.error(e) } finally { setSavingEdit(false) }
-  }
+ const saveEdit = async () => {
+  if (!editingTask) return
+  setSavingEdit(true)
+  try {
+    const res = await fetch(`/api/admin/tasks/${editingTask.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(editForm) })
+    if (res.ok) {
+      await fetchAll() // ← wait for fresh data first
+      setEditingTask(null)
+      setEditForm({})
+    } else {
+      const d = await res.json()
+      alert(d.error || 'Failed to save')
+    }
+  } catch (e) { console.error(e) } finally { setSavingEdit(false) }
+}
 
   // ── Duplicate task ──
   const duplicateTask = async (task: Task) => {
@@ -440,39 +451,7 @@ export function AdminTasks() {
   const taskCompletions = selectedTask ? completions.filter(c => c.task_id === selectedTask.id) : []
   const getConversionColor = (r: string) => { const n = parseFloat(r); return n >= 50 ? 'text-green-600' : n >= 20 ? 'text-yellow-600' : 'text-red-500' }
 
-  const EditFormBlock = () => (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <div><Label htmlFor="et">Title *</Label><Input id="et" value={editForm.title || ''} onChange={e => setEditForm({ ...editForm, title: e.target.value })} className="mt-1" /></div>
-      <div><Label htmlFor="eu">Task URL *</Label><Input id="eu" value={editForm.task_url || ''} onChange={e => setEditForm({ ...editForm, task_url: e.target.value })} className="mt-1" /></div>
-      <div><Label htmlFor="ean">App Name</Label><Input id="ean" value={editForm.app_name || ''} onChange={e => setEditForm({ ...editForm, app_name: e.target.value })} className="mt-1" /></div>
-      <div><Label htmlFor="eai">App Icon URL</Label><Input id="eai" value={editForm.app_icon_url || ''} onChange={e => setEditForm({ ...editForm, app_icon_url: e.target.value })} className="mt-1" /></div>
-      <div><Label htmlFor="enp">Network Payout (₹)</Label><Input id="enp" type="number" value={editForm.network_payout || ''} onChange={e => setEditForm({ ...editForm, network_payout: parseFloat(e.target.value) })} className="mt-1" /></div>
-      <div><Label htmlFor="eup">User Payout (₹)</Label><Input id="eup" type="number" value={editForm.user_payout || ''} onChange={e => setEditForm({ ...editForm, user_payout: parseFloat(e.target.value) })} className="mt-1" /></div>
-      <div>
-        <Label htmlFor="eat">Action Type</Label>
-        <select id="eat" title="Action Type" value={editForm.action_type || 'install'} onChange={e => setEditForm({ ...editForm, action_type: e.target.value })} className="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400">
-          <option value="install">App Install</option><option value="signup">Sign Up</option><option value="survey">Survey</option><option value="review">Review</option><option value="time_spent">Time Spent</option><option value="other">Other</option>
-        </select>
-      </div>
-      <div><Label htmlFor="emc">Max Completions</Label><Input id="emc" type="number" min="1" placeholder="Unlimited" value={editForm.max_completions ?? ''} onChange={e => setEditForm({ ...editForm, max_completions: e.target.value ? parseInt(e.target.value) : null })} className="mt-1" /></div>
-      <div className="md:col-span-2">
-        <Label htmlFor="ed">Description</Label>
-        <textarea id="ed" value={editForm.description || ''} onChange={e => setEditForm({ ...editForm, description: e.target.value })} placeholder="Describe the task..." rows={3} className="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-white resize-y focus:outline-none focus:ring-2 focus:ring-blue-400 min-h-[80px]" />
-      </div>
-      <DetailPageToggle value={editForm.has_detail_page ?? false} onChange={v => setEditForm(f => ({ ...f, has_detail_page: v }))} />
-      <StepsSection steps={editForm.how_to_steps || []} stepInput={editStep} onStepInputChange={setEditStep} onAddStep={eAddStep} onRemoveStep={eRemoveStep} onMoveStep={eMoveStep} />
-      <PromptsSection prompts={editForm.copy_prompts || []} promptInput={editPrompt} onPromptInputChange={setEditPrompt} onAddPrompt={eAddPrompt} onRemovePrompt={eRemovePrompt} />
-      <div className="md:col-span-2 p-4 bg-orange-50 border border-orange-200 rounded-xl space-y-3">
-        <div className="flex items-center justify-between">
-          <div><p className="font-medium text-gray-900 text-sm">Screenshot Proof Required</p><p className="text-xs text-gray-500">Users must upload proof to get paid</p></div>
-          <button aria-label="Toggle proof" onClick={() => setEditForm({ ...editForm, requires_proof: !editForm.requires_proof })} className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ${editForm.requires_proof ? 'bg-orange-500' : 'bg-gray-300'}`}>
-            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow ${editForm.requires_proof ? 'translate-x-6' : 'translate-x-1'}`} />
-          </button>
-        </div>
-        {editForm.requires_proof && <div><Label htmlFor="epi">Proof Instructions</Label><Input id="epi" value={editForm.proof_instructions || ''} onChange={e => setEditForm({ ...editForm, proof_instructions: e.target.value })} placeholder="e.g. Screenshot showing the completed action" className="mt-1" /></div>}
-      </div>
-    </div>
-  )
+
 
   return (
     <div className="space-y-6">
@@ -554,7 +533,39 @@ export function AdminTasks() {
               <div><h2 className="text-xl font-bold text-gray-900">Edit Task</h2><p className="text-xs text-gray-500 mt-0.5">{editingTask.title}</p></div>
               <button aria-label="Close" onClick={() => setEditingTask(null)} className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200"><X className="w-4 h-4" /></button>
             </div>
-            <EditFormBlock />
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div><Label htmlFor="et">Title *</Label><Input id="et" value={editForm.title || ''} onChange={e => setEditForm({ ...editForm, title: e.target.value })} className="mt-1" /></div>
+              <div><Label htmlFor="eu">Task URL *</Label><Input id="eu" value={editForm.task_url || ''} onChange={e => setEditForm({ ...editForm, task_url: e.target.value })} className="mt-1" /></div>
+              <div><Label htmlFor="ean">App Name</Label><Input id="ean" value={editForm.app_name || ''} onChange={e => setEditForm({ ...editForm, app_name: e.target.value })} className="mt-1" /></div>
+              <div><Label htmlFor="eai">App Icon URL</Label><Input id="eai" value={editForm.app_icon_url || ''} onChange={e => setEditForm({ ...editForm, app_icon_url: e.target.value })} className="mt-1" /></div>
+              <div><Label htmlFor="enp">Network Payout (₹)</Label><Input id="enp" type="number" value={editForm.network_payout || ''} onChange={e => setEditForm({ ...editForm, network_payout: parseFloat(e.target.value) })} className="mt-1" /></div>
+              <div><Label htmlFor="eup">User Payout (₹)</Label><Input id="eup" type="number" value={editForm.user_payout || ''} onChange={e => setEditForm({ ...editForm, user_payout: parseFloat(e.target.value) })} className="mt-1" /></div>
+              <div>
+                <Label htmlFor="eat">Action Type</Label>
+                <select id="eat" title="Action Type" value={editForm.action_type || 'install'} onChange={e => setEditForm({ ...editForm, action_type: e.target.value })} className="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400">
+                  <option value="install">App Install</option><option value="signup">Sign Up</option><option value="survey">Survey</option><option value="review">Review</option><option value="time_spent">Time Spent</option><option value="other">Other</option>
+                </select>
+              </div>
+              <div><Label htmlFor="emc">Max Completions</Label><Input id="emc" type="number" min="1" placeholder="Unlimited" value={editForm.max_completions ?? ''} onChange={e => setEditForm({ ...editForm, max_completions: e.target.value ? parseInt(e.target.value) : null })} className="mt-1" /></div>
+              <div className="md:col-span-2">
+                <Label htmlFor="ed">Description</Label>
+                <textarea id="ed" value={editForm.description || ''} onChange={e => setEditForm({ ...editForm, description: e.target.value })} placeholder="Describe the task..." rows={3} className="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-white resize-y focus:outline-none focus:ring-2 focus:ring-blue-400 min-h-[80px]" />
+              </div>
+              <DetailPageToggle value={editForm.has_detail_page ?? false} onChange={v => setEditForm(f => ({ ...f, has_detail_page: v }))} />
+              <StepsSection steps={editForm.how_to_steps || []} stepInput={editStep} onStepInputChange={setEditStep} onAddStep={eAddStep} onRemoveStep={eRemoveStep} onMoveStep={eMoveStep} />
+              <PromptsSection prompts={editForm.copy_prompts || []} promptInput={editPrompt} onPromptInputChange={setEditPrompt} onAddPrompt={eAddPrompt} onRemovePrompt={eRemovePrompt} />
+              <div className="md:col-span-2 p-4 bg-orange-50 border border-orange-200 rounded-xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <div><p className="font-medium text-gray-900 text-sm">Screenshot Proof Required</p><p className="text-xs text-gray-500">Users must upload proof to get paid</p></div>
+                  <button aria-label="Toggle proof" type="button" onClick={() => setEditForm({ ...editForm, requires_proof: !editForm.requires_proof })} className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ${editForm.requires_proof ? 'bg-orange-500' : 'bg-gray-300'}`}>
+                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow ${editForm.requires_proof ? 'translate-x-6' : 'translate-x-1'}`} />
+                  </button>
+                </div>
+                {editForm.requires_proof && <div><Label htmlFor="epi">Proof Instructions</Label><Input id="epi" value={editForm.proof_instructions || ''} onChange={e => setEditForm({ ...editForm, proof_instructions: e.target.value })} placeholder="e.g. Screenshot showing the completed action" className="mt-1" /></div>}
+              </div>
+            </div>
+
             <div className="flex gap-3 mt-6">
               <Button onClick={saveEdit} disabled={savingEdit} className="bg-blue-600 hover:bg-blue-700 flex-1"><Save className="w-4 h-4 mr-2" />{savingEdit ? 'Saving...' : 'Save Changes'}</Button>
               <Button variant="outline" onClick={() => setEditingTask(null)} className="flex-1">Cancel</Button>
@@ -671,7 +682,7 @@ export function AdminTasks() {
               <div className="md:col-span-2 p-4 bg-orange-50 border border-orange-200 rounded-xl space-y-3">
                 <div className="flex items-center justify-between">
                   <div><p className="font-medium text-gray-900 text-sm">Require Screenshot Proof</p><p className="text-xs text-gray-500">Users must upload proof to get paid</p></div>
-                  <button aria-label="Toggle proof" onClick={() => setForm({ ...form, requires_proof: !form.requires_proof })} className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ${form.requires_proof ? 'bg-orange-500' : 'bg-gray-300'}`}>
+                  <button aria-label="Toggle proof" type="button" onClick={() => setForm({ ...form, requires_proof: !form.requires_proof })} className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ${form.requires_proof ? 'bg-orange-500' : 'bg-gray-300'}`}>
                     <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow ${form.requires_proof ? 'translate-x-6' : 'translate-x-1'}`} />
                   </button>
                 </div>

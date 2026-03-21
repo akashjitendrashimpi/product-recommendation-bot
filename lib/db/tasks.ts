@@ -121,6 +121,9 @@ export async function createTask(data: {
   max_completions?: number | null
   requires_proof?: boolean
   proof_instructions?: string | null
+  has_detail_page?: boolean
+  how_to_steps?: string[]
+  copy_prompts?: string[]
 }): Promise<Task> {
   const { data: task, error } = await (supabaseAdmin as any)
     .from('tasks')
@@ -144,6 +147,9 @@ export async function createTask(data: {
       max_completions: data.max_completions || null,
       requires_proof: data.requires_proof ?? true,
       proof_instructions: data.proof_instructions || null,
+      has_detail_page: data.has_detail_page ?? false,
+      how_to_steps: data.how_to_steps || [],
+      copy_prompts: data.copy_prompts || [],
     })
     .select()
     .single()

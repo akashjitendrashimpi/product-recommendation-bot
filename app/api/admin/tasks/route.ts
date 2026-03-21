@@ -63,6 +63,9 @@ export async function POST(request: NextRequest) {
       max_completions: data.max_completions ? parseInt(data.max_completions) : null,
       requires_proof: data.requires_proof ?? true,
       proof_instructions: data.proof_instructions || null,
+      has_detail_page: data.has_detail_page ?? false,
+      how_to_steps: data.how_to_steps || [],
+      copy_prompts: data.copy_prompts || [],
     })
 
     return NextResponse.json({ task }, { status: 201 })
