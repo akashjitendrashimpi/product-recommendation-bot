@@ -1,6 +1,5 @@
 "use client"
 
-
 import { useState, useEffect, useRef, useMemo } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -13,12 +12,10 @@ import {
   MousePointer, Percent, EyeOff, Edit2, Save, Camera,
   CameraOff, Users, Copy, ChevronUp, ChevronDown,
   LayoutTemplate, ListOrdered, Sparkles, Download,
-  GripVertical, CheckSquare, Square, Send, AlertTriangle
+  GripVertical, CheckSquare, Square, Send, AlertTriangle,
+  RefreshCw
 } from "lucide-react"
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Types
-// ─────────────────────────────────────────────────────────────────────────────
 interface Task {
   id: number
   title: string
@@ -55,7 +52,7 @@ interface Stats {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Sub-components (outside main to prevent re-render focus loss)
+// Sub-components — defined OUTSIDE to prevent re-render focus loss
 // ─────────────────────────────────────────────────────────────────────────────
 function StepsSection({ steps, stepInput, onStepInputChange, onAddStep, onRemoveStep, onMoveStep }: {
   steps: string[]; stepInput: string
@@ -77,25 +74,27 @@ function StepsSection({ steps, stepInput, onStepInputChange, onAddStep, onRemove
               <span className="w-5 h-5 rounded-full bg-purple-100 text-purple-600 text-xs font-bold flex items-center justify-center flex-shrink-0">{idx + 1}</span>
               <p className="text-xs text-gray-700 flex-1">{step}</p>
               <div className="flex items-center gap-1 flex-shrink-0">
-                <button aria-label="Up" onClick={() => onMoveStep(idx, 'up')} disabled={idx === 0} className="p-0.5 text-gray-400 hover:text-gray-600 disabled:opacity-30"><ChevronUp className="w-3 h-3" /></button>
-                <button aria-label="Down" onClick={() => onMoveStep(idx, 'down')} disabled={idx === steps.length - 1} className="p-0.5 text-gray-400 hover:text-gray-600 disabled:opacity-30"><ChevronDown className="w-3 h-3" /></button>
-                <button aria-label="Remove" onClick={() => onRemoveStep(idx)} className="p-0.5 text-red-400 hover:text-red-600"><X className="w-3 h-3" /></button>
+                <button aria-label="Move up" onClick={() => onMoveStep(idx, 'up')} disabled={idx === 0} className="p-0.5 text-gray-400 hover:text-gray-600 disabled:opacity-30"><ChevronUp className="w-3 h-3" /></button>
+                <button aria-label="Move down" onClick={() => onMoveStep(idx, 'down')} disabled={idx === steps.length - 1} className="p-0.5 text-gray-400 hover:text-gray-600 disabled:opacity-30"><ChevronDown className="w-3 h-3" /></button>
+                <button aria-label="Remove step" onClick={() => onRemoveStep(idx)} className="p-0.5 text-red-400 hover:text-red-600"><X className="w-3 h-3" /></button>
               </div>
             </div>
           ))}
         </div>
       )}
       <div className="flex gap-2">
+        {/* FIX: use plain <input> not <Input> component to allow full sentences */}
         <input
-  type="text"
-  value={stepInput}
-  onChange={e => onStepInputChange(e.target.value)}
-  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); onAddStep() } }}
-  placeholder="e.g. Open the app and complete signup"
-  className="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-purple-400"
-/>        <Button type="button" onClick={onAddStep} className="bg-purple-600 hover:bg-purple-700 px-3 flex-shrink-0"><Plus className="w-4 h-4" /></Button>
+          type="text"
+          value={stepInput}
+          onChange={e => onStepInputChange(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); onAddStep() } }}
+          placeholder="e.g. Open the app and complete signup"
+          className="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-purple-400"
+        />
+        <Button type="button" onClick={onAddStep} className="bg-purple-600 hover:bg-purple-700 px-3 flex-shrink-0"><Plus className="w-4 h-4" /></Button>
       </div>
-      <p className="text-xs text-gray-400">Press Enter or + to add</p>
+      <p className="text-xs text-gray-400">Press Enter or + to add each step</p>
     </div>
   )
 }
@@ -118,15 +117,19 @@ function PromptsSection({ prompts, promptInput, onPromptInputChange, onAddPrompt
             <div key={idx} className="flex items-start gap-2 bg-white border border-green-100 rounded-lg px-3 py-2">
               <Sparkles className="w-3 h-3 text-green-500 mt-0.5 flex-shrink-0" />
               <p className="text-xs text-gray-700 flex-1 whitespace-pre-wrap">{prompt}</p>
-              <button aria-label="Remove" onClick={() => onRemovePrompt(idx)} className="p-0.5 text-red-400 hover:text-red-600 flex-shrink-0 mt-0.5"><X className="w-3 h-3" /></button>
+              <button aria-label="Remove prompt" onClick={() => onRemovePrompt(idx)} className="p-0.5 text-red-400 hover:text-red-600 flex-shrink-0 mt-0.5"><X className="w-3 h-3" /></button>
             </div>
           ))}
         </div>
       )}
       <div className="flex gap-2 items-end">
-        <textarea value={promptInput} onChange={e => onPromptInputChange(e.target.value)}
-          placeholder="e.g. Great service! Highly recommend. 5 stars!" rows={3}
-          className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white resize-y focus:outline-none focus:ring-2 focus:ring-green-400 min-h-[80px]" />
+        <textarea
+          value={promptInput}
+          onChange={e => onPromptInputChange(e.target.value)}
+          placeholder="e.g. Great service! Highly recommend. 5 stars!"
+          rows={3}
+          className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white resize-y focus:outline-none focus:ring-2 focus:ring-green-400 min-h-[80px]"
+        />
         <Button type="button" onClick={onAddPrompt} className="bg-green-600 hover:bg-green-700 px-3 flex-shrink-0 self-end mb-0.5"><Plus className="w-4 h-4" /></Button>
       </div>
       <p className="text-xs text-gray-400">Add multiple variations — one random shown to user each time</p>
@@ -145,8 +148,12 @@ function DetailPageToggle({ value, onChange }: { value: boolean; onChange: (v: b
             <p className="text-xs text-gray-500">{value ? 'User sees full detail page with steps & prompts' : 'User goes directly to task URL'}</p>
           </div>
         </div>
-        <button aria-label="Toggle detail page" type="button" onClick={() => onChange(!value)}
-          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ${value ? 'bg-blue-600' : 'bg-gray-300'}`}>
+        <button
+          aria-label="Toggle detail page"
+          type="button"
+          onClick={() => onChange(!value)}
+          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ${value ? 'bg-blue-600' : 'bg-gray-300'}`}
+        >
           <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow ${value ? 'translate-x-6' : 'translate-x-1'}`} />
         </button>
       </div>
@@ -180,9 +187,6 @@ function SlotsBar({ task }: { task: Task }) {
   )
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Default form
-// ─────────────────────────────────────────────────────────────────────────────
 const emptyForm = {
   title: '', description: '', task_url: '', app_name: '', app_icon_url: '',
   network_payout: '', user_payout: '', country: 'IN', task_id: '',
@@ -191,14 +195,12 @@ const emptyForm = {
   how_to_steps: [] as string[], copy_prompts: [] as string[],
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Main component
-// ─────────────────────────────────────────────────────────────────────────────
 export function AdminTasks() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [completions, setCompletions] = useState<TaskCompletion[]>([])
   const [stats, setStats] = useState<Stats>({ totalTasks: 0, activeTasks: 0, totalCompletions: 0, totalClicks: 0, totalPaidOut: 0, avgConversion: '0' })
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [search, setSearch] = useState("")
   const [showForm, setShowForm] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -210,31 +212,32 @@ export function AdminTasks() {
   const [savingEdit, setSavingEdit] = useState(false)
   const [form, setForm] = useState(emptyForm)
   const [previewTask, setPreviewTask] = useState<Task | null>(null)
-
-  // Bulk selection
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
   const [bulkAction, setBulkAction] = useState<string>("")
   const [bulkLoading, setBulkLoading] = useState(false)
-
-  // Drag reorder
   const [dragId, setDragId] = useState<number | null>(null)
   const [dragOverId, setDragOverId] = useState<number | null>(null)
-
-  // Broadcast notification
   const [showBroadcast, setShowBroadcast] = useState(false)
   const [broadcastTitle, setBroadcastTitle] = useState("")
   const [broadcastBody, setBroadcastBody] = useState("")
   const [broadcasting, setBroadcasting] = useState(false)
-
-  // Step/prompt inputs
   const [createStep, setCreateStep] = useState("")
   const [createPrompt, setCreatePrompt] = useState("")
   const [editStep, setEditStep] = useState("")
   const [editPrompt, setEditPrompt] = useState("")
+  const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null)
 
   useEffect(() => { fetchAll() }, [])
 
-  const fetchAll = async () => {
+  // ── Toast helper ──
+  const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
+    setToast({ msg, type })
+    setTimeout(() => setToast(null), 3000)
+  }
+
+  const fetchAll = async (silent = false) => {
+    if (!silent) setLoading(true)
+    else setRefreshing(true)
     try {
       const [tasksRes, completionsRes, clicksRes] = await Promise.all([
         fetch('/api/admin/tasks'),
@@ -267,47 +270,75 @@ export function AdminTasks() {
         totalPaidOut: completionData.reduce((s: number, c: TaskCompletion) => s + Number(c.user_payout || 0), 0),
         avgConversion: totalClicks > 0 ? ((totalCompletions / totalClicks) * 100).toFixed(1) : '0'
       })
-    } catch (e) { console.error(e) } finally { setLoading(false) }
+    } catch (e) { console.error(e) } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
   }
 
   const createTask = async () => {
-    if (!form.title || !form.task_url || !form.network_payout || !form.user_payout) { alert('Fill required fields'); return }
+    if (!form.title || !form.task_url || !form.network_payout || !form.user_payout) {
+      showToast('Fill all required fields', 'error'); return
+    }
     let url = form.task_url
     if (!url.startsWith('http')) url = 'https://' + url
     setSubmitting(true)
     try {
       const res = await fetch('/api/admin/tasks', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, task_url: url, task_id: form.task_id || `manual_${Date.now()}`, network_payout: parseFloat(form.network_payout), user_payout: parseFloat(form.user_payout), proof_instructions: form.proof_instructions || null, max_completions: form.max_completions ? parseInt(form.max_completions) : null })
+        body: JSON.stringify({
+          ...form, task_url: url,
+          task_id: form.task_id || `manual_${Date.now()}`,
+          network_payout: parseFloat(form.network_payout),
+          user_payout: parseFloat(form.user_payout),
+          proof_instructions: form.proof_instructions || null,
+          max_completions: form.max_completions ? parseInt(form.max_completions) : null
+        })
       })
-      if (res.ok) { setShowForm(false); setForm(emptyForm); setCreateStep(""); setCreatePrompt(""); fetchAll() }
-      else { const d = await res.json(); alert(d.error || 'Failed') }
-    } catch (e) { console.error(e) } finally { setSubmitting(false) }
+      if (res.ok) {
+        setShowForm(false); setForm(emptyForm); setCreateStep(""); setCreatePrompt("")
+        await fetchAll(true)
+        showToast('Task created successfully!')
+      } else {
+        const d = await res.json(); showToast(d.error || 'Failed to create task', 'error')
+      }
+    } catch (e) { console.error(e); showToast('Failed to create task', 'error') }
+    finally { setSubmitting(false) }
   }
 
   const startEdit = (task: Task) => {
     setEditingTask(task)
-    setEditForm({ ...task, how_to_steps: [...(task.how_to_steps || [])], copy_prompts: [...(task.copy_prompts || [])] })
+    setEditForm({
+      ...task,
+      how_to_steps: [...(task.how_to_steps || [])],
+      copy_prompts: [...(task.copy_prompts || [])]
+    })
     setEditStep(""); setEditPrompt("")
   }
 
- const saveEdit = async () => {
-  if (!editingTask) return
-  setSavingEdit(true)
-  try {
-    const res = await fetch(`/api/admin/tasks/${editingTask.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(editForm) })
-    if (res.ok) {
-      await fetchAll() // ← wait for fresh data first
-      setEditingTask(null)
-      setEditForm({})
-    } else {
-      const d = await res.json()
-      alert(d.error || 'Failed to save')
-    }
-  } catch (e) { console.error(e) } finally { setSavingEdit(false) }
-}
+  // FIX: await fetchAll before closing modal so reopening shows fresh data
+  const saveEdit = async () => {
+    if (!editingTask) return
+    setSavingEdit(true)
+    try {
+      const res = await fetch(`/api/admin/tasks/${editingTask.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editForm)
+      })
+      if (res.ok) {
+        await fetchAll(true) // ← wait for fresh data first
+        setEditingTask(null)
+        setEditForm({})
+        showToast('Task saved successfully!')
+      } else {
+        const d = await res.json()
+        showToast(d.error || 'Failed to save', 'error')
+      }
+    } catch (e) { console.error(e); showToast('Failed to save task', 'error') }
+    finally { setSavingEdit(false) }
+  }
 
-  // ── Duplicate task ──
   const duplicateTask = async (task: Task) => {
     try {
       const res = await fetch('/api/admin/tasks', {
@@ -324,12 +355,11 @@ export function AdminTasks() {
           copy_prompts: task.copy_prompts,
         })
       })
-      if (res.ok) fetchAll()
-      else alert('Failed to duplicate task')
+      if (res.ok) { await fetchAll(true); showToast('Task duplicated!') } // FIX: await
+      else showToast('Failed to duplicate task', 'error')
     } catch (e) { console.error(e) }
   }
 
-  // ── CSV Export ──
   const exportCSV = () => {
     const headers = ['ID', 'Title', 'App', 'Type', 'Network Payout', 'User Payout', 'Profit', 'Clicks', 'Completions', 'CVR%', 'Status', 'Created']
     const rows = filtered.map(t => [
@@ -348,7 +378,6 @@ export function AdminTasks() {
     a.click(); URL.revokeObjectURL(url)
   }
 
-  // ── Bulk actions ──
   const toggleSelectAll = () => {
     if (selectedIds.size === filtered.length) setSelectedIds(new Set())
     else setSelectedIds(new Set(filtered.map(t => t.id)))
@@ -374,87 +403,121 @@ export function AdminTasks() {
           body: JSON.stringify({ is_active: bulkAction === 'activate' })
         })))
       }
-      setSelectedIds(new Set()); setBulkAction(""); fetchAll()
+      setSelectedIds(new Set()); setBulkAction("")
+      await fetchAll(true)
+      showToast(`Bulk ${bulkAction} applied!`)
     } catch (e) { console.error(e) } finally { setBulkLoading(false) }
   }
 
-  // ── Drag reorder ──
   const handleDragStart = (id: number) => setDragId(id)
   const handleDragOver = (e: React.DragEvent, id: number) => { e.preventDefault(); setDragOverId(id) }
- const handleDrop = async (targetId: number) => {
-  if (!dragId || dragId === targetId) { setDragId(null); setDragOverId(null); return }
-  const from = tasks.findIndex(t => t.id === dragId)
-  const to = tasks.findIndex(t => t.id === targetId)
-  const newTasks = [...tasks]
-  const [moved] = newTasks.splice(from, 1)
-  newTasks.splice(to, 0, moved)
-  setTasks(newTasks)
-  setDragId(null); setDragOverId(null)
-  await Promise.allSettled(
-    newTasks.map((t: Task, idx: number) =>
-      fetch(`/api/admin/tasks/${t.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sort_order: idx })
-      })
+  const handleDrop = async (targetId: number) => {
+    if (!dragId || dragId === targetId) { setDragId(null); setDragOverId(null); return }
+    const from = tasks.findIndex(t => t.id === dragId)
+    const to = tasks.findIndex(t => t.id === targetId)
+    const newTasks = [...tasks]
+    const [moved] = newTasks.splice(from, 1)
+    newTasks.splice(to, 0, moved)
+    setTasks(newTasks)
+    setDragId(null); setDragOverId(null)
+    await Promise.allSettled(
+      newTasks.map((t: Task, idx: number) =>
+        fetch(`/api/admin/tasks/${t.id}`, {
+          method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sort_order: idx })
+        })
+      )
     )
-  )
-}
+  }
 
-  // ── Broadcast notification ──
   const sendBroadcast = async () => {
-    if (!broadcastTitle || !broadcastBody) { alert('Fill title and message'); return }
+    if (!broadcastTitle || !broadcastBody) { showToast('Fill title and message', 'error'); return }
     setBroadcasting(true)
     try {
       const res = await fetch('/api/admin/send-notification', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ broadcast: true, title: broadcastTitle, body: broadcastBody, type: 'info', actionUrl: '/dashboard/tasks' })
       })
-      if (res.ok) { setShowBroadcast(false); setBroadcastTitle(""); setBroadcastBody(""); alert('Notification sent to all users!') }
-      else alert('Failed to send notification')
+      if (res.ok) {
+        setShowBroadcast(false); setBroadcastTitle(""); setBroadcastBody("")
+        showToast('Notification sent to all users!')
+      } else showToast('Failed to send notification', 'error')
     } catch (e) { console.error(e) } finally { setBroadcasting(false) }
   }
 
+  // FIX: await fetchAll in toggleProofRequired and toggleTask
   const toggleProofRequired = async (task: Task) => {
-    await fetch(`/api/admin/tasks/${task.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ requires_proof: !task.requires_proof }) })
-    fetchAll()
+    await fetch(`/api/admin/tasks/${task.id}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ requires_proof: !task.requires_proof })
+    })
+    await fetchAll(true)
   }
 
   const toggleTask = async (id: number, isActive: boolean) => {
-    await fetch(`/api/admin/tasks/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ is_active: !isActive }) })
-    fetchAll()
+    await fetch(`/api/admin/tasks/${id}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ is_active: !isActive })
+    })
+    await fetchAll(true)
   }
 
   const deleteTask = async (id: number) => {
-    if (!confirm('Delete this task?')) return
+    if (!confirm('Delete this task? This cannot be undone.')) return
     const res = await fetch(`/api/admin/tasks/${id}`, { method: 'DELETE' })
-    if (res.ok) fetchAll()
+    if (res.ok) { await fetchAll(true); showToast('Task deleted') }
+    else showToast('Failed to delete task', 'error')
   }
 
   // Step/prompt handlers
   const cAddStep = () => { const v = createStep.trim(); if (!v) return; setForm(f => ({ ...f, how_to_steps: [...f.how_to_steps, v] })); setCreateStep("") }
   const cRemoveStep = (i: number) => setForm(f => ({ ...f, how_to_steps: f.how_to_steps.filter((_, j) => j !== i) }))
-  const cMoveStep = (i: number, dir: 'up' | 'down') => { const arr = [...form.how_to_steps]; const ni = dir === 'up' ? i - 1 : i + 1; if (ni < 0 || ni >= arr.length) return;[arr[i], arr[ni]] = [arr[ni], arr[i]]; setForm(f => ({ ...f, how_to_steps: arr })) }
+  // FIX: use functional update to avoid stale closure
+  const cMoveStep = (i: number, dir: 'up' | 'down') => {
+    setForm(f => {
+      const arr = [...f.how_to_steps]
+      const ni = dir === 'up' ? i - 1 : i + 1
+      if (ni < 0 || ni >= arr.length) return f
+      ;[arr[i], arr[ni]] = [arr[ni], arr[i]]
+      return { ...f, how_to_steps: arr }
+    })
+  }
   const cAddPrompt = () => { const v = createPrompt.trim(); if (!v) return; setForm(f => ({ ...f, copy_prompts: [...f.copy_prompts, v] })); setCreatePrompt("") }
   const cRemovePrompt = (i: number) => setForm(f => ({ ...f, copy_prompts: f.copy_prompts.filter((_, j) => j !== i) }))
+
   const eAddStep = () => { const v = editStep.trim(); if (!v) return; setEditForm(f => ({ ...f, how_to_steps: [...(f.how_to_steps || []), v] })); setEditStep("") }
   const eRemoveStep = (i: number) => setEditForm(f => ({ ...f, how_to_steps: (f.how_to_steps || []).filter((_, j) => j !== i) }))
-  const eMoveStep = (i: number, dir: 'up' | 'down') => { const arr = [...(editForm.how_to_steps || [])]; const ni = dir === 'up' ? i - 1 : i + 1; if (ni < 0 || ni >= arr.length) return;[arr[i], arr[ni]] = [arr[ni], arr[i]]; setEditForm(f => ({ ...f, how_to_steps: arr })) }
+  // FIX: use functional update to avoid stale closure
+  const eMoveStep = (i: number, dir: 'up' | 'down') => {
+    setEditForm(f => {
+      const arr = [...(f.how_to_steps || [])]
+      const ni = dir === 'up' ? i - 1 : i + 1
+      if (ni < 0 || ni >= arr.length) return f
+      ;[arr[i], arr[ni]] = [arr[ni], arr[i]]
+      return { ...f, how_to_steps: arr }
+    })
+  }
   const eAddPrompt = () => { const v = editPrompt.trim(); if (!v) return; setEditForm(f => ({ ...f, copy_prompts: [...(f.copy_prompts || []), v] })); setEditPrompt("") }
   const eRemovePrompt = (i: number) => setEditForm(f => ({ ...f, copy_prompts: (f.copy_prompts || []).filter((_, j) => j !== i) }))
 
   const filtered = useMemo(() => tasks
-  .filter(t => filterStatus === 'all' || (filterStatus === 'active' ? t.is_active : !t.is_active))
-  .filter(t => t.title.toLowerCase().includes(search.toLowerCase()) || (t.app_name || '').toLowerCase().includes(search.toLowerCase()))
-, [tasks, filterStatus, search])
+    .filter(t => filterStatus === 'all' || (filterStatus === 'active' ? t.is_active : !t.is_active))
+    .filter(t => t.title.toLowerCase().includes(search.toLowerCase()) || (t.app_name || '').toLowerCase().includes(search.toLowerCase()))
+  , [tasks, filterStatus, search])
 
   const taskCompletions = selectedTask ? completions.filter(c => c.task_id === selectedTask.id) : []
   const getConversionColor = (r: string) => { const n = parseFloat(r); return n >= 50 ? 'text-green-600' : n >= 20 ? 'text-yellow-600' : 'text-red-500' }
 
-
-
   return (
     <div className="space-y-6">
+
+      {/* ── Toast notification ── */}
+      {toast && (
+        <div className={`fixed bottom-6 right-6 z-[100] px-4 py-3 rounded-xl shadow-xl text-sm font-semibold flex items-center gap-2 transition-all ${toast.type === 'success' ? 'bg-green-600 text-white' : 'bg-red-500 text-white'}`}>
+          {toast.type === 'success' ? <CheckCircle2 className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
+          {toast.msg}
+        </div>
+      )}
 
       {/* ── Task Preview Modal ── */}
       {previewTask && (
@@ -465,7 +528,6 @@ export function AdminTasks() {
               <button aria-label="Close preview" onClick={() => setPreviewTask(null)} className="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center hover:bg-gray-200"><X className="w-4 h-4" /></button>
             </div>
             <div className="p-4 space-y-4">
-              {/* Task card preview */}
               <div className="border border-gray-200 rounded-2xl p-4">
                 <div className="flex items-start gap-3">
                   {previewTask.app_icon_url
@@ -494,8 +556,6 @@ export function AdminTasks() {
                   {previewTask.has_detail_page ? '📄 View Task Guide' : `▶ Start & Earn ₹${Number(previewTask.user_payout).toFixed(0)}`}
                 </div>
               </div>
-
-              {/* Steps preview */}
               {previewTask.how_to_steps?.length > 0 && (
                 <div className="bg-purple-50 border border-purple-200 rounded-xl p-4">
                   <p className="text-xs font-bold text-purple-700 mb-3">How-To Steps</p>
@@ -507,8 +567,6 @@ export function AdminTasks() {
                   ))}
                 </div>
               )}
-
-              {/* Prompts preview */}
               {previewTask.copy_prompts?.length > 0 && (
                 <div className="bg-green-50 border border-green-200 rounded-xl p-4">
                   <p className="text-xs font-bold text-green-700 mb-3">Copy Prompts ({previewTask.copy_prompts.length})</p>
@@ -533,7 +591,6 @@ export function AdminTasks() {
               <div><h2 className="text-xl font-bold text-gray-900">Edit Task</h2><p className="text-xs text-gray-500 mt-0.5">{editingTask.title}</p></div>
               <button aria-label="Close" onClick={() => setEditingTask(null)} className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200"><X className="w-4 h-4" /></button>
             </div>
-            
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div><Label htmlFor="et">Title *</Label><Input id="et" value={editForm.title || ''} onChange={e => setEditForm({ ...editForm, title: e.target.value })} className="mt-1" /></div>
               <div><Label htmlFor="eu">Task URL *</Label><Input id="eu" value={editForm.task_url || ''} onChange={e => setEditForm({ ...editForm, task_url: e.target.value })} className="mt-1" /></div>
@@ -565,9 +622,10 @@ export function AdminTasks() {
                 {editForm.requires_proof && <div><Label htmlFor="epi">Proof Instructions</Label><Input id="epi" value={editForm.proof_instructions || ''} onChange={e => setEditForm({ ...editForm, proof_instructions: e.target.value })} placeholder="e.g. Screenshot showing the completed action" className="mt-1" /></div>}
               </div>
             </div>
-
             <div className="flex gap-3 mt-6">
-              <Button onClick={saveEdit} disabled={savingEdit} className="bg-blue-600 hover:bg-blue-700 flex-1"><Save className="w-4 h-4 mr-2" />{savingEdit ? 'Saving...' : 'Save Changes'}</Button>
+              <Button onClick={saveEdit} disabled={savingEdit} className="bg-blue-600 hover:bg-blue-700 flex-1">
+                {savingEdit ? <><RefreshCw className="w-4 h-4 mr-2 animate-spin" />Saving...</> : <><Save className="w-4 h-4 mr-2" />Save Changes</>}
+              </Button>
               <Button variant="outline" onClick={() => setEditingTask(null)} className="flex-1">Cancel</Button>
             </div>
           </div>
@@ -594,7 +652,7 @@ export function AdminTasks() {
               </div>
               <div className="flex gap-3">
                 <Button onClick={sendBroadcast} disabled={broadcasting} className="bg-blue-600 hover:bg-blue-700 flex-1">
-                  <Send className="w-4 h-4 mr-2" />{broadcasting ? 'Sending...' : 'Send to All Users'}
+                  {broadcasting ? <><RefreshCw className="w-4 h-4 mr-2 animate-spin" />Sending...</> : <><Send className="w-4 h-4 mr-2" />Send to All Users</>}
                 </Button>
                 <Button variant="outline" onClick={() => setShowBroadcast(false)} className="flex-1">Cancel</Button>
               </div>
@@ -607,6 +665,9 @@ export function AdminTasks() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div><h1 className="text-2xl font-bold text-gray-900">Tasks</h1><p className="text-gray-600 mt-1">Manage earning tasks and track performance</p></div>
         <div className="flex items-center gap-2 flex-wrap">
+          <Button variant="outline" onClick={() => fetchAll(true)} disabled={refreshing} className="text-sm">
+            <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} /> Refresh
+          </Button>
           <Button variant="outline" onClick={() => setShowBroadcast(true)} className="text-sm">
             <Send className="w-4 h-4 mr-2" /> Broadcast
           </Button>
@@ -690,7 +751,9 @@ export function AdminTasks() {
               </div>
             </div>
             <div className="flex gap-3 mt-5">
-              <Button onClick={createTask} disabled={submitting} className="bg-blue-600 hover:bg-blue-700">{submitting ? 'Creating...' : 'Create Task'}</Button>
+              <Button onClick={createTask} disabled={submitting} className="bg-blue-600 hover:bg-blue-700">
+                {submitting ? <><RefreshCw className="w-4 h-4 mr-2 animate-spin" />Creating...</> : 'Create Task'}
+              </Button>
               <Button variant="outline" onClick={() => setShowForm(false)}>Cancel</Button>
             </div>
           </CardContent>
@@ -699,7 +762,6 @@ export function AdminTasks() {
 
       {activeTab === 'tasks' && (
         <>
-          {/* Search + Filter + Bulk */}
           <div className="flex gap-3 flex-wrap items-center">
             <div className="relative flex-1 min-w-48">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -712,16 +774,10 @@ export function AdminTasks() {
             </div>
           </div>
 
-          {/* Bulk action bar */}
           {selectedIds.size > 0 && (
             <div className="flex items-center gap-3 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3">
               <span className="text-sm font-semibold text-blue-700">{selectedIds.size} selected</span>
-              <select
-                value={bulkAction}
-                onChange={e => setBulkAction(e.target.value)}
-                title="Bulk action"
-                className="border border-blue-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
-              >
+              <select value={bulkAction} onChange={e => setBulkAction(e.target.value)} title="Bulk action" className="border border-blue-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400">
                 <option value="">Choose action...</option>
                 <option value="activate">Activate</option>
                 <option value="deactivate">Deactivate</option>
@@ -730,14 +786,19 @@ export function AdminTasks() {
               <Button onClick={executeBulkAction} disabled={!bulkAction || bulkLoading} size="sm" className="bg-blue-600 hover:bg-blue-700">
                 {bulkLoading ? 'Applying...' : 'Apply'}
               </Button>
-              <button onClick={() => setSelectedIds(new Set())} className="ml-auto text-xs text-gray-500 hover:text-gray-700">Clear selection</button>
+              <button onClick={() => setSelectedIds(new Set())} className="ml-auto text-xs text-gray-500 hover:text-gray-700">Clear</button>
             </div>
           )}
 
-          {/* Tasks Table */}
           <Card className="border border-gray-200">
             <CardContent className="p-0">
-              {loading ? <div className="p-8 text-center text-gray-500">Loading...</div> : filtered.length === 0 ? <div className="p-8 text-center text-gray-500">No tasks found.</div> : (
+              {loading ? (
+                <div className="p-8 text-center text-gray-500 flex items-center justify-center gap-2">
+                  <RefreshCw className="w-4 h-4 animate-spin" /> Loading tasks...
+                </div>
+              ) : filtered.length === 0 ? (
+                <div className="p-8 text-center text-gray-500">No tasks found.</div>
+              ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead className="bg-gray-50 border-b border-gray-200">
@@ -795,14 +856,14 @@ export function AdminTasks() {
                                 <SlotsBar task={task} />
                               </div>
                             ) : <span className="text-sm font-bold">{task.completion_count || 0}</span>}
-                            <button aria-label="Toggle completions" onClick={() => setSelectedTask(selectedTask?.id === task.id ? null : task)} className="text-blue-500 hover:text-blue-700 mt-1">
+                            <button aria-label="Toggle completions view" onClick={() => setSelectedTask(selectedTask?.id === task.id ? null : task)} className="text-blue-500 hover:text-blue-700 mt-1">
                               {selectedTask?.id === task.id ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
                             </button>
                           </td>
                           <td className="px-4 py-3"><span className={`text-sm font-bold ${getConversionColor(task.conversion_rate || '0')}`}>{task.conversion_rate}%</span></td>
                           <td className="px-4 py-3">
                             <div className="flex flex-col gap-1">
-                              <button title={task.requires_proof ? 'Proof ON' : 'Proof OFF'} onClick={() => toggleProofRequired(task)}
+                              <button title={task.requires_proof ? 'Proof ON — click to disable' : 'Proof OFF — click to enable'} onClick={() => toggleProofRequired(task)}
                                 className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium w-fit ${task.requires_proof ? 'bg-orange-100 text-orange-700 hover:bg-orange-200' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
                                 {task.requires_proof ? <Camera className="w-3 h-3" /> : <CameraOff className="w-3 h-3" />} Proof
                               </button>
@@ -833,7 +894,6 @@ export function AdminTasks() {
             </CardContent>
           </Card>
 
-          {/* Completions panel */}
           {selectedTask && (
             <Card className="border border-blue-200 bg-blue-50">
               <CardHeader className="pb-3">
