@@ -432,7 +432,7 @@ export function TaskDetailClient({ task, userId }: TaskDetailProps) {
           onClick={() => setStage('opened')}
         >
           <div
-            className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl w-full sm:max-w-sm p-6"
+            className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl w-full sm:max-w-sm p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))]"
             onClick={e => e.stopPropagation()}
           >
             {/* Drag handle — mobile */}
@@ -735,7 +735,7 @@ export function TaskDetailClient({ task, userId }: TaskDetailProps) {
       )}
 
       {/* ── Sticky Bottom CTA ── */}
-      <div className="fixed bottom-16 left-0 right-0 p-4 bg-white/95 backdrop-blur-md border-t border-gray-100 z-[60] lg:bottom-0">
+      <div className="fixed bottom-16 left-0 right-0 px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] bg-white/95 backdrop-blur-md border-t border-gray-100 z-[60] lg:bottom-0 lg:pb-4">
         <div className="max-w-2xl mx-auto space-y-2">
 
           {stage === 'idle' && (
