@@ -34,6 +34,7 @@ interface NotificationBellProps {
 const POLL_INTERVAL = 30_000
 const MAX_NOTIFICATIONS_DISPLAY = 50
 const VALID_TYPES: NotificationType[] = ["info", "success", "warning", "error"]
+const BOTTOM_NAV_HEIGHT = 80 // px — matches h-16 (64px) + safe area
 
 const TYPE_CONFIG: Record<NotificationType, {
   icon: React.ReactNode
@@ -64,7 +65,6 @@ const TYPE_CONFIG: Record<NotificationType, {
 function sanitizeNotification(n: unknown): Notification | null {
   if (!n || typeof n !== "object") return null
   const obj = n as Record<string, unknown>
-
   const id = typeof obj.id === "number" && obj.id > 0 ? obj.id : null
   const title = typeof obj.title === "string" ? obj.title.slice(0, 100) : null
   const body = typeof obj.body === "string" ? obj.body.slice(0, 500) : null
@@ -80,7 +80,6 @@ function sanitizeNotification(n: unknown): Notification | null {
     typeof obj.created_at === "string" && !isNaN(Date.parse(obj.created_at))
       ? obj.created_at
       : new Date().toISOString()
-
   if (!id || !title || !body) return null
   return { id, title, body, type, is_read, action_url, created_at }
 }
@@ -99,17 +98,10 @@ function timeAgo(date: string): string {
 function withOneSignal(cb: (os: any) => Promise<void>): Promise<void> {
   return new Promise((resolve, reject) => {
     const win = window as any
-    if (!win.OneSignalDeferred) {
-      reject(new Error("OneSignal not loaded"))
-      return
-    }
+    if (!win.OneSignalDeferred) { reject(new Error("OneSignal not loaded")); return }
     win.OneSignalDeferred.push(async (os: any) => {
-      try {
-        await cb(os)
-        resolve()
-      } catch (e) {
-        reject(e)
-      }
+      try { await cb(os); resolve() }
+      catch (e) { reject(e) }
     })
   })
 }
@@ -121,9 +113,7 @@ async function getOneSignalStatus(): Promise<boolean> {
         resolve(!!os.User.PushSubscription.optedIn)
       }).catch(() => resolve(false))
     })
-  } catch {
-    return false
-  }
+  } catch { return false }
 }
 
 // ── Component ────────────────────────────────────────────────────────────────
@@ -148,57 +138,34 @@ export function NotificationBell({ userId }: NotificationBellProps) {
   const fetchNotifications = useCallback(async (signal?: AbortSignal) => {
     try {
       const res = await fetch("/api/notifications", {
-        signal,
-        credentials: "same-origin",
+        signal, credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
       })
-
-      if (!res.ok) {
-        if (res.status !== 401) setFetchError(true)
-        return
-      }
-
+      if (!res.ok) { if (res.status !== 401) setFetchError(true); return }
       const data = await res.json()
       const raw: unknown[] = Array.isArray(data.notifications)
-        ? data.notifications.slice(0, MAX_NOTIFICATIONS_DISPLAY)
-        : []
-
+        ? data.notifications.slice(0, MAX_NOTIFICATIONS_DISPLAY) : []
       const safe = raw.map(sanitizeNotification).filter(Boolean) as Notification[]
       const count = typeof data.unreadCount === "number"
         ? Math.max(0, data.unreadCount)
         : safe.filter((n) => !n.is_read).length
-
-      startTransition(() => {
-        setNotifications(safe)
-        setUnreadCount(count)
-        setFetchError(false)
-      })
+      startTransition(() => { setNotifications(safe); setUnreadCount(count); setFetchError(false) })
     } catch (e: any) {
       if (e?.name !== "AbortError") setFetchError(true)
     }
   }, [])
 
-  // ── Polling setup ────────────────────────────────────────────────────────
+  // ── Polling ──────────────────────────────────────────────────────────────
   useEffect(() => {
     const controller = new AbortController()
     abortRef.current = controller
-
     fetchNotifications(controller.signal)
-    pollRef.current = setInterval(
-      () => fetchNotifications(controller.signal),
-      POLL_INTERVAL
-    )
-
-    return () => {
-      controller.abort()
-      if (pollRef.current) clearInterval(pollRef.current)
-    }
+    pollRef.current = setInterval(() => fetchNotifications(controller.signal), POLL_INTERVAL)
+    return () => { controller.abort(); if (pollRef.current) clearInterval(pollRef.current) }
   }, [fetchNotifications])
 
-  // ── Check push status on mount ───────────────────────────────────────────
-  useEffect(() => {
-    getOneSignalStatus().then(setPushEnabled)
-  }, [])
+  // ── Push status ──────────────────────────────────────────────────────────
+  useEffect(() => { getOneSignalStatus().then(setPushEnabled) }, [])
 
   // ── Dropdown position ────────────────────────────────────────────────────
   const calculatePosition = useCallback(() => {
@@ -207,7 +174,6 @@ export function NotificationBell({ userId }: NotificationBellProps) {
     const mobile = window.innerWidth < 640
     setIsMobile(mobile)
     if (mobile) return
-
     const dropdownWidth = 320
     const spaceOnRight = window.innerWidth - rect.left
     if (spaceOnRight >= dropdownWidth) {
@@ -217,34 +183,23 @@ export function NotificationBell({ userId }: NotificationBellProps) {
     }
   }, [])
 
-  useEffect(() => {
-    if (open) calculatePosition()
-  }, [open, calculatePosition])
+  useEffect(() => { if (open) calculatePosition() }, [open, calculatePosition])
 
   // ── Close on outside click / scroll / Escape ─────────────────────────────
   useEffect(() => {
     if (!open) return
-
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false)
-    }
+    const handleKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false) }
     const handleClick = (e: MouseEvent) => {
-      if (
-        !buttonRef.current?.contains(e.target as Node) &&
-        !panelRef.current?.contains(e.target as Node)
-      ) {
-        setOpen(false)
-      }
+      if (!buttonRef.current?.contains(e.target as Node) &&
+        !panelRef.current?.contains(e.target as Node)) setOpen(false)
     }
     const handleScroll = (e: Event) => {
-  if (panelRef.current?.contains(e.target as Node)) return
-  setOpen(false)
-}
-
+      if (panelRef.current?.contains(e.target as Node)) return
+      setOpen(false)
+    }
     document.addEventListener("keydown", handleKey)
     document.addEventListener("mousedown", handleClick)
     window.addEventListener("scroll", handleScroll, { passive: true, capture: true })
-
     return () => {
       document.removeEventListener("keydown", handleKey)
       document.removeEventListener("mousedown", handleClick)
@@ -255,37 +210,25 @@ export function NotificationBell({ userId }: NotificationBellProps) {
   // ── Mark single read ─────────────────────────────────────────────────────
   const markRead = useCallback(async (id: number) => {
     if (typeof id !== "number" || id <= 0) return
-
-    // Optimistic update
     startTransition(() => {
-      setNotifications((prev) =>
-        prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
-      )
+      setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, is_read: true } : n))
       setUnreadCount((prev) => Math.max(0, prev - 1))
     })
-
     try {
       const res = await fetch("/api/notifications", {
-        method: "PATCH",
-        credentials: "same-origin",
+        method: "PATCH", credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id }),
       })
-      // Rollback on failure
       if (!res.ok) {
         startTransition(() => {
-          setNotifications((prev) =>
-            prev.map((n) => (n.id === id ? { ...n, is_read: false } : n))
-          )
+          setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, is_read: false } : n))
           setUnreadCount((prev) => prev + 1)
         })
       }
     } catch {
-      // Rollback
       startTransition(() => {
-        setNotifications((prev) =>
-          prev.map((n) => (n.id === id ? { ...n, is_read: false } : n))
-        )
+        setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, is_read: false } : n))
         setUnreadCount((prev) => prev + 1)
       })
     }
@@ -295,45 +238,23 @@ export function NotificationBell({ userId }: NotificationBellProps) {
   const markAllRead = useCallback(async () => {
     const prev = notifications
     const prevCount = unreadCount
-
-    // Optimistic update
-    startTransition(() => {
-      setNotifications((n) => n.map((x) => ({ ...x, is_read: true })))
-      setUnreadCount(0)
-    })
-
+    startTransition(() => { setNotifications((n) => n.map((x) => ({ ...x, is_read: true }))); setUnreadCount(0) })
     try {
       const res = await fetch("/api/notifications", {
-        method: "PATCH",
-        credentials: "same-origin",
+        method: "PATCH", credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ markAllRead: true }),
       })
-      // Rollback on failure
-      if (!res.ok) {
-        startTransition(() => {
-          setNotifications(prev)
-          setUnreadCount(prevCount)
-        })
-      }
+      if (!res.ok) startTransition(() => { setNotifications(prev); setUnreadCount(prevCount) })
     } catch {
-      startTransition(() => {
-        setNotifications(prev)
-        setUnreadCount(prevCount)
-      })
+      startTransition(() => { setNotifications(prev); setUnreadCount(prevCount) })
     }
   }, [notifications, unreadCount])
 
   // ── Enable push ──────────────────────────────────────────────────────────
   const enablePush = async () => {
-    if (!userId || userId <= 0) {
-      setPushError("User ID is required to enable push notifications")
-      return
-    }
-
-    setPushLoading(true)
-    setPushError(null)
-
+    if (!userId || userId <= 0) { setPushError("Please log in to enable notifications"); return }
+    setPushLoading(true); setPushError(null)
     try {
       await withOneSignal(async (os) => {
         const permission = await os.Notifications.requestPermission()
@@ -344,45 +265,42 @@ export function NotificationBell({ userId }: NotificationBellProps) {
         if (!subscribed) throw new Error("Subscription failed")
       })
     } catch (e: any) {
-      const msg = e?.message || "Failed to enable notifications"
-      if (msg.includes("denied")) {
-        setPushError("Permission denied. Please allow notifications in browser settings.")
-      } else {
-        setPushError("Failed to enable push. Please try again.")
-      }
+      const msg = e?.message || ""
+      setPushError(msg.includes("denied")
+        ? "Permission denied. Allow notifications in browser settings."
+        : "Failed to enable push. Please try again.")
       console.error("[push] Enable failed:", e)
-    } finally {
-      setPushLoading(false)
-    }
+    } finally { setPushLoading(false) }
   }
 
   // ── Disable push ─────────────────────────────────────────────────────────
   const disablePush = async () => {
-    setPushLoading(true)
-    setPushError(null)
-
+    setPushLoading(true); setPushError(null)
     try {
       await withOneSignal(async (os) => {
         await os.User.PushSubscription.optOut()
         setPushEnabled(false)
       })
     } catch (e) {
-      setPushError("Failed to disable push. Please try again.")
+      setPushError("Failed to disable. Please try again.")
       console.error("[push] Disable failed:", e)
-    } finally {
-      setPushLoading(false)
-    }
+    } finally { setPushLoading(false) }
   }
 
-  // ── Render ───────────────────────────────────────────────────────────────
+  // ── Mobile panel height — accounts for bottom nav ────────────────────────
+  // FIX: subtract bottom nav height so panel never overlaps it
+  const mobileMaxHeight = `calc(100vh - ${BOTTOM_NAV_HEIGHT + 20}px - env(safe-area-inset-bottom))`
+  const mobileListMaxHeight = `calc(100vh - ${BOTTOM_NAV_HEIGHT + 20 + 130}px - env(safe-area-inset-bottom))`
+
   return (
     <>
-      {/* Bell Button */}
+      {/* ── Bell Button ── */}
       <button
         ref={buttonRef}
         onClick={() => setOpen((o) => !o)}
         aria-label={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ""}`}
         aria-haspopup="dialog"
+        
         className={`relative w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-150 flex-shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 ${
           open
             ? "bg-blue-600 text-white shadow-lg shadow-blue-200"
@@ -400,7 +318,7 @@ export function NotificationBell({ userId }: NotificationBellProps) {
         )}
       </button>
 
-      {/* Panel */}
+      {/* ── Panel ── */}
       {open && (
         <>
           {/* Mobile backdrop */}
@@ -415,18 +333,24 @@ export function NotificationBell({ userId }: NotificationBellProps) {
             role="dialog"
             aria-label="Notifications panel"
             aria-modal="true"
-           className="fixed z-50 bg-white overflow-hidden shadow-2xl bottom-16 left-0 right-0 rounded-t-2xl sm:bottom-auto sm:rounded-2xl sm:w-80 sm:border sm:border-gray-100"     style={
-              !isMobile
-                ? {
-                    top: dropdownPos.top,
-                    ...(dropdownPos.left !== undefined
-                      ? { left: dropdownPos.left }
-                      : { right: dropdownPos.right }),
-                    maxHeight: "480px",
-                    width: "320px",
-                  }
-                : { maxHeight: "85vh" }
-            }
+            className={`
+              fixed z-50 bg-white overflow-hidden shadow-2xl
+              left-0 right-0 rounded-t-2xl
+              sm:left-auto sm:right-auto sm:rounded-2xl sm:w-80 sm:border sm:border-gray-100
+              sm:bottom-auto
+            `}
+            style={isMobile ? {
+              // FIX: sit just above bottom nav bar
+              bottom: BOTTOM_NAV_HEIGHT,
+              maxHeight: mobileMaxHeight,
+            } : {
+              top: dropdownPos.top,
+              ...(dropdownPos.left !== undefined
+                ? { left: dropdownPos.left }
+                : { right: dropdownPos.right }),
+              maxHeight: "480px",
+              width: "320px",
+            }}
           >
             {/* Drag handle — mobile only */}
             <div className="flex justify-center pt-3 pb-1 sm:hidden" aria-hidden>
@@ -469,7 +393,7 @@ export function NotificationBell({ userId }: NotificationBellProps) {
             </div>
 
             {/* Push toggle */}
-            <div className="px-4 py-2 bg-gray-50 border-b border-gray-100">
+            <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-100">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   {pushEnabled
@@ -485,9 +409,7 @@ export function NotificationBell({ userId }: NotificationBellProps) {
                   disabled={pushLoading}
                   aria-label={pushEnabled ? "Disable push notifications" : "Enable push notifications"}
                   className={`text-xs font-semibold px-2.5 py-1 rounded-lg transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 flex items-center gap-1 ${
-                    pushEnabled
-                      ? "text-red-500 hover:bg-red-50"
-                      : "text-blue-600 hover:bg-blue-50"
+                    pushEnabled ? "text-red-500 hover:bg-red-50" : "text-blue-600 hover:bg-blue-50"
                   }`}
                 >
                   {pushLoading
@@ -502,14 +424,14 @@ export function NotificationBell({ userId }: NotificationBellProps) {
             </div>
 
             {/* Notifications list */}
-          <div
-  className="overflow-y-auto overscroll-contain"
-  aria-live="polite"
-  aria-atomic="true"
-  style={{ maxHeight: isMobile ? "calc(85vh - 160px)" : "320px" }}
->
-  {notifications.length === 0 ? (
-    <div className="py-12 text-center px-6">
+            <div
+              className="overflow-y-auto overscroll-contain"
+              aria-live="polite"
+              aria-atomic="true"
+              style={{ maxHeight: isMobile ? mobileListMaxHeight : "300px" }}
+            >
+              {notifications.length === 0 ? (
+                <div className="py-12 text-center px-6">
                   <div className="w-12 h-12 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
                     <Bell className="w-5 h-5 text-gray-300" aria-hidden />
                   </div>
@@ -522,28 +444,21 @@ export function NotificationBell({ userId }: NotificationBellProps) {
                   return (
                     <div
                       key={n.id}
-                      
                       onClick={() => !n.is_read && markRead(n.id)}
                       className={`relative flex items-start gap-3 px-4 py-3 border-b border-gray-50 last:border-0 transition-colors ${
                         !n.is_read
-                          ? "bg-blue-50/30 cursor-pointer hover:bg-blue-50/60"
+                          ? "bg-blue-50/30 cursor-pointer hover:bg-blue-50/60 active:bg-blue-50"
                           : "bg-white"
                       }`}
                       aria-label={`${cfg.label}: ${n.title}${!n.is_read ? " (unread)" : ""}`}
                     >
                       {/* Unread bar */}
                       {!n.is_read && (
-                        <div
-                          className={`absolute left-0 top-2 bottom-2 w-0.5 rounded-r-full ${cfg.bar}`}
-                          aria-hidden
-                        />
+                        <div className={`absolute left-0 top-2 bottom-2 w-0.5 rounded-r-full ${cfg.bar}`} aria-hidden />
                       )}
 
                       {/* Icon */}
-                      <div
-                        className={`w-7 h-7 rounded-xl ${cfg.bg} flex items-center justify-center flex-shrink-0 mt-0.5`}
-                        aria-hidden
-                      >
+                      <div className={`w-7 h-7 rounded-xl ${cfg.bg} flex items-center justify-center flex-shrink-0 mt-0.5`} aria-hidden>
                         {cfg.icon}
                       </div>
 
@@ -568,7 +483,7 @@ export function NotificationBell({ userId }: NotificationBellProps) {
                           <Link
                             href={n.action_url}
                             onClick={() => setOpen(false)}
-                            className="inline-flex items-center gap-1 text-[11px] text-blue-600 font-medium mt-1 hover:underline focus:outline-none focus-visible:ring-1 focus-visible:ring-blue-500 rounded"
+                            className="inline-flex items-center gap-1 text-[11px] text-blue-600 font-medium mt-1.5 hover:underline focus:outline-none focus-visible:ring-1 focus-visible:ring-blue-500 rounded"
                           >
                             View details <ExternalLink className="w-2.5 h-2.5" aria-hidden />
                           </Link>
@@ -577,10 +492,7 @@ export function NotificationBell({ userId }: NotificationBellProps) {
 
                       {/* Unread dot */}
                       {!n.is_read && (
-                        <div
-                          className={`w-1.5 h-1.5 rounded-full flex-shrink-0 mt-1.5 ${cfg.dot}`}
-                          aria-hidden
-                        />
+                        <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 mt-1.5 ${cfg.dot}`} aria-hidden />
                       )}
                     </div>
                   )
@@ -590,10 +502,10 @@ export function NotificationBell({ userId }: NotificationBellProps) {
 
             {/* Footer */}
             {notifications.length > 0 && (
-              <div className="px-4 py-2 border-t border-gray-100 bg-gray-50/50">
+              <div className="px-4 py-2.5 border-t border-gray-100 bg-gray-50/50">
                 <p className="text-[10px] text-gray-400 text-center">
-                  Showing {notifications.length} notification{notifications.length !== 1 ? "s" : ""}
-                  {notifications.length === MAX_NOTIFICATIONS_DISPLAY && " (latest 50)"}
+                  {notifications.length} notification{notifications.length !== 1 ? "s" : ""}
+                  {notifications.length === MAX_NOTIFICATIONS_DISPLAY && " · latest 50 shown"}
                 </p>
               </div>
             )}
