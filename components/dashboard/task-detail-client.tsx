@@ -753,7 +753,7 @@ export function TaskDetailClient({ task, userId }: TaskDetailProps) {
             </>
           )}
 
-          {(stage === 'opened' || stage === 'confirming') && (
+         {stage === 'opened' && (
             <>
               <Button
                 onClick={() => setStage('confirming')}
