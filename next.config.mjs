@@ -11,7 +11,7 @@ const nextConfig = {
   // ── Compression ────────────────────────────────────────────────────────────
   compress: true,
 
-  // ── Power headers ──────────────────────────────────────────────────────────
+  // ── Headers ────────────────────────────────────────────────────────────────
   async headers() {
     return [
 
@@ -88,12 +88,6 @@ const nextConfig = {
             value: "on",
           },
 
-          // Remove server fingerprinting
-          {
-            key: "X-Powered-By",
-            value: "",
-          },
-
           // Content Security Policy
           {
             key: "Content-Security-Policy",
@@ -101,19 +95,20 @@ const nextConfig = {
               // Default: only self
               "default-src 'self'",
 
-              // Scripts: self + Next.js inline + OneSignal + Vercel Analytics
+              // Scripts: self + Next.js inline + OneSignal + Vercel Analytics + Cloudflare
               "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.onesignal.com https://onesignal.com https://api.onesignal.com https://va.vercel-scripts.com https://static.cloudflareinsights.com",
+
               // Styles: self + inline (Tailwind) + Google Fonts
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
 
-              // Fonts: self + Google Fonts
-              "font-src 'self' https://fonts.gstatic.com",
+              // Fonts: self + data + Google Fonts
+              "font-src 'self' data: https://fonts.gstatic.com",
 
               // Images: self + data URIs + blob + any HTTPS
               "img-src 'self' data: blob: https:",
 
-              // Connections: self + Supabase + OneSignal + Vercel Analytics
-              "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://onesignal.com https://api.onesignal.com https://cdn.onesignal.com https://vitals.vercel-insights.com https://va.vercel-scripts.com https://static.cloudflareinsights.com https://cloudflareinsights.com",
+              // Connections: self + Supabase + OneSignal + Vercel + Cloudflare + Anthropic
+              "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://onesignal.com https://api.onesignal.com https://cdn.onesignal.com https://vitals.vercel-insights.com https://va.vercel-scripts.com https://static.cloudflareinsights.com https://cloudflareinsights.com https://api.anthropic.com",
 
               // Frames: block all
               "frame-src 'none'",
@@ -121,14 +116,14 @@ const nextConfig = {
               // Frame ancestors: block embedding
               "frame-ancestors 'none'",
 
-              // Workers: self + blob (OneSignal SW)
+              // Workers: self + blob + OneSignal CDN
               "worker-src 'self' blob: https://cdn.onesignal.com",
 
               // Manifests
               "manifest-src 'self'",
 
-              // Media
-              "media-src 'self'",
+              // Media: self + blob (for audio/video)
+              "media-src 'self' blob:",
 
               // Forms: only submit to self
               "form-action 'self'",
@@ -138,9 +133,6 @@ const nextConfig = {
 
               // Block mixed content
               "upgrade-insecure-requests",
-
-              // Report CSP violations (optional — remove if no endpoint)
-              // "report-uri /api/csp-report",
             ].join("; "),
           },
         ],
@@ -170,8 +162,9 @@ const nextConfig = {
             value: "public, max-age=31536000, immutable",
           },
           {
+            // Allow fonts from both www and non-www
             key: "Access-Control-Allow-Origin",
-            value: "https://www.qyantra.online",
+            value: "*",
           },
         ],
       },
@@ -187,7 +180,7 @@ const nextConfig = {
         ],
       },
 
-      // ── API routes — never cache ─────────────────────────────────────────
+      // ── API routes — never cache, strict CORS ────────────────────────────
       {
         source: "/api/(.*)",
         headers: [
@@ -203,7 +196,6 @@ const nextConfig = {
             key: "Expires",
             value: "0",
           },
-          // API routes: stricter CORS
           {
             key: "Access-Control-Allow-Origin",
             value: "https://www.qyantra.online",
@@ -223,7 +215,7 @@ const nextConfig = {
         ],
       },
 
-      // ── Auth routes — never cache, extra strict ──────────────────────────
+      // ── Auth routes — never cache, no indexing ───────────────────────────
       {
         source: "/auth/(.*)",
         headers: [
@@ -242,9 +234,10 @@ const nextConfig = {
         ],
       },
 
-      // ── Dashboard — never cache, no indexing ────────────────────────────
+      // ── Dashboard — never cache, no indexing ─────────────────────────────
+      // FIX: /dashboard(.*) without slash covers root /dashboard page too
       {
-        source: "/dashboard/(.*)",
+        source: "/dashboard(.*)",
         headers: [
           {
             key: "Cache-Control",
@@ -258,8 +251,9 @@ const nextConfig = {
       },
 
       // ── Admin — never cache, no indexing, extra strict ───────────────────
+      // FIX: /admin(.*) without slash covers root /admin page too
       {
-        source: "/admin/(.*)",
+        source: "/admin(.*)",
         headers: [
           {
             key: "Cache-Control",
@@ -276,7 +270,9 @@ const nextConfig = {
         ],
       },
 
-      // ── Service worker — no cache ────────────────────────────────────────
+      // ── Service workers — no cache, correct scope ────────────────────────
+      // FIX: must NOT be redirected — serve directly without www redirect
+      // Chrome throws SecurityError if service worker is behind a redirect
       {
         source: "/(sw\\.js|OneSignalSDKWorker\\.js|OneSignalSDK\\.sw\\.js)",
         headers: [
@@ -292,10 +288,15 @@ const nextConfig = {
             key: "Content-Type",
             value: "application/javascript; charset=utf-8",
           },
+          {
+            // Allow SW to be loaded from both www and non-www
+            key: "Access-Control-Allow-Origin",
+            value: "*",
+          },
         ],
       },
 
-      // ── Sitemap & robots — short cache ──────────────────────────────────
+      // ── Sitemap — short cache ────────────────────────────────────────────
       {
         source: "/sitemap.xml",
         headers: [
@@ -313,6 +314,8 @@ const nextConfig = {
           },
         ],
       },
+
+      // ── robots.txt ───────────────────────────────────────────────────────
       {
         source: "/robots.txt",
         headers: [
@@ -327,7 +330,7 @@ const nextConfig = {
         ],
       },
 
-      // ── Manifest ─────────────────────────────────────────────────────────
+      // ── Web manifest ─────────────────────────────────────────────────────
       {
         source: "/site.webmanifest",
         headers: [
@@ -347,14 +350,18 @@ const nextConfig = {
   // ── Redirects ──────────────────────────────────────────────────────────────
   async redirects() {
     return [
-      // Force www
+
+      // ── Force www — EXCEPT service worker files ──────────────────────────
+      // FIX: Service workers behind a redirect cause SecurityError in Chrome
+      // The negative lookahead excludes SW files from the www redirect
       {
-        source: "/(.*)",
+        source: "/((?!sw\\.js|OneSignalSDKWorker\\.js|OneSignalSDK\\.sw\\.js).*)",
         has: [{ type: "host", value: "qyantra.online" }],
         destination: "https://www.qyantra.online/:path*",
         permanent: true,
       },
-      // Remove trailing slashes
+
+      // ── Remove trailing slashes ──────────────────────────────────────────
       {
         source: "/:path+/",
         destination: "/:path+",
