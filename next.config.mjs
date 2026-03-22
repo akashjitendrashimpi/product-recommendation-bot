@@ -169,16 +169,7 @@ const nextConfig = {
         ],
       },
 
-      // ── JS & CSS — long cache ────────────────────────────────────────────
-      {
-        source: "/_next/static/(.*)",
-        headers: [
-          {
-            key: "Cache-Control",
-            value: "public, max-age=31536000, immutable",
-          },
-        ],
-      },
+     
 
       // ── API routes — never cache, strict CORS ────────────────────────────
       {

@@ -86,13 +86,10 @@
     "@types/react-dom": "^19",
     "@types/web-push": "^3.6.4",
     "baseline-browser-mapping": "^2.10.10",
-    "eslint": "^10.1.0",
+    "eslint": "^9.0.0",
     "eslint-config-next": "^16.2.1",
     "postcss": "^8.5",
     "tailwindcss": "^4.2.2",
     "typescript": "^5"
-  },
-  "overrides": {
-    "eslint": "^10.1.0"
   }
 }
