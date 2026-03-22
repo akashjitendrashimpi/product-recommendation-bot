@@ -432,7 +432,7 @@ export function TaskDetailClient({ task, userId }: TaskDetailProps) {
           onClick={() => setStage('opened')}
         >
           <div
-            className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl w-full sm:max-w-sm p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))]"
+            className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl w-full sm:max-w-sm p-6 pb-24 sm:pb-6"
             onClick={e => e.stopPropagation()}
           >
             {/* Drag handle — mobile */}
