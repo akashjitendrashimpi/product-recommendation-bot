@@ -415,8 +415,7 @@ export function NotificationBell({ userId }: NotificationBellProps) {
             role="dialog"
             aria-label="Notifications panel"
             aria-modal="true"
-            className="fixed z-50 bg-white overflow-hidden shadow-2xl bottom-0 left-0 right-0 rounded-t-2xl sm:bottom-auto sm:rounded-2xl sm:border sm:border-gray-100"
-            style={
+           className="fixed z-50 bg-white overflow-hidden shadow-2xl bottom-16 left-0 right-0 rounded-t-2xl sm:bottom-auto sm:rounded-2xl sm:w-80 sm:border sm:border-gray-100"     style={
               !isMobile
                 ? {
                     top: dropdownPos.top,
@@ -507,7 +506,7 @@ export function NotificationBell({ userId }: NotificationBellProps) {
   className="overflow-y-auto overscroll-contain"
   aria-live="polite"
   aria-atomic="true"
-  style={{ maxHeight: isMobile ? "calc(85vh - 145px)" : "300px" }}
+  style={{ maxHeight: isMobile ? "calc(85vh - 160px)" : "320px" }}
 >
   {notifications.length === 0 ? (
     <div className="py-12 text-center px-6">
