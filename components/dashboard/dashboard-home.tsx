@@ -297,16 +297,7 @@ export function DashboardHome({ userId }: DashboardHomeProps) {
       {/* Quick Actions */}
       <div className="grid grid-cols-2 gap-3">
         {[
-          {
-            href: "/dashboard/referral",
-            icon: Users,
-            title: "Refer & Earn",
-            subtitle: "₹20 per friend",
-            color: "bg-purple-50 border-purple-100",
-            iconBg: "bg-purple-100",
-            iconColor: "text-purple-600",
-            badge: data.totalReferrals > 0 ? `${data.totalReferrals} referred` : null,
-          },
+          
           {
             href: "/dashboard/products",
             icon: ShoppingBag,

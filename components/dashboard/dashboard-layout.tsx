@@ -88,7 +88,7 @@ useEffect(() => {
     { name: 'Tasks', href: '/dashboard/tasks', icon: CheckSquare, badge: stats.tasksAvailable > 0 ? stats.tasksAvailable : null },
     { name: 'Products', href: '/dashboard/products', icon: ShoppingCart, badge: null },
     { name: 'Earnings', href: '/dashboard/earnings', icon: Wallet, badge: null },
-    { name: 'Refer & Earn', href: '/dashboard/referral', icon: Users, badge: '₹20' },
+   // { name: 'Refer & Earn', href: '/dashboard/referral', icon: Users, badge: '₹20' },
     { name: 'Profile', href: '/dashboard/profile', icon: User, badge: null },
   ]
 
