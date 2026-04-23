@@ -408,14 +408,14 @@ export default function HomePage() {
                 </div>
                 <span className="font-black text-white text-lg">Qyantra</span>
               </div>
-              <p className="text-sm leading-relaxed text-gray-400">
+              <p className="text-sm leading-relaxed text-gray-300">
                 An incentive-based rewards platform where users earn for completing verified advertiser tasks.
               </p>
-              <p className="text-xs mt-3 text-gray-500">
+              <p className="text-xs mt-3 text-gray-400">
                 📧{" "}
                 <a
                   href="mailto:contact@qyantra.online"
-                  className="hover:text-gray-300 transition-colors underline underline-offset-2"
+                  className="hover:text-white transition-colors underline underline-offset-2 text-gray-300"
                 >
                   contact@qyantra.online
                 </a>
@@ -447,12 +447,12 @@ export default function HomePage() {
 
           {/* Compliance footer */}
           <div className="border-t border-gray-800 pt-6 space-y-3">
-            <p className="text-xs text-gray-500 leading-relaxed">
-              <strong className="text-gray-400">Disclosure:</strong> Qyantra is an incentive-based rewards platform. Users receive monetary compensation for completing genuine advertiser tasks including app installations, product trials, reviews, and surveys. This constitutes incentive traffic. Task availability and earning potential vary by region, time, and advertiser demand. All earnings estimates on this page are indicative only — actual earnings are not guaranteed and depend solely on tasks completed by the user.
+            <p className="text-xs text-gray-300 leading-relaxed">
+              <strong className="text-gray-300">Disclosure:</strong> Qyantra is an incentive-based rewards platform. Users receive monetary compensation for completing genuine advertiser tasks including app installations, product trials, reviews, and surveys. This constitutes incentive traffic. Task availability and earning potential vary by region, time, and advertiser demand. All earnings estimates on this page are indicative only — actual earnings are not guaranteed and depend solely on tasks completed by the user.
             </p>
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-              <p className="text-xs text-gray-600">© 2026 Qyantra. All rights reserved. Made with ❤️ in India.</p>
-              <p className="text-xs text-gray-600">This platform is intended for users 18 years of age and above.</p>
+              <p className="text-xs text-gray-400">© 2026 Qyantra. All rights reserved. Made with ❤️ in India.</p>
+              <p className="text-xs text-gray-400">This platform is intended for users 18 years of age and above.</p>
             </div>
           </div>
         </div>
