@@ -2,42 +2,41 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* Removed tw-animate-css import causing syntax error, using native Tailwind animations */
-
 :root {
   --background: oklch(0.98 0.005 260);
-  --foreground: oklch(0.15 0.02 260);
+  --foreground: oklch(0.12 0.02 260);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.15 0.02 260);
+  --card-foreground: oklch(0.12 0.02 260);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.15 0.02 260);
-  --primary: oklch(0.55 0.2 145);
+  --popover-foreground: oklch(0.12 0.02 260);
+  --primary: oklch(0.45 0.2 250);
   --primary-foreground: oklch(0.98 0.005 260);
   --secondary: oklch(0.95 0.01 260);
-  --secondary-foreground: oklch(0.25 0.02 260);
+  --secondary-foreground: oklch(0.2 0.02 260);
   --muted: oklch(0.95 0.01 260);
-  --muted-foreground: oklch(0.5 0.02 260);
+  /* FIX: was 0.5 — too light, fails contrast. Now 0.4 — passes 4.5:1 */
+  --muted-foreground: oklch(0.4 0.02 260);
   --accent: oklch(0.92 0.02 260);
-  --accent-foreground: oklch(0.25 0.02 260);
-  --destructive: oklch(0.55 0.22 25);
+  --accent-foreground: oklch(0.2 0.02 260);
+  --destructive: oklch(0.5 0.22 25);
   --destructive-foreground: oklch(0.98 0.005 260);
-  --border: oklch(0.9 0.01 260);
-  --input: oklch(0.9 0.01 260);
-  --ring: oklch(0.55 0.2 145);
-  --chart-1: oklch(0.55 0.2 145);
-  --chart-2: oklch(0.6 0.15 200);
-  --chart-3: oklch(0.65 0.18 80);
-  --chart-4: oklch(0.6 0.2 300);
-  --chart-5: oklch(0.65 0.22 30);
+  --border: oklch(0.88 0.01 260);
+  --input: oklch(0.88 0.01 260);
+  --ring: oklch(0.45 0.2 250);
+  --chart-1: oklch(0.45 0.2 250);
+  --chart-2: oklch(0.5 0.15 200);
+  --chart-3: oklch(0.55 0.18 80);
+  --chart-4: oklch(0.5 0.2 300);
+  --chart-5: oklch(0.55 0.22 30);
   --radius: 0.625rem;
   --sidebar: oklch(0.98 0.005 260);
-  --sidebar-foreground: oklch(0.15 0.02 260);
-  --sidebar-primary: oklch(0.55 0.2 145);
+  --sidebar-foreground: oklch(0.12 0.02 260);
+  --sidebar-primary: oklch(0.45 0.2 250);
   --sidebar-primary-foreground: oklch(0.98 0.005 260);
   --sidebar-accent: oklch(0.95 0.01 260);
-  --sidebar-accent-foreground: oklch(0.25 0.02 260);
-  --sidebar-border: oklch(0.9 0.01 260);
-  --sidebar-ring: oklch(0.55 0.2 145);
+  --sidebar-accent-foreground: oklch(0.2 0.02 260);
+  --sidebar-border: oklch(0.88 0.01 260);
+  --sidebar-ring: oklch(0.45 0.2 250);
 }
 
 .dark {
@@ -47,32 +46,32 @@
   --card-foreground: oklch(0.95 0.005 260);
   --popover: oklch(0.16 0.02 260);
   --popover-foreground: oklch(0.95 0.005 260);
-  --primary: oklch(0.6 0.22 145);
+  --primary: oklch(0.6 0.22 250);
   --primary-foreground: oklch(0.12 0.02 260);
   --secondary: oklch(0.22 0.02 260);
   --secondary-foreground: oklch(0.95 0.005 260);
   --muted: oklch(0.22 0.02 260);
-  --muted-foreground: oklch(0.65 0.02 260);
+  --muted-foreground: oklch(0.7 0.02 260);
   --accent: oklch(0.22 0.02 260);
   --accent-foreground: oklch(0.95 0.005 260);
   --destructive: oklch(0.45 0.2 25);
   --destructive-foreground: oklch(0.95 0.005 260);
   --border: oklch(0.25 0.02 260);
   --input: oklch(0.25 0.02 260);
-  --ring: oklch(0.6 0.22 145);
-  --chart-1: oklch(0.6 0.22 145);
+  --ring: oklch(0.6 0.22 250);
+  --chart-1: oklch(0.6 0.22 250);
   --chart-2: oklch(0.65 0.18 200);
   --chart-3: oklch(0.7 0.2 80);
   --chart-4: oklch(0.65 0.22 300);
   --chart-5: oklch(0.7 0.24 30);
   --sidebar: oklch(0.16 0.02 260);
   --sidebar-foreground: oklch(0.95 0.005 260);
-  --sidebar-primary: oklch(0.6 0.22 145);
+  --sidebar-primary: oklch(0.6 0.22 250);
   --sidebar-primary-foreground: oklch(0.12 0.02 260);
   --sidebar-accent: oklch(0.22 0.02 260);
   --sidebar-accent-foreground: oklch(0.95 0.005 260);
   --sidebar-border: oklch(0.25 0.02 260);
-  --sidebar-ring: oklch(0.6 0.22 145);
+  --sidebar-ring: oklch(0.6 0.22 250);
 }
 
 @theme inline {
@@ -123,36 +122,65 @@
   body {
     @apply bg-background text-foreground;
   }
+  /* Smooth scrolling for anchor links */
+  html {
+    scroll-behavior: smooth;
+  }
+  /* Focus visible for keyboard navigation */
+  :focus-visible {
+    outline: 2px solid oklch(0.45 0.2 250);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
 }
 
-/* Custom scrollbar styling */
 @layer utilities {
-  /* Webkit browsers (Chrome, Safari, Edge) */
+  /* Custom scrollbar */
   .custom-scrollbar::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 6px;
+    height: 6px;
   }
-  
   .custom-scrollbar::-webkit-scrollbar-track {
-    background: hsl(var(--muted));
+    background: oklch(0.95 0.01 260);
     border-radius: 4px;
   }
-  
   .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: hsl(var(--muted-foreground) / 0.3);
+    background: oklch(0.7 0.02 260);
     border-radius: 4px;
   }
-  
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: hsl(var(--muted-foreground) / 0.5);
+    background: oklch(0.5 0.02 260);
   }
-  
-  /* Firefox */
   .custom-scrollbar {
     scrollbar-width: thin;
-    scrollbar-color: hsl(var(--muted-foreground) / 0.3) hsl(var(--muted));
+    scrollbar-color: oklch(0.7 0.02 260) oklch(0.95 0.01 260);
+  }
+
+  /* Screen reader only — accessibility */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
+  .focus\:not-sr-only:focus {
+    position: static;
+    width: auto;
+    height: auto;
+    padding: revert;
+    margin: revert;
+    overflow: visible;
+    clip: auto;
+    white-space: normal;
   }
 }
+
+/* Marquee animation */
 @keyframes marquee {
   0% { transform: translateX(0); }
   100% { transform: translateX(-50%); }
@@ -160,6 +188,8 @@
 .animate-marquee {
   animation: marquee 25s linear infinite;
 }
+
+/* FAQ accordion arrow */
 details summary::-webkit-details-marker {
   display: none;
 }
