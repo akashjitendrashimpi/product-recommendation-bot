@@ -7,18 +7,10 @@ import { EarningsComponent } from "@/components/dashboard/earnings-component"
 
 export default async function EarningsPage() {
   const session = await getSession()
-
-  if (!session) {
-    redirect("/auth/login")
-  }
-
+  if (!session) redirect("/auth/login")
   const user = await getUserById(session.userId)
-  if (!user) {
-    redirect("/auth/login")
-  }
-
+  if (!user) redirect("/auth/login")
   const profile = userToProfile(user)
-
   return (
     <DashboardLayout user={{ id: user.id, email: user.email }} profile={profile}>
       <div className="p-6 lg:p-8 max-w-7xl mx-auto">

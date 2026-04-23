@@ -7,18 +7,10 @@ import { DashboardHome } from "@/components/dashboard/dashboard-home"
 
 export default async function DashboardPage() {
   const session = await getSession()
-
-  if (!session) {
-    redirect("/auth/login")
-  }
-
+  if (!session) redirect("/auth/login")
   const user = await getUserById(session.userId)
-  if (!user) {
-    redirect("/auth/login")
-  }
-
+  if (!user) redirect("/auth/login")
   const profile = userToProfile(user)
-
   return (
     <DashboardLayout user={{ id: user.id, email: user.email }} profile={profile}>
       <DashboardHome userId={user.id} />

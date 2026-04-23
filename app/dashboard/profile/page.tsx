@@ -9,10 +9,8 @@ import { supabaseAdmin } from "@/lib/supabase/client"
 export default async function ProfileRoute() {
   const session = await getSession()
   if (!session) redirect("/auth/login")
-
   const user = await getUserById(session.userId)
   if (!user) redirect("/auth/login")
-
   const profile = userToProfile(user)
 
   const { data: fullUser } = await (supabaseAdmin as any)
