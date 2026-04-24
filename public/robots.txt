@@ -1,10 +1,10 @@
 # ============================================================
 # Qyantra robots.txt
 # https://www.qyantra.online
-# Last updated: March 2026
+# Last updated: April 2026
 # ============================================================
 
-# ── Default: All crawlers ────────────────────────────────────
+# ── Default: All legitimate crawlers ────────────────────────
 User-agent: *
 Allow: /
 Allow: /privacy
@@ -26,10 +26,16 @@ Disallow: /500
 Disallow: /*?*token=
 Disallow: /*?*session=
 Disallow: /*?*ref=
+Disallow: /*?*utm_source=
+Disallow: /*?*utm_medium=
+Disallow: /*?*utm_campaign=
 
 # ── Google ───────────────────────────────────────────────────
 User-agent: Googlebot
 Allow: /
+Allow: /privacy
+Allow: /terms
+Allow: /contact
 Disallow: /api/
 Disallow: /admin/
 Disallow: /auth/
@@ -45,8 +51,12 @@ Allow: /*.jpg
 Allow: /*.svg
 Allow: /*.webp
 Allow: /*.ico
+Allow: /*.avif
 
 User-agent: Googlebot-Video
+Disallow: /
+
+User-agent: AdsBot-Google
 Disallow: /
 
 # ── Google AI ────────────────────────────────────────────────
@@ -54,20 +64,24 @@ User-agent: Google-Extended
 Allow: /
 Allow: /privacy
 Allow: /terms
+Allow: /contact
 
 # ── Bing / Microsoft / Copilot ───────────────────────────────
 User-agent: Bingbot
 Allow: /
+Allow: /privacy
+Allow: /terms
+Allow: /contact
 Disallow: /api/
 Disallow: /admin/
 Disallow: /auth/
 Disallow: /dashboard/
 Disallow: /_next/
 
-User-agent: adidxbot
+User-agent: MSNBot
 Allow: /
 
-User-agent: MSNBot
+User-agent: adidxbot
 Allow: /
 
 # ── OpenAI / ChatGPT ─────────────────────────────────────────
@@ -100,7 +114,7 @@ Disallow: /admin/
 Disallow: /auth/
 Disallow: /dashboard/
 
-# ── Meta / Llama ─────────────────────────────────────────────
+# ── Meta / Facebook ──────────────────────────────────────────
 User-agent: meta-externalagent
 Allow: /
 Allow: /privacy
@@ -109,21 +123,29 @@ Allow: /terms
 User-agent: FacebookExternalHit
 Allow: /
 
-# ── Twitter / X ──────────────────────────────────────────────
+# ── Social Media Previews ────────────────────────────────────
 User-agent: Twitterbot
 Allow: /
 Allow: /*.png
 Allow: /*.jpg
+Allow: /*.svg
 
-# ── LinkedIn ─────────────────────────────────────────────────
 User-agent: LinkedInBot
 Allow: /
 
-# ── WhatsApp ─────────────────────────────────────────────────
 User-agent: WhatsApp
 Allow: /
 
-# ── DuckDuckGo ───────────────────────────────────────────────
+User-agent: Slackbot
+Allow: /
+
+User-agent: Discordbot
+Allow: /
+
+User-agent: TelegramBot
+Allow: /
+
+# ── Other Search Engines ─────────────────────────────────────
 User-agent: DuckDuckBot
 Allow: /
 Disallow: /api/
@@ -131,7 +153,6 @@ Disallow: /admin/
 Disallow: /auth/
 Disallow: /dashboard/
 
-# ── Yandex ───────────────────────────────────────────────────
 User-agent: Yandex
 Allow: /
 Disallow: /api/
@@ -139,12 +160,21 @@ Disallow: /admin/
 Disallow: /auth/
 Disallow: /dashboard/
 
-# ── SEO Tools (allow for your own auditing) ──────────────────
-User-agent: AhrefsBot
+User-agent: Baiduspider
 Disallow: /
 
+# ── Internet Archive — allow for credibility ─────────────────
+User-agent: ia_archiver
+Allow: /
+Allow: /privacy
+Allow: /terms
+
+# ── SEO Tools — rate limit instead of block ──────────────────
+User-agent: AhrefsBot
+Crawl-delay: 10
+
 User-agent: SemrushBot
-Disallow: /
+Crawl-delay: 10
 
 User-agent: MJ12bot
 Disallow: /
@@ -152,17 +182,17 @@ Disallow: /
 User-agent: DotBot
 Disallow: /
 
-# ── Bad AI training scrapers — block completely ───────────────
+User-agent: rogerbot
+Disallow: /
+
+User-agent: exabot
+Disallow: /
+
+# ── Malicious AI Training Scrapers — block completely ────────
 User-agent: CCBot
 Disallow: /
 
 User-agent: Bytespider
-Disallow: /
-
-User-agent: omgili
-Disallow: /
-
-User-agent: omgilibot
 Disallow: /
 
 User-agent: PetalBot
@@ -174,19 +204,19 @@ Disallow: /
 User-agent: Diffbot
 Disallow: /
 
-User-agent: ia_archiver
-Disallow: /
-
 User-agent: MegaIndex
-Disallow: /
-
-User-agent: SeznamBot
 Disallow: /
 
 User-agent: BLEXBot
 Disallow: /
 
 User-agent: YisouSpider
+Disallow: /
+
+User-agent: omgili
+Disallow: /
+
+User-agent: omgilibot
 Disallow: /
 
 User-agent: proximic
@@ -199,6 +229,27 @@ User-agent: python-requests
 Disallow: /
 
 User-agent: curl
+Disallow: /
+
+User-agent: SeznamBot
+Disallow: /
+
+User-agent: MaCrawler
+Disallow: /
+
+User-agent: 008
+Disallow: /
+
+User-agent: voltron
+Disallow: /
+
+User-agent: Linguee
+Disallow: /
+
+User-agent: newspaper
+Disallow: /
+
+User-agent: colly
 Disallow: /
 
 # ── Sitemap ───────────────────────────────────────────────────

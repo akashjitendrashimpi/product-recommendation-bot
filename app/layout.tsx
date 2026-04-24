@@ -8,8 +8,41 @@ import "./globals.css"
 const _geist = Geist({ subsets: ["latin"] })
 const _geistMono = Geist_Mono({ subsets: ["latin"] })
 
+// ── Constants ─────────────────────────────────────────────────────────────
+const ONESIGNAL_APP_ID =
+  process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID || "74c8eb14-3255-4156-b7b4-5aa9a9163f5f"
+
+const SITE_URL = "https://www.qyantra.online"
+const SITE_NAME = "Qyantra"
+const SITE_DESCRIPTION =
+  "Qyantra is India's trusted earn-money platform. Complete simple tasks — install apps, write reviews, fill surveys — and get paid directly to Paytm, GPay or PhonePe. 100% free. No investment."
+
+// ── CSP Policy ────────────────────────────────────────────────────────────
+// Defined here so it's consistent between meta tag (fallback) and next.config.mjs (primary)
+// next.config.mjs HTTP headers take priority over meta tag in browsers
+// Meta tag is a fallback for environments where headers aren't applied (CDN edge, etc.)
+const CSP_POLICY = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.onesignal.com https://onesignal.com https://api.onesignal.com https://va.vercel-scripts.com https://static.cloudflareinsights.com",
+  "style-src 'self' 'unsafe-inline'",
+  "font-src 'self' data:",
+  "img-src 'self' data: blob: https:",
+  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://onesignal.com https://api.onesignal.com https://cdn.onesignal.com https://vitals.vercel-insights.com https://va.vercel-scripts.com https://static.cloudflareinsights.com https://cloudflareinsights.com https://api.anthropic.com",
+  "frame-src 'none'",
+  "frame-ancestors 'none'",
+  "worker-src 'self' blob: https://cdn.onesignal.com",
+  "manifest-src 'self'",
+  "media-src 'self' blob:",
+  "form-action 'self'",
+  "base-uri 'self'",
+  "upgrade-insecure-requests",
+].join("; ")
+
 export const viewport: Viewport = {
-  themeColor: "#2563eb",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#2563eb" },
+    { media: "(prefers-color-scheme: dark)", color: "#1d4ed8" },
+  ],
   width: "device-width",
   initialScale: 1,
   maximumScale: 5,
@@ -18,11 +51,10 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: {
-    default: "Qyantra — Earn Real Money Daily with UPI Payout",
-    template: "%s | Qyantra",
+    default: `${SITE_NAME} — Earn Real Money Daily with UPI Payout`,
+    template: `%s | ${SITE_NAME}`,
   },
-  description:
-    "Qyantra is India's trusted earn-money platform. Complete simple tasks — install apps, write reviews, fill surveys — and get paid directly to Paytm, GPay or PhonePe. 100% free. No investment.",
+  description: SITE_DESCRIPTION,
   keywords: [
     "earn money online india",
     "earning for students",
@@ -52,35 +84,40 @@ export const metadata: Metadata = {
     "qyantra earning",
     "qyantra app",
   ],
-  authors: [{ name: "Qyantra", url: "https://www.qyantra.online" }],
-  creator: "Qyantra",
-  publisher: "Qyantra",
-  metadataBase: new URL("https://www.qyantra.online"),
+  authors: [{ name: SITE_NAME, url: SITE_URL }],
+  creator: SITE_NAME,
+  publisher: SITE_NAME,
+  metadataBase: new URL(SITE_URL),
+  // ── Alternates — canonical + Hindi future ──────────────────────────────
   alternates: {
-    canonical: "https://www.qyantra.online",
+    canonical: SITE_URL,
+    languages: {
+      "en-IN": SITE_URL,
+      // "hi-IN": `${SITE_URL}/hi`,  ← uncomment when Hindi version is ready
+    },
   },
   openGraph: {
-    title: "Qyantra — Earn Real Money Daily with UPI Payout",
+    title: `${SITE_NAME} — Earn Real Money Daily with UPI Payout`,
     description:
       "Complete simple tasks and earn real cash to your UPI. Install apps, write reviews, take surveys. 100% free to join. No investment ever.",
-    url: "https://www.qyantra.online",
-    siteName: "Qyantra",
+    url: SITE_URL,
+    siteName: SITE_NAME,
     locale: "en_IN",
+    // alternateLocale: ["hi_IN"],  ← uncomment when Hindi version is ready
     type: "website",
     images: [
       {
         url: "/web-app-manifest-512x512.png",
         width: 512,
         height: 512,
-        alt: "Qyantra — Earn Real Money Daily",
+        alt: `${SITE_NAME} — Earn Real Money Daily`,
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Qyantra — Earn Real Money Daily with UPI Payout",
-    description:
-      "Complete simple tasks and earn real cash to your UPI. Free to join. No investment.",
+    title: `${SITE_NAME} — Earn Real Money Daily with UPI Payout`,
+    description: "Complete simple tasks and earn real cash to your UPI. Free to join. No investment.",
     images: ["/web-app-manifest-512x512.png"],
     creator: "@qyantra",
     site: "@qyantra",
@@ -100,7 +137,12 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Qyantra",
+    title: SITE_NAME,
+    // ── PWA shortcuts in metadata ────────────────────────────────────────
+    // Mirrors site.webmanifest shortcuts for iOS Safari PWA
+    startupImage: [
+      { url: "/apple-touch-icon.png" },
+    ],
   },
   category: "finance",
   classification: "Rewards & Earning Platform",
@@ -125,13 +167,8 @@ export const metadata: Metadata = {
   },
   verification: {
     google: "RvM0Lp4ki__Szzp-slBslAZCC_ZNxvHDAFF-8Rp8FMA",
-    // yandex: "your-yandex-code",
-    // bing: "your-bing-code",
   },
 }
-
-const ONESIGNAL_APP_ID =
-  process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID || "74c8eb14-3255-4156-b7b4-5aa9a9163f5f"
 
 export default function RootLayout({
   children,
@@ -141,37 +178,112 @@ export default function RootLayout({
   return (
     <html lang="en-IN">
       <head>
-        {/* PWA */}
+        {/* ── PWA ── */}
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="application-name" content="Qyantra" />
-        <meta name="apple-mobile-web-app-title" content="Qyantra" />
+        <meta name="application-name" content={SITE_NAME} />
+        <meta name="apple-mobile-web-app-title" content={SITE_NAME} />
 
-        {/* Security */}
+        {/* ── PWA Shortcuts — Android home screen quick actions ── */}
+        {/* These are defined in site.webmanifest for Android */}
+        {/* iOS Safari reads them from meta tags below */}
+        <meta name="msapplication-TileColor" content="#2563eb" />
+        <meta name="msapplication-config" content="/browserconfig.xml" />
+
+        {/* ── Security ── */}
         <meta name="referrer" content="strict-origin-when-cross-origin" />
 
-        {/* Geo targeting */}
+        {/* ── CSP Meta Tag — fallback when HTTP headers aren't applied ──
+            Primary CSP is set in next.config.mjs as HTTP header (takes priority).
+            This meta tag is a fallback for:
+            - CDN edge nodes that strip custom headers
+            - Iframe embeds (blocked by frame-ancestors anyway)
+            - Old browser compatibility
+            NOTE: meta CSP does NOT support frame-ancestors — that only works as HTTP header.
+            NOTE: 'unsafe-inline' is required for Tailwind CSS + Next.js inline scripts.
+            For stronger protection, migrate to CSP nonces (Next.js 13.4+ supports this).
+        ── */}
+        <meta httpEquiv="Content-Security-Policy" content={CSP_POLICY} />
+
+        {/* ── Geo targeting India ── */}
         <meta name="geo.region" content="IN" />
         <meta name="geo.placename" content="India" />
         <meta name="language" content="English" />
+        <meta name="target" content="all" />
+        <meta name="audience" content="all" />
+        <meta name="coverage" content="Worldwide" />
+        <meta name="distribution" content="Global" />
 
-        {/* Performance */}
-        <link rel="preconnect" href="https://cdn.onesignal.com" crossOrigin="anonymous" />
-        <link rel="dns-prefetch" href="https://cdn.onesignal.com" />
+        {/* ── Performance — priority hints for above-fold resources ──
+            fetchpriority="high" tells browser to load these before other resources.
+            Only use on resources needed for LCP (Largest Contentful Paint).
+        ── */}
+        {/* Supabase — used immediately on page load for auth */}
+        <link
+          rel="preconnect"
+          href="https://supabase.co"
+          crossOrigin="anonymous"
+        />
+        {/* OneSignal — loaded after page but preconnect speeds it up */}
+        <link
+          rel="preconnect"
+          href="https://cdn.onesignal.com"
+          crossOrigin="anonymous"
+        />
+        <link
+          rel="preconnect"
+          href="https://api.onesignal.com"
+          crossOrigin="anonymous"
+        />
+        {/* DNS prefetch for non-critical third parties */}
         <link rel="dns-prefetch" href="https://onesignal.com" />
+        <link rel="dns-prefetch" href="https://static.cloudflareinsights.com" />
+        <link rel="dns-prefetch" href="https://va.vercel-scripts.com" />
+        <link rel="dns-prefetch" href="https://vitals.vercel-insights.com" />
 
-        {/* JSON-LD — Organization schema */}
+        {/* ── JSON-LD: BreadcrumbList — helps Google understand site structure ── */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "BreadcrumbList",
+              itemListElement: [
+                {
+                  "@type": "ListItem",
+                  position: 1,
+                  name: "Home",
+                  item: SITE_URL,
+                },
+                {
+                  "@type": "ListItem",
+                  position: 2,
+                  name: "Tasks",
+                  item: `${SITE_URL}/dashboard/tasks`,
+                },
+                {
+                  "@type": "ListItem",
+                  position: 3,
+                  name: "Earnings",
+                  item: `${SITE_URL}/dashboard/earnings`,
+                },
+              ],
+            }),
+          }}
+        />
+
+        {/* ── JSON-LD: Organization ── */}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
             __html: JSON.stringify({
               "@context": "https://schema.org",
               "@type": "Organization",
-              name: "Qyantra",
-              url: "https://www.qyantra.online",
+              name: SITE_NAME,
+              url: SITE_URL,
               logo: {
                 "@type": "ImageObject",
-                url: "https://www.qyantra.online/web-app-manifest-512x512.png",
+                url: `${SITE_URL}/web-app-manifest-512x512.png`,
                 width: 512,
                 height: 512,
               },
@@ -186,20 +298,19 @@ export default function RootLayout({
           }}
         />
 
-        {/* JSON-LD — WebApplication schema */}
+        {/* ── JSON-LD: WebApplication ── */}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
             __html: JSON.stringify({
               "@context": "https://schema.org",
               "@type": "WebApplication",
-              name: "Qyantra",
-              url: "https://www.qyantra.online",
-              description:
-                "India's trusted platform to earn real money by completing simple tasks. UPI payouts to Paytm, GPay, PhonePe. Free to join. No investment.",
+              name: SITE_NAME,
+              url: SITE_URL,
+              description: SITE_DESCRIPTION,
               applicationCategory: "FinanceApplication",
               operatingSystem: "Web, Android, iOS",
-              inLanguage: "en-IN",
+              inLanguage: ["en-IN", "hi-IN"],
               isAccessibleForFree: true,
               offers: {
                 "@type": "Offer",
@@ -209,31 +320,42 @@ export default function RootLayout({
               },
               publisher: {
                 "@type": "Organization",
-                name: "Qyantra",
-                url: "https://www.qyantra.online",
+                name: SITE_NAME,
+                url: SITE_URL,
               },
+              // ── PWA shortcuts in JSON-LD ──
+              potentialAction: [
+                {
+                  "@type": "ViewAction",
+                  name: "Browse Tasks",
+                  target: `${SITE_URL}/dashboard/tasks`,
+                },
+                {
+                  "@type": "ViewAction",
+                  name: "Check Earnings",
+                  target: `${SITE_URL}/dashboard/earnings`,
+                },
+              ],
             }),
           }}
         />
 
-        {/* JSON-LD — WebSite schema with SearchAction */}
+        {/* ── JSON-LD: WebSite with SearchAction ── */}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
             __html: JSON.stringify({
               "@context": "https://schema.org",
               "@type": "WebSite",
-              name: "Qyantra",
-              url: "https://www.qyantra.online",
-              description:
-                "Earn real money daily by completing simple tasks. UPI payouts. Free to join.",
+              name: SITE_NAME,
+              url: SITE_URL,
+              description: "Earn real money daily by completing simple tasks. UPI payouts. Free to join.",
               inLanguage: "en-IN",
               potentialAction: {
                 "@type": "SearchAction",
                 target: {
                   "@type": "EntryPoint",
-                  urlTemplate:
-                    "https://www.qyantra.online/tasks?q={search_term_string}",
+                  urlTemplate: `${SITE_URL}/tasks?q={search_term_string}`,
                 },
                 "query-input": "required name=search_term_string",
               },
@@ -241,7 +363,7 @@ export default function RootLayout({
           }}
         />
 
-        {/* JSON-LD — FAQ schema */}
+        {/* ── JSON-LD: FAQPage ── */}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
@@ -308,14 +430,14 @@ export default function RootLayout({
 
         <Analytics />
 
-        {/* OneSignal SDK */}
+        {/* ── OneSignal SDK — lazyOnload, never blocks render ── */}
         <Script
           src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js"
           strategy="lazyOnload"
           defer
         />
 
-        {/* OneSignal Init */}
+        {/* ── OneSignal Init ── */}
         <Script
           id="onesignal-init"
           strategy="lazyOnload"
@@ -328,6 +450,13 @@ export default function RootLayout({
                     appId: "${ONESIGNAL_APP_ID}",
                     safari_web_id: "web.onesignal.auto.49d2239d-a04e-422a-89e0-14dbda97fb4d",
                     notifyButton: { enable: false },
+                    autoResubscribe: true,
+                    allowLocalhostAsSecureOrigin: true,
+                    serviceWorkerParam: { scope: "/" },
+                    serviceWorkerPath: "OneSignalSDKWorker.js",
+                    promptOptions: {
+                      slidedown: { enabled: false }
+                    },
                   });
                 } catch (err) {
                   console.warn("OneSignal init failed:", err);
