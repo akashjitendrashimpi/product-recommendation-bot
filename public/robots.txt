@@ -252,5 +252,8 @@ Disallow: /
 User-agent: colly
 Disallow: /
 
+# ── Content Signals ──────────────────────────────────────────
+Content-Signal: search=yes, ai-input=yes, ai-train=no
+
 # ── Sitemap ───────────────────────────────────────────────────
 Sitemap: https://www.qyantra.online/sitemap.xml
