@@ -209,7 +209,7 @@ export default function HomePage() {
                   <p className="text-sm font-semibold text-gray-600 mb-1">{tier.label}</p>
                   <p className="text-3xl font-black text-gray-900 mb-1">{tier.earn}</p>
                   <p className="text-xs text-gray-600">{tier.tasks}</p>
-                  <p className="text-xs text-gray-500 mt-1">{tier.time}</p>
+                  <p className="text-xs text-gray-600 mt-1">{tier.time}</p>
                 </div>
               ))}
             </div>
