@@ -29,7 +29,7 @@ const CSP_POLICY = [
   "img-src 'self' data: blob: https:",
   "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://onesignal.com https://api.onesignal.com https://cdn.onesignal.com https://vitals.vercel-insights.com https://va.vercel-scripts.com https://static.cloudflareinsights.com https://cloudflareinsights.com https://api.anthropic.com",
   "frame-src 'none'",
-  "frame-ancestors 'none'",
+  
   "worker-src 'self' blob: https://cdn.onesignal.com",
   "manifest-src 'self'",
   "media-src 'self' blob:",
