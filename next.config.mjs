@@ -16,13 +16,14 @@ const nextConfig = {
 
   // ── Experimental ──────────────────────────────────────────────────────────
   experimental: {
-    optimizePackageImports: [
-      "lucide-react",
-      "@radix-ui/react-icons",
-      "recharts",
-      "date-fns",
-    ],
-  },
+  optimizePackageImports: [
+    "lucide-react",
+    "@radix-ui/react-icons",
+    "recharts",
+    "date-fns",
+  ],
+  optimizeCss: true,
+},
 
   // ── Headers ───────────────────────────────────────────────────────────────
   async headers() {
