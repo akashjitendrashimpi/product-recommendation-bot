@@ -178,6 +178,13 @@ export default function RootLayout({
   return (
     <html lang="en-IN">
       <head>
+<link
+  rel="preload"
+  as="font"
+  type="font/woff2"
+  href="/_next/static/media/7178b3e590c64307-s.11.cyxs5p-0z~.woff2"
+  crossOrigin="anonymous"
+/>
         {/* ── PWA ── */}
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
