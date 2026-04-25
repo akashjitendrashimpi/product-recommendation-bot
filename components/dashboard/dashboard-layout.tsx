@@ -12,6 +12,8 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import type { UserProfile } from "@/lib/types"
 import { NotificationBell } from "@/components/dashboard/notification-bell"
+import { PwaPrompt } from "@/components/shared/pwa-prompt"
+import { OnboardingFlow } from "@/components/dashboard/onboarding"
 
 interface DashboardLayoutProps {
   user: { id: number; email: string }
@@ -97,6 +99,8 @@ useEffect(() => {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <PwaPrompt />
+      <OnboardingFlow />
 
       {/* ── Mobile Top Bar ── */}
       <div className="lg:hidden fixed top-0 left-0 right-0 bg-white border-b border-gray-100 z-50 shadow-sm">

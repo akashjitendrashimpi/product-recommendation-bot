@@ -1,121 +1,212 @@
-# QrBot
+# Qyantra — Earn Real Money Daily
 
-A Next.js application for creating QR-powered product recommendation chatbots and daily task rewards system with MySQL/XAMPP support.
+> India's trusted incentive-based rewards platform. Complete simple tasks, earn real cash, withdraw to UPI.
+
+🌐 **Live:** [www.qyantra.online](https://www.qyantra.online)
+
+---
+
+## What is Qyantra?
+
+Qyantra is a full-stack earn-money platform where users complete simple tasks (install apps, write reviews, complete surveys) and get paid directly to their UPI (Paytm, GPay, PhonePe). Minimum payout ₹50.
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Framework | Next.js 16.2 (App Router) |
+| Database | Supabase (PostgreSQL) |
+| Deployment | Vercel |
+| CDN / DDoS | Cloudflare |
+| Styling | Tailwind CSS v4 |
+| Language | TypeScript |
+| Auth | HMAC-signed HTTP-only cookies |
+| Push Notifications | OneSignal |
+| Analytics | Vercel Analytics |
+| Email | Resend + Gmail SMTP |
+| Payments | Manual UPI (Paytm, GPay, PhonePe) |
+
+---
 
 ## Features
 
-- User authentication with password-based login
-- Product catalog management with affiliate links
-- QR code campaign creation and management
-- Interactive chatbot for product recommendations
-- Admin panel for user and content management
+### User Side
+- Email signup with auto-login
+- Task browsing with search, sort, filter
+- Task detail page with step-by-step guide
+- Screenshot proof upload for task verification
+- Real-time earnings dashboard
+- Balance-based UPI withdrawal requests
+- Push notifications (web + mobile)
+- PWA — installable on Android/iOS
+- Referral system (coming soon)
 
-## Prerequisites
+### Admin Side
+- Task management (create, edit, duplicate, reorder, bulk actions)
+- Proof verification with screenshot preview + download
+- Payment approval with UPI copy
+- User management (ban/unban with reason, delete)
+- Product & affiliate section management
+- QR campaign management
+- Push notification broadcast
+- Analytics per task (clicks, completions, conversion rate)
+- Settings (min/max payout limits)
 
-- Node.js 18+ and npm/pnpm
-- XAMPP with MySQL running
-- MySQL database created
+---
 
-## Setup Instructions
+## Project Structure
 
-### 1. Database Setup
+app/
+├── api/                    # API routes
+│   ├── admin/              # Admin-only endpoints
+│   ├── auth/               # Auth endpoints
+│   ├── tasks/              # Task endpoints
+│   └── ...
+├── auth/                   # Auth pages
+├── dashboard/              # User dashboard pages
+├── admin/                  # Admin panel pages
+└── page.tsx                # Landing page
+components/
+├── dashboard/              # User dashboard components
+├── admin/                  # Admin panel components
+└── landing/                # Landing page components
+lib/
+├── auth/                   # Session management
+├── db/                     # Database queries
+└── security/               # Rate limiting
 
-1. Start XAMPP and ensure MySQL is running
-2. Open phpMyAdmin (usually at http://localhost/phpmyadmin)
-3. Create a new database named `qrbot` (or use existing database)
-4. Import the schema from `scripts/schema.sql`
-5. (Optional) Import `scripts/test_data_clean.sql` for test data
+---
 
-### 2. Environment Variables
+## Environment Variables
 
-Create a `.env.local` file in the root directory:
+Create `.env.local` in the project root:
 
 ```env
-DB_HOST=localhost
-DB_PORT=3306
-DB_USER=root
-DB_PASSWORD=your_mysql_password
-DB_NAME=qrbot
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 
-NODE_ENV=development
+# Auth — generate with: node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
+SESSION_SECRET=your_64_byte_hex_secret
+
+# OneSignal Push Notifications
+NEXT_PUBLIC_ONESIGNAL_APP_ID=your_onesignal_app_id
+ONESIGNAL_REST_API_KEY=your_onesignal_rest_key
+
+# Web Push (VAPID) — generate with: npx web-push generate-vapid-keys
+NEXT_PUBLIC_VAPID_PUBLIC_KEY=your_vapid_public_key
+VAPID_PRIVATE_KEY=your_vapid_private_key
+VAPID_EMAIL=mailto:contact@qyantra.online
 ```
 
-### 3. Install Dependencies
+---
+
+## Local Development
 
 ```bash
-pnpm install
-# or
+# Install dependencies
 npm install
-```
 
-### 4. Run the Application
-
-```bash
-pnpm dev
-# or
+# Run dev server
 npm run dev
+
+# Build for production
+npm run build
+
+# Lint
+npm run lint
 ```
 
-The application will be available at http://localhost:3000
+---
 
-## Database Schema
+## Database Setup (Supabase)
 
-The application uses the following main tables:
-
-**System A (Product Recommendations):**
-- `users` - User accounts with password hashing
-- `products` - Product catalog (admin-managed)
-- `qr_campaigns` - QR code campaigns (admin-managed)
-- `categories` - Product categories
-- `chat_sessions` - Chat interaction logs
-- `affiliate_clicks` - Affiliate link click tracking
-- `affiliate_conversions` - Purchase conversion tracking
-
-**System B (Daily Tasks):**
-- `tasks` - CPA/CPI offers for users to complete
-- `task_completions` - User task completion tracking
-- `user_earnings` - Daily earnings aggregation
-- `payments` - UPI payout records
-- `cpa_networks` - CPA network API credentials
-
-## Authentication
-
-- Users sign up with email and password
-- Passwords are hashed using PBKDF2
-- Sessions are managed via HTTP-only cookies
-- Admin users can manage all content
-
-## Default Categories
-
-The following categories are created automatically:
-- Daily-use items
-- Electronics
-- Kitchen
-- Fashion
-- Health & Beauty
-- Sports & Fitness
-
-## Creating an Admin User
-
-After signing up, you can manually set a user as admin in the database:
+Run these SQL migrations in Supabase SQL editor:
 
 ```sql
-UPDATE users SET is_admin = TRUE WHERE email = 'your-email@example.com';
+-- Required columns
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS has_detail_page BOOLEAN DEFAULT FALSE;
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS how_to_steps JSONB DEFAULT '[]';
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS copy_prompts JSONB DEFAULT '[]';
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS sort_order INTEGER DEFAULT 0;
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS max_completions INTEGER DEFAULT NULL;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_banned BOOLEAN DEFAULT FALSE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS ban_reason TEXT DEFAULT NULL;
+
+-- Settings table
+CREATE TABLE IF NOT EXISTS settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL,
+  description TEXT,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+INSERT INTO settings (key, value, description) VALUES
+  ('min_payout', '50', 'Minimum withdrawal amount in INR'),
+  ('max_payout', '5000', 'Maximum per withdrawal request'),
+  ('max_daily_payout', '10000', 'Daily withdrawal limit')
+ON CONFLICT (key) DO NOTHING;
 ```
 
-Or use the test data which includes an admin account:
-- **Email:** `admin@test.com`
-- **Password:** `test123`
+---
 
-**Note:** Admin users automatically see the admin dashboard when logging in. Regular users see the user dashboard with tasks only.
+## Creating Admin Account
 
-## Development
+1. Sign up normally at `/auth/sign-up`
+2. Run this in Supabase SQL editor:
 
-- API routes: `app/api/`
-- Database layer: `lib/db/`
-- Authentication: `lib/auth/`
-- Components: `components/`
+```sql
+UPDATE users SET is_admin = true WHERE email = 'your-email@example.com';
+```
+
+---
+
+## Deployment
+
+- **Platform:** Vercel (auto-deploy on git push)
+- **Domain:** GoDaddy → Cloudflare DNS → Vercel
+- **SSL:** Cloudflare (automatic)
+- **Environment variables:** Set in Vercel project settings
+
+---
+
+## Security
+
+- HMAC-SHA256 signed session cookies
+- HTTP security headers (CSP, HSTS, X-Frame-Options)
+- Rate limiting on all auth routes
+- Input validation and sanitization
+- Password hashing (bcrypt)
+- Banned users blocked at login
+- Admin-only routes protected at middleware level
+- Payment duplicate detection
+
+---
+
+## CPA Network Compliance
+
+- Incentive traffic disclosure in Terms of Service (Section 3)
+- Age restriction (18+) in footer
+- No guaranteed earnings claims
+- Honest earnings estimates with disclaimers
+- Contact email visible for advertiser verification
+
+---
+
+## Roadmap
+
+- [ ] Email notifications (Resend)
+- [ ] Admin analytics dashboard
+- [ ] User onboarding flow
+- [ ] PWA install prompt
+- [ ] Hindi language version
+- [ ] CPA network integration (vCommission, Admitad, CPAlead)
+- [ ] Referral system launch
+
+---
 
 ## License
 
-MIT
+Private — All rights reserved © 2026 Qyantra

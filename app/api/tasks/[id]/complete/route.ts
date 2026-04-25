@@ -31,6 +31,31 @@ export async function POST(
     if (task.expires_at && new Date(task.expires_at) < new Date())
       return NextResponse.json({ error: "This task has expired" }, { status: 400 })
 
+    // ── Rate limiting: 5-minute cooldown per user per task ──────────────────
+    // This is the REAL protection — client-side countdown is display-only.
+    // A user bypassing the UI and calling the API directly will still be blocked here.
+    const { data: lastAttempt } = await (supabaseAdmin as any)
+      .from("task_completions")
+      .select("created_at")
+      .eq("task_id", taskId)
+      .eq("user_id", session.userId)
+      .eq("status", "rejected") // only check rejected (retryable) attempts
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (lastAttempt?.created_at) {
+      const secondsSince = (Date.now() - new Date(lastAttempt.created_at).getTime()) / 1000
+      const COOLDOWN_SECONDS = 5 * 60 // 5 minutes
+      if (secondsSince < COOLDOWN_SECONDS) {
+        const retryAfter = Math.ceil(COOLDOWN_SECONDS - secondsSince)
+        return NextResponse.json(
+          { error: "Please wait 5 min before trying again", retryAfter },
+          { status: 429 }
+        )
+      }
+    }
+
     // Check max_completions limit — rejected completions don't occupy slots
     if (task.max_completions) {
       const { count } = await (supabaseAdmin as any)

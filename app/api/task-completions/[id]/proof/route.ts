@@ -22,8 +22,32 @@ export async function POST(
 
     if (!file)
       return NextResponse.json({ error: "Screenshot required" }, { status: 400 })
-    if (!file.type.startsWith("image/"))
-      return NextResponse.json({ error: "Only image files allowed" }, { status: 400 })
+
+    // ── Server-side MIME validation via magic bytes ─────────────────────────
+    // Do NOT trust file.type — it comes from the client and can be spoofed.
+    // Read the first 12 bytes and check against known image signatures.
+    const headerBytes = new Uint8Array(await file.slice(0, 12).arrayBuffer())
+
+    const isJpeg = headerBytes[0] === 0xFF && headerBytes[1] === 0xD8 && headerBytes[2] === 0xFF
+    const isPng  = headerBytes[0] === 0x89 && headerBytes[1] === 0x50 && headerBytes[2] === 0x4E && headerBytes[3] === 0x47
+    const isWebp = headerBytes[8] === 0x57 && headerBytes[9] === 0x45 && headerBytes[10] === 0x42 && headerBytes[11] === 0x50
+    const isGif  = headerBytes[0] === 0x47 && headerBytes[1] === 0x49 && headerBytes[2] === 0x46
+
+    if (!isJpeg && !isPng && !isWebp && !isGif) {
+      return NextResponse.json(
+        { error: "Invalid file type. Only JPG, PNG, WebP and GIF images are allowed." },
+        { status: 400 }
+      )
+    }
+
+    // Use a safe, server-determined extension based on actual magic bytes
+    const mimeToExt: Record<string, string> = {}
+    if (isJpeg) mimeToExt["ext"] = "jpg"
+    else if (isPng) mimeToExt["ext"] = "png"
+    else if (isWebp) mimeToExt["ext"] = "webp"
+    else mimeToExt["ext"] = "gif"
+    const safeExt = mimeToExt["ext"]
+
     if (file.size > 5 * 1024 * 1024)
       return NextResponse.json({ error: "File too large. Max 5MB" }, { status: 400 })
 
@@ -51,14 +75,21 @@ export async function POST(
     const taskTitle = task?.title || "a task"
 
     // Upload file to Supabase storage
-    const fileExt = file.name.split(".").pop()?.toLowerCase() || "jpg"
-    const fileName = `proof_${completionId}_${session.userId}_${Date.now()}.${fileExt}`
+    // Upload file to Supabase storage
+    const mimeToType: Record<string, string> = {
+      jpg: "image/jpeg",
+      png: "image/png",
+      webp: "image/webp",
+      gif: "image/gif"
+    }
+
+    const fileName = `proof_${completionId}_${session.userId}_${Date.now()}.${safeExt}`
     const fileBuffer = await file.arrayBuffer()
 
     const { error: uploadError } = await (supabaseAdmin as any)
       .storage
       .from("task-proofs")
-      .upload(fileName, fileBuffer, { contentType: file.type, upsert: true })
+      .upload(fileName, fileBuffer, { contentType: mimeToType[safeExt], upsert: true })
 
     if (uploadError) {
       console.error("Upload error:", uploadError)

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
+import { cachedFetch } from "@/lib/utils/dashboard-cache"
 import { Card, CardContent } from "@/components/ui/card"
 import {
   TrendingUp, CheckCircle2, Target, ArrowRight,
@@ -9,6 +10,7 @@ import {
   Clock, Star, CheckSquare
 } from "lucide-react"
 import Link from "next/link"
+import { LiveActivityFeed } from "@/components/dashboard/live-activity-feed"
 
 interface DashboardHomeProps {
   userId: number
@@ -52,17 +54,12 @@ export function DashboardHome({ userId }: DashboardHomeProps) {
   const fetchAll = useCallback(async () => {
     try {
       setError(false)
-      const [earningsRes, tasksRes, profileRes, referralRes] = await Promise.all([
-        fetch("/api/earnings", { credentials: "same-origin" }),
-        fetch("/api/tasks?country=IN", { credentials: "same-origin" }),
-        fetch("/api/user/profile", { credentials: "same-origin" }),
-        fetch("/api/referral", { credentials: "same-origin" }),
+      const [earnings, tasks, profile, referral] = await Promise.all([
+        cachedFetch<any>("/api/earnings", { staleWhileRevalidate: 120_000 }),
+        cachedFetch<any>("/api/tasks?country=IN", { staleWhileRevalidate: 120_000 }),
+        cachedFetch<any>("/api/user/profile", { staleWhileRevalidate: 300_000 }),
+        cachedFetch<any>("/api/referral", { staleWhileRevalidate: 120_000 }),
       ])
-
-      const earnings = earningsRes.ok ? await earningsRes.json() : {}
-      const tasks = tasksRes.ok ? await tasksRes.json() : {}
-      const profile = profileRes.ok ? await profileRes.json() : {}
-      const referral = referralRes.ok ? await referralRes.json() : {}
 
       const recentCompletions = Array.isArray(earnings.recentCompletions)
         ? earnings.recentCompletions
@@ -169,10 +166,13 @@ export function DashboardHome({ userId }: DashboardHomeProps) {
       {/* Greeting */}
       <div>
         <p className="text-gray-500 text-sm font-medium">{greeting} 👋</p>
-        <h1 className="text-2xl font-black text-gray-900 mt-0.5 truncate">
+        <h1 className="text-2xl font-black text-gray-900 mt-0.5 truncate mb-4">
           {data.displayName}
         </h1>
       </div>
+
+      {/* Live Activity Feed */}
+      <LiveActivityFeed />
 
       {/* Hero Balance Card */}
       <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-purple-700 rounded-3xl p-5 shadow-xl relative overflow-hidden">

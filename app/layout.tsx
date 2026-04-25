@@ -452,6 +452,7 @@ export default function RootLayout({
             __html: `
               window.OneSignalDeferred = window.OneSignalDeferred || [];
               OneSignalDeferred.push(async function(OneSignal) {
+                if (window.location.hostname !== 'www.qyantra.online') return;
                 try {
                   await OneSignal.init({
                     appId: "${ONESIGNAL_APP_ID}",

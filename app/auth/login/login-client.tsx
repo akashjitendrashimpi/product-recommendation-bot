@@ -196,7 +196,7 @@ export default function LoginPageClient() {
 
   return (
     <div className="flex min-h-screen w-full items-center justify-center bg-gradient-to-br from-blue-50 via-white to-green-50 p-6 md:p-10">
-      <div className="w-full max-w-md">
+      <div className="animate-fade-in w-full max-w-md">
         <div className="flex flex-col gap-6">
 
           {/* Logo */}
@@ -215,7 +215,7 @@ export default function LoginPageClient() {
             <span>Secure Login — 256-bit Encrypted</span>
           </div>
 
-          <Card className="border-2 border-gray-200 shadow-xl">
+          <Card className="glass-card rounded-2xl">
             <CardHeader className="text-center pb-4">
               <CardTitle className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
                 Welcome Back!

@@ -115,6 +115,16 @@ export async function createSession(session: Session): Promise<void> {
       maxAge: SESSION_MAX_AGE,
       path: "/",
     })
+
+    // ── Generate and set Double-Submit CSRF token ──
+    const csrfToken = crypto.randomBytes(32).toString('hex')
+    cookieStore.set('csrf_token', csrfToken, {
+      httpOnly: false, // Must be readable by client JS
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: SESSION_MAX_AGE,
+      path: "/",
+    })
   } catch (error) {
     console.error("[session] Error creating session:", error)
     throw error
@@ -126,6 +136,7 @@ export async function deleteSession(): Promise<void> {
   try {
     const cookieStore = await cookies()
     cookieStore.delete(SESSION_COOKIE_NAME)
+    cookieStore.delete('csrf_token')
   } catch (error) {
     console.error("[session] Error deleting session:", error)
   }
@@ -163,6 +174,15 @@ export function setSessionInResponse(
       maxAge: SESSION_MAX_AGE,
       path: "/",
     })
+
+    const csrfToken = crypto.randomBytes(32).toString('hex')
+    response.cookies.set('csrf_token', csrfToken, {
+      httpOnly: false,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: SESSION_MAX_AGE,
+      path: "/",
+    })
   } catch (error) {
     console.error("[session] Error setting session in response:", error)
   }
@@ -174,8 +194,28 @@ export function setSessionInResponse(
 export function clearSessionInResponse(response: NextResponse): NextResponse {
   try {
     response.cookies.delete(SESSION_COOKIE_NAME)
+    response.cookies.delete('csrf_token')
   } catch (error) {
     console.error("[session] Error clearing session in response:", error)
   }
   return response
 }
+
+// ── Native CSRF Validation via Double Submit Cookie ──
+export function validateCSRF(request: NextRequest): boolean {
+  try {
+    const cookieToken = request.cookies.get('csrf_token')?.value
+    const headerToken = request.headers.get('x-csrf-token')
+
+    if (!cookieToken || !headerToken) return false
+
+    // Constant-time comparison to prevent timing attacks
+    const cookieBuf = Buffer.from(cookieToken, 'hex')
+    const headerBuf = Buffer.from(headerToken, 'hex')
+
+    if (cookieBuf.length !== headerBuf.length) return false
+    return crypto.timingSafeEqual(cookieBuf, headerBuf)
+  } catch {
+    return false
+  }
+}

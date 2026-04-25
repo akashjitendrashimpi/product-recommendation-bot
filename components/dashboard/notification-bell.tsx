@@ -1,11 +1,12 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback, useTransition } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import {
   Bell, CheckCheck, X, ExternalLink,
   CheckCircle2, AlertTriangle, XCircle, Info, BellOff, Loader2
 } from "lucide-react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 
 // ── Types ────────────────────────────────────────────────────────────────────
 type NotificationType = "info" | "success" | "warning" | "error"
@@ -127,7 +128,7 @@ export function NotificationBell({ userId }: NotificationBellProps) {
   const [fetchError, setFetchError] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const [dropdownPos, setDropdownPos] = useState<DropdownPos>({ top: 0 })
-  const [isPending, startTransition] = useTransition()
+  const router = useRouter()
 
   const buttonRef = useRef<HTMLButtonElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
@@ -149,7 +150,10 @@ export function NotificationBell({ userId }: NotificationBellProps) {
       const count = typeof data.unreadCount === "number"
         ? Math.max(0, data.unreadCount)
         : safe.filter((n) => !n.is_read).length
-      startTransition(() => { setNotifications(safe); setUnreadCount(count); setFetchError(false) })
+      
+      setNotifications(safe)
+      setUnreadCount(count)
+      setFetchError(false)
     } catch (e: any) {
       if (e?.name !== "AbortError") setFetchError(true)
     }
@@ -210,10 +214,10 @@ export function NotificationBell({ userId }: NotificationBellProps) {
   // ── Mark single read ─────────────────────────────────────────────────────
   const markRead = useCallback(async (id: number) => {
     if (typeof id !== "number" || id <= 0) return
-    startTransition(() => {
-      setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, is_read: true } : n))
-      setUnreadCount((prev) => Math.max(0, prev - 1))
-    })
+    
+    setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, is_read: true } : n))
+    setUnreadCount((prev) => Math.max(0, prev - 1))
+    
     try {
       const res = await fetch("/api/notifications", {
         method: "PATCH", credentials: "same-origin",
@@ -221,16 +225,12 @@ export function NotificationBell({ userId }: NotificationBellProps) {
         body: JSON.stringify({ id }),
       })
       if (!res.ok) {
-        startTransition(() => {
-          setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, is_read: false } : n))
-          setUnreadCount((prev) => prev + 1)
-        })
-      }
-    } catch {
-      startTransition(() => {
         setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, is_read: false } : n))
         setUnreadCount((prev) => prev + 1)
-      })
+      }
+    } catch {
+      setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, is_read: false } : n))
+      setUnreadCount((prev) => prev + 1)
     }
   }, [])
 
@@ -238,16 +238,23 @@ export function NotificationBell({ userId }: NotificationBellProps) {
   const markAllRead = useCallback(async () => {
     const prev = notifications
     const prevCount = unreadCount
-    startTransition(() => { setNotifications((n) => n.map((x) => ({ ...x, is_read: true }))); setUnreadCount(0) })
+    
+    setNotifications((n) => n.map((x) => ({ ...x, is_read: true })))
+    setUnreadCount(0)
+    
     try {
       const res = await fetch("/api/notifications", {
         method: "PATCH", credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ markAllRead: true }),
       })
-      if (!res.ok) startTransition(() => { setNotifications(prev); setUnreadCount(prevCount) })
+      if (!res.ok) {
+        setNotifications(prev)
+        setUnreadCount(prevCount)
+      }
     } catch {
-      startTransition(() => { setNotifications(prev); setUnreadCount(prevCount) })
+      setNotifications(prev)
+      setUnreadCount(prevCount)
     }
   }, [notifications, unreadCount])
 
@@ -376,8 +383,7 @@ export function NotificationBell({ userId }: NotificationBellProps) {
                 {unreadCount > 0 && (
                   <button
                     onClick={markAllRead}
-                    disabled={isPending}
-                    className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-semibold disabled:opacity-50"
+                    className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-semibold"
                   >
                     <CheckCheck className="w-3 h-3" /> All read
                   </button>
@@ -444,11 +450,20 @@ export function NotificationBell({ userId }: NotificationBellProps) {
                   return (
                     <div
                       key={n.id}
-                      onClick={() => !n.is_read && markRead(n.id)}
+                      onClick={() => {
+                        if (!n.is_read) markRead(n.id)
+                        // Sanitize: only allow internal relative paths starting with /
+                        // action_url is already validated server-side in sanitizeNotification(),
+                        // but we double-check here to prevent open-redirect if DB data changes.
+                        if (n.action_url && n.action_url.startsWith("/") && !n.action_url.startsWith("//")) {
+                          setOpen(false)
+                          router.push(n.action_url)
+                        }
+                      }}
                       className={`relative flex items-start gap-3 px-4 py-3 border-b border-gray-50 last:border-0 transition-colors ${
                         !n.is_read
                           ? "bg-blue-50/30 cursor-pointer hover:bg-blue-50/60 active:bg-blue-50"
-                          : "bg-white"
+                          : n.action_url ? "bg-white cursor-pointer hover:bg-gray-50 active:bg-gray-100" : "bg-white"
                       }`}
                       aria-label={`${cfg.label}: ${n.title}${!n.is_read ? " (unread)" : ""}`}
                     >

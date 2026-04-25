@@ -193,3 +193,85 @@
 details summary::-webkit-details-marker {
   display: none;
 }
+
+/* ── Premium UX Animations ────────────────────────────────────────────────────
+   GPU-safe: only animates opacity + transform (no layout reflow).
+   will-change: transform only on elements that actually animate.
+   All durations ≤ 300ms for mobile performance.
+── */
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Utility classes */
+.animate-fade-up {
+  will-change: transform;
+  animation: fadeInUp 0.28s ease-out both;
+}
+
+.animate-fade-up-1 { animation-delay: 0ms;   will-change: transform; animation: fadeInUp 0.28s ease-out 0ms   both; }
+.animate-fade-up-2 { animation-delay: 80ms;  will-change: transform; animation: fadeInUp 0.28s ease-out 80ms  both; }
+.animate-fade-up-3 { animation-delay: 160ms; will-change: transform; animation: fadeInUp 0.28s ease-out 160ms both; }
+.animate-fade-up-4 { animation-delay: 240ms; will-change: transform; animation: fadeInUp 0.28s ease-out 240ms both; }
+
+.animate-fade-in {
+  will-change: opacity;
+  animation: fadeIn 0.25s ease-out both;
+}
+
+/* ── prefers-reduced-motion — respect motion sensitivity ─────────────────────
+   Disables all animations for users who prefer reduced motion.
+── */
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-up,
+  .animate-fade-up-1,
+  .animate-fade-up-2,
+  .animate-fade-up-3,
+  .animate-fade-up-4,
+  .animate-fade-in {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ── Glass morphism card ─────────────────────────────────────────────────────
+   Uses backdrop-blur on supported devices (GPU-accelerated).
+   @supports fallback: solid white on budget Android/older devices.
+   This is important since backdrop-blur is GPU-intensive and lags on
+   low-end phones which are a core part of Qyantra's audience.
+── */
+.glass-card {
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+}
+
+@supports (backdrop-filter: blur(12px)) {
+  .glass-card {
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    background: rgba(255, 255, 255, 0.8);
+  }
+}
+
+/* Fallback for browsers/devices that don't support backdrop-filter */
+@supports not (backdrop-filter: blur(12px)) {
+  .glass-card {
+    background: white;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.1);
+  }
+}

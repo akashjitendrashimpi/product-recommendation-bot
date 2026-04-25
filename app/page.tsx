@@ -55,26 +55,26 @@ export default function HomePage() {
           <div className="max-w-4xl mx-auto text-center">
 
             {/* Trust pill */}
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-50 border border-blue-100 text-blue-700 text-xs sm:text-sm font-semibold mb-6 sm:mb-8">
+            <div className="animate-fade-up-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-50 border border-blue-100 text-blue-700 text-xs sm:text-sm font-semibold mb-6 sm:mb-8">
               <BadgeCheck className="w-3.5 h-3.5 text-blue-600 flex-shrink-0" aria-hidden="true" />
               <span>🇮🇳 Made in India · Free to Join · UPI Payouts</span>
             </div>
 
             {/* Headline */}
-            <h1 id="hero-heading" className="text-4xl sm:text-5xl md:text-6xl font-black text-gray-900 leading-tight tracking-tight mb-4 sm:mb-6">
+            <h1 id="hero-heading" className="animate-fade-up-2 text-4xl sm:text-5xl md:text-6xl font-black text-gray-900 leading-tight tracking-tight mb-4 sm:mb-6">
               Earn Real Money
               <span className="block text-blue-600">Completing Simple Tasks</span>
             </h1>
 
             {/* Subheadline */}
-            <p className="text-lg sm:text-xl text-gray-600 mb-8 max-w-xl mx-auto leading-relaxed">
+            <p className="animate-fade-up-3 text-lg sm:text-xl text-gray-600 mb-8 max-w-xl mx-auto leading-relaxed">
               Try apps, write reviews, complete surveys.
               Get paid directly to your{" "}
               <span className="font-bold text-gray-800">Paytm, GPay or PhonePe.</span>
             </p>
 
             {/* Single CTA */}
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-8">
+            <div className="animate-fade-up-4 flex flex-col sm:flex-row items-center justify-center gap-3 mb-8">
               <Link href="/auth/sign-up" className="w-full sm:w-auto">
                 <Button
                   size="lg"

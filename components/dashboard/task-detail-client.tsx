@@ -1,8 +1,9 @@
 "use client"
 
-import { useState, useMemo, useRef, useCallback } from "react"
+import { useState, useMemo, useRef, useCallback, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
+import { compressImage, formatBytes } from "@/lib/utils/compress-image"
 import {
   ArrowLeft, ExternalLink, Copy, CheckCircle2,
   IndianRupee, Clock, ListOrdered, Sparkles, Camera,
@@ -72,8 +73,26 @@ export function TaskDetailClient({ task, userId }: TaskDetailProps) {
   const [proofPreview, setProofPreview] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string>('')
   const [checkedSteps, setCheckedSteps] = useState<Set<number>>(new Set())
+  const [cooldownUntil, setCooldownUntil] = useState<number | null>(null)
+  const [timeLeft, setTimeLeft] = useState(0)
+  const [compressedSize, setCompressedSize] = useState<string | null>(null)
 
   const meta = getActionMeta(task.action_type)
+
+  // ── Countdown timer for rate limit cooldown ─────────────────────────────
+  useEffect(() => {
+    if (!cooldownUntil) return
+    const tick = () => {
+      const remaining = Math.max(0, Math.ceil((cooldownUntil - Date.now()) / 1000))
+      setTimeLeft(remaining)
+      if (remaining <= 0) setCooldownUntil(null)
+    }
+    tick()
+    const id = setInterval(tick, 1000)
+    return () => clearInterval(id)
+  }, [cooldownUntil])
+
+  const formatCountdown = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
 
   const currentPrompt = useMemo(() => {
     if (!task.copy_prompts?.length) return null
@@ -143,6 +162,11 @@ export function TaskDetailClient({ task, userId }: TaskDetailProps) {
       const data = await response.json()
 
       if (!response.ok) {
+        if (response.status === 429 && data.retryAfter) {
+          setCooldownUntil(Date.now() + data.retryAfter * 1000)
+          setStage('opened')
+          return
+        }
         setErrorMessage(data.error || 'Failed to complete task. Please try again.')
         setStage('error')
         return
@@ -162,7 +186,7 @@ export function TaskDetailClient({ task, userId }: TaskDetailProps) {
     }
   }, [task.id, task.requires_proof, router])
 
-  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
@@ -173,19 +197,28 @@ export function TaskDetailClient({ task, userId }: TaskDetailProps) {
       return
     }
 
-    // Validate size — 5MB max
-    if (file.size > 5 * 1024 * 1024) {
-      setErrorMessage('Image must be under 5MB')
+    // Validate raw size — if over 15MB don't even try to compress
+    if (file.size > 15 * 1024 * 1024) {
+      setErrorMessage('Image must be under 15MB')
       return
     }
 
     setErrorMessage('')
-    setProofFile(file)
+    setCompressedSize(null)
 
-    const reader = new FileReader()
-    reader.onload = e => setProofPreview(e.target?.result as string)
-    reader.onerror = () => setErrorMessage('Failed to read file')
-    reader.readAsDataURL(file)
+    try {
+      // Compress BEFORE setting state so preview already shows compressed version
+      const compressed = await compressImage(file)
+      setCompressedSize(formatBytes(compressed.size))
+      setProofFile(compressed)
+
+      const reader = new FileReader()
+      reader.onload = e => setProofPreview(e.target?.result as string)
+      reader.onerror = () => setErrorMessage('Failed to read file')
+      reader.readAsDataURL(compressed)
+    } catch (err: any) {
+      setErrorMessage(err?.message || 'Compression failed. Please try a different image.')
+    }
   }, [])
 
   const handleUploadProof = useCallback(async () => {
@@ -361,7 +394,10 @@ export function TaskDetailClient({ task, userId }: TaskDetailProps) {
                 <CheckCircle2 className="w-4 h-4" />
                 <span className="text-sm font-bold">Screenshot ready</span>
               </div>
-              <p className="text-xs text-gray-400 mt-1">Tap to choose a different one</p>
+              {compressedSize && (
+                <p className="text-xs text-gray-400 mt-1">Compressed: {compressedSize}</p>
+              )}
+              <p className="text-xs text-gray-400 mt-0.5">Tap to choose a different one</p>
             </div>
           ) : (
             <div>
@@ -369,7 +405,7 @@ export function TaskDetailClient({ task, userId }: TaskDetailProps) {
                 <ImageIcon className="w-8 h-8 text-gray-400" />
               </div>
               <p className="text-base font-bold text-gray-700">Tap to upload screenshot</p>
-              <p className="text-xs text-gray-400 mt-1">JPG, PNG, WebP · Max 5MB</p>
+              <p className="text-xs text-gray-400 mt-1">JPG, PNG, WebP · Max 15MB · Auto-compressed</p>
             </div>
           )}
         </div>
@@ -755,20 +791,37 @@ export function TaskDetailClient({ task, userId }: TaskDetailProps) {
 
          {stage === 'opened' && (
             <>
-              <Button
-                onClick={() => setStage('confirming')}
-                className="w-full bg-green-600 hover:bg-green-700 active:bg-green-800 rounded-2xl h-14 font-black text-base shadow-xl transition-all"
-              >
-                <CheckCircle2 className="w-5 h-5 mr-2" />
-                I've Completed — Claim ₹{Number(task.user_payout).toFixed(0)}
-              </Button>
-              <button
-                onClick={handleOpenTask}
-                className="w-full text-xs text-blue-600 hover:text-blue-700 font-semibold flex items-center justify-center gap-1.5 py-1 transition-colors"
-              >
-                <ExternalLink className="w-3.5 h-3.5" />
-                Open task again
-              </button>
+              {cooldownUntil ? (
+                <div className="flex flex-col items-center gap-2">
+                  <div className="flex items-center gap-2 text-gray-500">
+                    <Clock className="w-4 h-4 animate-pulse" />
+                    <span className="text-sm font-semibold">Try again in {formatCountdown(timeLeft)}</span>
+                  </div>
+                  <Button
+                    disabled
+                    className="w-full bg-gray-200 text-gray-400 rounded-2xl h-14 font-black text-base cursor-not-allowed"
+                  >
+                    Please wait...
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <Button
+                    onClick={() => setStage('confirming')}
+                    className="w-full bg-green-600 hover:bg-green-700 active:bg-green-800 rounded-2xl h-14 font-black text-base shadow-xl transition-all"
+                  >
+                    <CheckCircle2 className="w-5 h-5 mr-2" />
+                    I've Completed — Claim ₹{Number(task.user_payout).toFixed(0)}
+                  </Button>
+                  <button
+                    onClick={handleOpenTask}
+                    className="w-full text-xs text-blue-600 hover:text-blue-700 font-semibold flex items-center justify-center gap-1.5 py-1 transition-colors"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    Open task again
+                  </button>
+                </>
+              )}
             </>
           )}
 

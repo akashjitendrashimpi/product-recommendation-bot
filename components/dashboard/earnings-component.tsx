@@ -355,9 +355,44 @@ const [maxPayout, setMaxPayout] = useState(MAX_PAYOUT)
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-bold text-gray-900">Task #{earning.task_id}</p>
-                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                        <span className={"text-xs font-semibold px-2 py-0.5 rounded-full " + config.color}>{config.label}</span>
-                        <span className="text-xs text-gray-400">
+                      
+                      {/* Status Timeline: pending_verification → verified → payment_completed */}
+                      <div className="mt-3 mb-2 max-w-[220px]">
+                        <div className="flex items-center gap-0.5">
+                          {/* Segment 1: always filled (submitted) */}
+                          <div className="h-1 flex-1 rounded-l-full bg-green-500" />
+                          {/* Segment 2: reviewing done when verified or payment_completed */}
+                          <div className={`h-1 flex-1 ${
+                            ['verified', 'payment_completed', 'rejected'].includes(earning.status)
+                              ? earning.status === 'rejected' ? 'bg-red-400' : 'bg-green-500'
+                              : 'bg-gray-200'
+                          }`} />
+                          {/* Segment 3: paid when payment_completed */}
+                          <div className={`h-1 flex-1 rounded-r-full ${
+                            earning.status === 'payment_completed' ? 'bg-green-500'
+                              : earning.status === 'rejected' ? 'bg-red-400'
+                              : 'bg-gray-200'
+                          }`} />
+                        </div>
+                        <div className="flex justify-between mt-1 text-[9px] font-bold uppercase tracking-wider">
+                          <span className="text-green-600">Submitted</span>
+                          <span className={
+                            ['verified', 'payment_completed'].includes(earning.status) ? 'text-green-600'
+                              : earning.status === 'rejected' ? 'text-red-500'
+                              : 'text-orange-500'
+                          }>Reviewing</span>
+                          <span className={
+                            earning.status === 'payment_completed' ? 'text-green-600'
+                              : earning.status === 'rejected' ? 'text-red-500'
+                              : 'text-gray-400'
+                          }>
+                            {earning.status === 'rejected' ? 'Rejected' : 'Paid'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs text-gray-400 font-medium">
                           {new Date(earning.completed_at || earning.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                         </span>
                       </div>
