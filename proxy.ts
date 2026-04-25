@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getSessionFromRequest } from "@/lib/auth/session"
 
 // ── Route definitions ──────────────────────────────────────────────────────
-const PUBLIC_ROUTES = ["/", "/privacy", "/terms", "/contact"]
+const PUBLIC_ROUTES = ["/", "/privacy", "/terms", "/contact", "/blog"]
 const AUTH_ROUTES = [
   "/auth/login",
   "/auth/sign-up",

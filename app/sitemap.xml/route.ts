@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { getPublishedPosts } from "@/lib/db/blog"
 
 export const dynamic = "force-dynamic"
 
@@ -29,6 +30,20 @@ function buildXml(pages: SitemapPage[]): string {
     <priority>${page.priority}</priority>${images}
   </url>`
   }).join("\n")
+  
+  const blogPosts = await getPublishedPosts()
+const blogPages: SitemapPage[] = blogPosts.map(post => ({
+  url: `/blog/${post.slug}`,
+  priority: "0.7",
+  changefreq: "weekly",
+  lastmod: new Date(post.updated_at).toISOString().split("T")[0],
+}))
+  
+ const allPages: SitemapPage[] = [
+  ...pages,
+  { url: "/blog", priority: "0.8", changefreq: "daily" },
+  ...blogPages,
+]
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset
