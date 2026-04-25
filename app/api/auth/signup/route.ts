@@ -155,17 +155,17 @@ export async function POST(request: NextRequest) {
     })
 
     return NextResponse.json(
-      {
-        success: true,
-        message: 'Account created successfully.',
-        user: {
-          id: user.id,
-          email: user.email,
-          display_name: user.display_name,
-        },
-      },
-      { status: 201 }
-    )
+  {
+    success: true,
+    message: 'Account created successfully.',
+    user: {
+      id: user.id,
+      email: user.email,
+      display_name: user.display_name,
+    },
+  },
+  { status: 201 }
+)
 
   } catch (error) {
     console.error('Unexpected signup error:', error)
