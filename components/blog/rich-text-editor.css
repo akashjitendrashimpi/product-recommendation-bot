@@ -1,0 +1,142 @@
+.ProseMirror {
+  outline: none;
+  font-family: inherit;
+  font-size: 16px;
+  line-height: 1.6;
+  color: #1f2937;
+}
+
+.ProseMirror p {
+  margin-bottom: 1rem;
+  margin-top: 0;
+}
+
+.ProseMirror h1,
+.ProseMirror h2,
+.ProseMirror h3 {
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+  font-weight: 700;
+}
+
+.ProseMirror h1 {
+  font-size: 2rem;
+}
+
+.ProseMirror h2 {
+  font-size: 1.5rem;
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 0.5rem;
+}
+
+.ProseMirror h3 {
+  font-size: 1.25rem;
+}
+
+.ProseMirror ul,
+.ProseMirror ol {
+  margin-left: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.ProseMirror li {
+  margin-bottom: 0.5rem;
+}
+
+.ProseMirror blockquote {
+  border-left: 4px solid #3b82f6;
+  background-color: #f0f4ff;
+  padding: 1rem;
+  margin: 1rem 0;
+  font-style: italic;
+  color: #4b5563;
+}
+
+.ProseMirror code {
+  background-color: #f3f4f6;
+  color: #dc2626;
+  padding: 0.2rem 0.4rem;
+  border-radius: 0.25rem;
+  font-family: monospace;
+  font-size: 0.875em;
+}
+
+.ProseMirror pre {
+  background-color: #1f2937;
+  color: #f3f4f6;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  overflow-x: auto;
+  margin: 1rem 0;
+  font-size: 0.875rem;
+}
+
+.ProseMirror pre code {
+  background-color: transparent;
+  color: inherit;
+  padding: 0;
+  border-radius: 0;
+  font-family: monospace;
+}
+
+.ProseMirror img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.5rem;
+  margin: 1rem 0;
+}
+
+.ProseMirror a {
+  color: #0066cc;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.ProseMirror a:hover {
+  color: #0052a3;
+}
+
+.ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: #adb5bd;
+  pointer-events: none;
+  height: 0;
+}
+
+.ProseMirror-focused {
+  outline: none;
+}
+
+.hljs-string,
+.hljs-attr,
+.hljs-name,
+.hljs-char,
+.hljs-bullet,
+.hljs-emphasis,
+.hljs-strong,
+.hljs-variable,
+.hljs-template-variable,
+.hljs-link,
+.hljs-selector-attr,
+.hljs-selector-pseudo {
+  color: #ec7015;
+}
+
+.hljs-number,
+.hljs-regexp,
+.hljs-literal,
+.hljs-hexcolor {
+  color: #0086d4;
+}
+
+.hljs-title,
+.hljs-section,
+.hljs-selector-id {
+  color: #0e8f1e;
+}
+
+.hljs-function,
+.hljs-attr {
+  color: #6221c7;
+}

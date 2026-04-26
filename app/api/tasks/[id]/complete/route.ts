@@ -121,14 +121,11 @@ export async function POST(
         .maybeSingle()
 
       if (earn) {
-        await (supabaseAdmin as any)
-          .from("user_earnings")
-          .update({
-            daily_earnings: Number(earn.daily_earnings) + payout,
-            tasks_completed: Number(earn.tasks_completed) + 1,
-            amount: Number(earn.daily_earnings) + payout,
-          })
-          .eq("id", earn.id)
+        await (supabaseAdmin as any).rpc('increment_user_earnings', {
+          p_user_id: session.userId,
+          p_date: today,
+          p_amount: payout
+        })
       } else {
         await (supabaseAdmin as any)
           .from("user_earnings")

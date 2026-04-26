@@ -26,7 +26,8 @@ const components = {
 
   // Links
   a: (props: any) => (
-    
+    <a
+      href={props.href}
       className="text-blue-600 font-semibold hover:text-blue-700 underline underline-offset-2 transition-colors"
       target={props.href?.startsWith("http") ? "_blank" : undefined}
       rel={props.href?.startsWith("http") ? "noopener noreferrer" : undefined}

@@ -189,8 +189,7 @@ export function BlogEditor({ initialData, mode }: BlogEditorProps) {
       }, 1500)
 
     } catch {
-      setError("Network error. Please try again.")
-    } finally {
+      
       setSaving(false)
     }
   }

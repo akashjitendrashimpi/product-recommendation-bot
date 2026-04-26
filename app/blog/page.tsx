@@ -3,6 +3,7 @@ import Link from "next/link"
 import { Sparkles, ArrowRight, BookOpen, TrendingUp } from "lucide-react"
 import { getPublishedPosts } from "@/lib/db/blog"
 import { BlogCard } from "@/components/blog/blog-card"
+import { BlogPageClient } from "@/components/blog/blog-page-client"
 
 export const metadata: Metadata = {
   title: "Blog — Earn Money Tips & Guides",
@@ -81,22 +82,9 @@ export default async function BlogPage() {
               </div>
             )}
 
-            {/* All posts grid */}
+            {/* Search, Filter, and All Posts */}
             {remainingPosts.length > 0 && (
-              <>
-                <div className="flex items-center gap-2 mb-6">
-                  <BookOpen className="w-4 h-4 text-gray-500" />
-                  <p className="text-sm font-bold text-gray-700">All Posts</p>
-                  <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full font-semibold">
-                    {remainingPosts.length}
-                  </span>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {remainingPosts.map((post) => (
-                    <BlogCard key={post.id} post={post} />
-                  ))}
-                </div>
-              </>
+              <BlogPageClient posts={remainingPosts} />
             )}
           </>
         )}
