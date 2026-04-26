@@ -1,6 +1,7 @@
 {
-  "name": "qrbot",
+  "name": "qyantra",
   "version": "1.0.0",
+  "description": "Qyantra Platform",
   "private": true,
   "scripts": {
     "build": "next build",

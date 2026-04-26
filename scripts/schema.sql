@@ -1,10 +1,10 @@
--- QrBot - Complete MySQL Schema
+-- Qyantra - Complete MySQL Schema
 -- Run this script in phpMyAdmin or MySQL command line
 -- This replaces all previous schema files
 
 -- Create database (if needed)
--- CREATE DATABASE IF NOT EXISTS qrbot;
--- USE qrbot;
+-- CREATE DATABASE IF NOT EXISTS qyantra;
+-- USE qyantra;
 
 -- ============================================
 -- USERS & AUTHENTICATION
@@ -187,6 +187,7 @@ CREATE TABLE IF NOT EXISTS task_completions (
   user_payout DECIMAL(10, 2) NOT NULL,
   completion_proof TEXT COMMENT 'Screenshot or verification data',
   network_response JSON COMMENT 'Response from CPA network',
+  proof_hash VARCHAR(64) NULL COMMENT 'SHA-256 hash of proof image to prevent duplicates',
   completed_at TIMESTAMP NULL,
   verified_at TIMESTAMP NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -196,6 +197,7 @@ CREATE TABLE IF NOT EXISTS task_completions (
   INDEX idx_user_id (user_id),
   INDEX idx_task_id (task_id),
   INDEX idx_status (status),
+  INDEX idx_proof_hash (proof_hash),
   INDEX idx_completed_at (completed_at)
 );
 

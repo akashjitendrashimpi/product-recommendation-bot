@@ -86,6 +86,29 @@ export async function POST(
     const fileName = `proof_${completionId}_${session.userId}_${Date.now()}.${safeExt}`
     const fileBuffer = await file.arrayBuffer()
 
+    // ── Anti-Fraud: SHA-256 Image hashing ──────────────────────────────────
+    // Calculate hash of the image content to prevent duplicate submissions
+    const crypto = await import("crypto")
+    const proofHash = crypto.createHash("sha256").update(Buffer.from(fileBuffer)).digest("hex")
+
+    // Check for duplicate hashes in existing task completions
+    // We only block if the identical image was already "verified" or is "pending_verification"
+    const { data: duplicate } = await (supabaseAdmin as any)
+      .from("task_completions")
+      .select("id, status")
+      .eq("proof_hash", proofHash)
+      .in("status", ["verified", "pending_verification"])
+      .neq("id", completionId) // Ignore current record
+      .limit(1)
+      .maybeSingle()
+
+    if (duplicate) {
+      return NextResponse.json(
+        { error: "This screenshot has already been used. Please provide original proof." },
+        { status: 400 }
+      )
+    }
+
     const { error: uploadError } = await (supabaseAdmin as any)
       .storage
       .from("task-proofs")
@@ -103,11 +126,12 @@ export async function POST(
 
     const proofUrl = urlData?.publicUrl || fileName
 
-    // Update completion
+    // Update completion with hash and proof URL
     const { error: updateError } = await (supabaseAdmin as any)
       .from("task_completions")
       .update({
         completion_proof: proofUrl,
+        proof_hash: proofHash,
         status: "pending_verification",
         updated_at: new Date().toISOString(),
       })

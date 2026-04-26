@@ -142,7 +142,7 @@ export function ChatInterface({ campaign, products, categories, user }: ChatInte
             <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
               <QrCode className="w-5 h-5 text-primary-foreground" />
             </div>
-            <span className="font-semibold">{user?.display_name || user?.phone || "QrBot"}</span>
+            <span className="font-semibold">{user?.display_name || user?.phone || "Qyantra"}</span>
           </div>
           {campaign && <Badge variant="secondary">{campaign.campaign_name}</Badge>}
         </div>

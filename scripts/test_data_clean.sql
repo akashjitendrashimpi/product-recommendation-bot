@@ -1,4 +1,4 @@
--- Test Data for QrBot
+-- Test Data for Qyantra
 -- Run this after schema.sql
 -- Password for all test users: test123
 

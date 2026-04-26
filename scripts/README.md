@@ -18,15 +18,15 @@
 
 ### Using phpMyAdmin:
 1. Open phpMyAdmin (http://localhost/phpmyadmin)
-2. Select your database (or create one: `qrbot`)
+2. Select your database (or create one: `qyantra`)
 3. Go to "Import" tab
 4. Import `schema.sql` first
 5. (Optional) Import `test_data_clean.sql` for test data
 
 ### Using MySQL Command Line:
 ```bash
-mysql -u root -p qrbot < schema.sql
-mysql -u root -p qrbot < test_data_clean.sql
+mysql -u root -p qyantra < schema.sql
+mysql -u root -p qyantra < test_data_clean.sql
 ```
 
 ## Database Structure
