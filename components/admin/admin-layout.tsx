@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import {
   LayoutDashboard, Users, CheckSquare, Wallet,
   ShoppingBag, LogOut, Menu, X, Shield, QrCode,
-  LayoutGrid, Settings
+  LayoutGrid, Settings, BookOpen
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -29,6 +29,7 @@ export function AdminLayout({ user, children }: AdminLayoutProps) {
   { name: 'Proofs', href: '/admin/proofs', icon: Shield },
   { name: 'Sections', href: '/admin/sections', icon: LayoutGrid },
   { name: 'Settings', href: '/admin/settings', icon: Settings },
+  { name: 'Blog', href: '/admin/blog', icon: BookOpen },
 ]
 
   return (
