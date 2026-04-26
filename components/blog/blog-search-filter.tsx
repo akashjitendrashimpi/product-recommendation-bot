@@ -88,9 +88,10 @@ export function BlogSearchFilter({ posts, onFilter }: BlogSearchFilterProps) {
         </button>
 
         <select
+          aria-label="Sort blog posts"
           value={sortBy}
           onChange={(e) => setSortBy(e.target.value as any)}
-          className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-bold text-gray-700"
         >
           <option value="recent">Newest First</option>
           <option value="oldest">Oldest First</option>

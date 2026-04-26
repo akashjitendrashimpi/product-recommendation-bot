@@ -266,6 +266,8 @@ export function EnhancedBlogEditor({ initialData, mode }: BlogEditorProps) {
             </div>
             <button
               onClick={() => setPreview(true)}
+              title="Live Preview"
+              aria-label="Preview post changes"
               className="w-full sm:w-auto px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 shadow-sm"
             >
               <Eye className="w-4 h-4" /> Live Preview
@@ -303,11 +305,12 @@ export function EnhancedBlogEditor({ initialData, mode }: BlogEditorProps) {
 
           {/* Cover Image */}
           <div className="bg-white rounded-2xl border border-gray-100 p-4 space-y-3">
-            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest">Cover Image URL</label>
+            <label htmlFor="cover-image" className="block text-[10px] font-black text-gray-400 uppercase tracking-widest">Cover Image URL</label>
             <div className="flex gap-2">
               <div className="relative flex-1">
                 <Image className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
+                  id="cover-image"
                   type="url"
                   value={coverImage}
                   onChange={(e) => setCoverImage(e.target.value)}
@@ -332,6 +335,8 @@ export function EnhancedBlogEditor({ initialData, mode }: BlogEditorProps) {
               <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Short Summary (Excerpt)</label>
               <button
                 onClick={autoGenerateExcerpt}
+                title="Auto Generate Excerpt"
+                aria-label="Auto generate excerpt from content"
                 className="text-[10px] font-bold px-2 py-1 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors uppercase tracking-tight"
               >
                 Auto Generate
@@ -364,11 +369,13 @@ export function EnhancedBlogEditor({ initialData, mode }: BlogEditorProps) {
             <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest">Post Categories & Tags</label>
             <div className="flex gap-2">
               <input
+                id="tag-input"
                 type="text"
                 value={tagInput}
                 onChange={(e) => setTagInput(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && addTag()}
                 placeholder="Add keyword..."
+                aria-label="Add new tag"
                 className="flex-1 px-4 py-3 bg-gray-50 border border-gray-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium"
               />
               <button
@@ -382,7 +389,12 @@ export function EnhancedBlogEditor({ initialData, mode }: BlogEditorProps) {
               {tags.map((tag, i) => (
                 <span key={i} className="bg-blue-50 text-blue-700 border border-blue-100 px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-2 group transition-all hover:bg-blue-100">
                   {tag}
-                  <button onClick={() => removeTag(i)} className="text-blue-300 hover:text-red-500 transition-colors">
+                  <button 
+                    onClick={() => removeTag(i)} 
+                    title="Remove tag"
+                    aria-label={`Remove tag ${tag}`}
+                    className="text-blue-300 hover:text-red-500 transition-colors"
+                  >
                     <X className="w-3.5 h-3.5" />
                   </button>
                 </span>
@@ -453,9 +465,11 @@ export function EnhancedBlogEditor({ initialData, mode }: BlogEditorProps) {
             <h3 className="text-sm font-black text-gray-900 uppercase tracking-tight mb-2">Publishing</h3>
             
             <div>
-              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Visibility Status</label>
+              <label htmlFor="blog-status" className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Visibility Status</label>
               <select
+                id="blog-status"
                 value={status}
+                title="Select post status"
                 onChange={(e) => setStatus(e.target.value as any)}
                 className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-bold text-gray-700"
               >
@@ -465,10 +479,12 @@ export function EnhancedBlogEditor({ initialData, mode }: BlogEditorProps) {
             </div>
 
             <div>
-              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Assigned Author</label>
+              <label htmlFor="blog-author" className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Assigned Author</label>
               <input
+                id="blog-author"
                 type="text"
                 value={author}
+                title="Post Author"
                 onChange={(e) => setAuthor(e.target.value)}
                 className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-bold text-gray-700"
               />
@@ -490,10 +506,12 @@ export function EnhancedBlogEditor({ initialData, mode }: BlogEditorProps) {
             {seoOpen && (
               <div className="p-5 space-y-4 border-t border-gray-50 bg-gray-50/30">
                 <div>
-                  <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Google Search Title</label>
+                  <label htmlFor="meta-title" className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Google Search Title</label>
                   <input
+                    id="meta-title"
                     type="text"
                     value={metaTitle}
+                    title="Meta Title"
                     onChange={(e) => setMetaTitle(e.target.value)}
                     placeholder={title}
                     maxLength={60}
@@ -504,9 +522,11 @@ export function EnhancedBlogEditor({ initialData, mode }: BlogEditorProps) {
                   </div>
                 </div>
                 <div>
-                  <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Meta Description Tag</label>
+                  <label htmlFor="meta-description" className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Meta Description Tag</label>
                   <textarea
+                    id="meta-description"
                     value={metaDescription}
+                    title="Meta Description"
                     onChange={(e) => setMetaDescription(e.target.value)}
                     placeholder={excerpt}
                     maxLength={160}

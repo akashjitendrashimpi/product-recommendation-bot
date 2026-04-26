@@ -267,7 +267,7 @@ export function BlogEditor({ initialData, mode }: BlogEditorProps) {
           <div className="mb-6 bg-red-50 border border-red-200 rounded-2xl p-4 flex items-center gap-3">
             <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
             <p className="text-sm text-red-700 font-medium">{error}</p>
-            <button onClick={() => setError(null)} className="ml-auto text-red-400 hover:text-red-600">
+            <button onClick={() => setError(null)} className="ml-auto text-red-400 hover:text-red-600" aria-label="Dismiss error">
               <X className="w-4 h-4" />
             </button>
           </div>
@@ -371,6 +371,7 @@ export function BlogEditor({ initialData, mode }: BlogEditorProps) {
                   id="content"
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
+                  aria-label="Blog post content"
                   placeholder={`Write your blog post in Markdown...
 
 ## Introduction
@@ -402,7 +403,9 @@ You can use special components like:
               <div className="flex items-center justify-between mb-4 p-3 bg-gray-50 rounded-xl">
                 <span className="text-sm font-semibold text-gray-700">Status</span>
                 <button
+                  type="button"
                   onClick={() => setStatus(status === "draft" ? "published" : "draft")}
+                  aria-label={`Toggle status, current status: ${status}`}
                   className={`relative w-12 h-6 rounded-full transition-colors ${
                     status === "published" ? "bg-green-500" : "bg-gray-300"
                   }`}
@@ -415,8 +418,9 @@ You can use special components like:
 
               {/* Author */}
               <div className="mb-4">
-                <label className="text-xs font-semibold text-gray-500 mb-1.5 block">Author</label>
+                <label htmlFor="author-input" className="text-xs font-semibold text-gray-500 mb-1.5 block">Author</label>
                 <input
+                  id="author-input"
                   type="text"
                   value={author}
                   onChange={(e) => setAuthor(e.target.value)}
@@ -475,11 +479,13 @@ You can use special components like:
               </p>
               <div className="flex gap-2 mb-3">
                 <input
+                  id="tag-name-input"
                   type="text"
                   value={tagInput}
                   onChange={(e) => setTagInput(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addTag())}
                   placeholder="Add tag..."
+                  aria-label="New tag name"
                   className="flex-1 text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   maxLength={50}
                 />
@@ -494,7 +500,12 @@ You can use special components like:
                 {tags.map((tag) => (
                   <span key={tag} className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-700 text-xs font-semibold px-2.5 py-1 rounded-full">
                     {tag}
-                    <button onClick={() => removeTag(tag)} className="hover:text-red-500 transition-colors">
+                    <button 
+                      onClick={() => removeTag(tag)} 
+                      aria-label={`Remove tag ${tag}`}
+                      title="Remove tag"
+                      className="hover:text-red-500 transition-colors"
+                    >
                       <X className="w-3 h-3" />
                     </button>
                   </span>
