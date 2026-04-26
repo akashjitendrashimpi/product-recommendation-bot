@@ -122,14 +122,15 @@ export default async function AdminBlogPage() {
                     <div className="flex items-center justify-end gap-2">
                       {post.status === "published" && (
                         
-                          href={`/blog/${post.slug}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="p-2 rounded-xl hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
-                          title="View post"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </a>
+                          <Link
+  href={"/blog/" + post.slug}
+  target="_blank"
+  rel="noopener noreferrer"
+  className="p-2 rounded-xl hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+  title="View post"
+>
+  <Eye className="w-4 h-4" />
+</Link>
                       )}
                       <Link
                         href={`/admin/blog/${post.id}/edit`}

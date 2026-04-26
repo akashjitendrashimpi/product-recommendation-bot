@@ -286,13 +286,16 @@ export function TaskDetailClient({ task, userId }: TaskDetailProps) {
             }
           </p>
 
-          <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl p-5 mb-6 text-white">
-            <div className="flex items-center justify-center gap-1.5 mb-1">
+          <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-3xl p-6 mb-6 text-white relative shadow-lg overflow-hidden">
+            <div className="celebrate-burst bg-white/20 rounded-full w-20 h-20 -top-10 -right-10" />
+            <div className="celebrate-burst bg-white/10 rounded-full w-32 h-32 -bottom-16 -left-16" />
+            
+            <div className="flex items-center justify-center gap-1.5 mb-1 relative">
               <IndianRupee className="w-6 h-6" />
-              <span className="text-4xl font-black">{Number(task.user_payout).toFixed(0)}</span>
+              <span className="text-5xl font-black">{Number(task.user_payout).toFixed(0)}</span>
             </div>
-            <p className="text-green-100 text-sm">
-              {task.requires_proof ? 'Pending verification' : 'Added to balance'}
+            <p className="text-green-100 text-sm font-bold relative">
+              {task.requires_proof ? 'Pending verification' : 'Instant earnings credited'}
             </p>
           </div>
 
@@ -459,7 +462,7 @@ export function TaskDetailClient({ task, userId }: TaskDetailProps) {
 
   // ── Main Detail Page ──────────────────────────────────────────────────────
   return (
-    <div className="space-y-4 pb-36 lg:pb-28">
+    <div className="space-y-4 pb-36 lg:pb-28 animate-fade-up-1">
 
       {/* ── Confirmation Dialog ── */}
       {(stage === 'confirming') && (

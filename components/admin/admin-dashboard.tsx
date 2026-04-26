@@ -120,7 +120,7 @@ export function AdminDashboard() {
   ] : []
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-up-1">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

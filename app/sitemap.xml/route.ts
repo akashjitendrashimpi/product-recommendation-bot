@@ -30,20 +30,6 @@ function buildXml(pages: SitemapPage[]): string {
     <priority>${page.priority}</priority>${images}
   </url>`
   }).join("\n")
-  
-  const blogPosts = await getPublishedPosts()
-const blogPages: SitemapPage[] = blogPosts.map(post => ({
-  url: `/blog/${post.slug}`,
-  priority: "0.7",
-  changefreq: "weekly",
-  lastmod: new Date(post.updated_at).toISOString().split("T")[0],
-}))
-  
- const allPages: SitemapPage[] = [
-  ...pages,
-  { url: "/blog", priority: "0.8", changefreq: "daily" },
-  ...blogPages,
-]
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset
@@ -59,8 +45,8 @@ ${urls}
 
 export async function GET() {
   try {
-    const pages: SitemapPage[] = [
-      // ── Highest priority — homepage ──────────────────────────────────
+    // ── Static pages ───────────────────────────────────────────────────
+    const staticPages: SitemapPage[] = [
       {
         url: "/",
         priority: "1.0",
@@ -72,8 +58,16 @@ export async function GET() {
           },
         ],
       },
-
-      // ── Legal — low priority, yearly ──────────────────────────────────
+      {
+        url: "/blog",
+        priority: "0.8",
+        changefreq: "daily",
+      },
+      {
+        url: "/contact",
+        priority: "0.4",
+        changefreq: "yearly",
+      },
       {
         url: "/privacy",
         priority: "0.3",
@@ -86,14 +80,31 @@ export async function GET() {
         changefreq: "yearly",
         lastmod: "2026-03-01",
       },
-      {
-        url: "/contact",
-        priority: "0.4",
-        changefreq: "yearly",
-      },
     ]
 
-    const xml = buildXml(pages)
+    // ── Blog posts ─────────────────────────────────────────────────────
+    let blogPages: SitemapPage[] = []
+    try {
+      const posts = await getPublishedPosts()
+      blogPages = posts.map((post) => ({
+        url: `/blog/${post.slug}`,
+        priority: "0.7",
+        changefreq: "weekly",
+        lastmod: new Date(post.updated_at).toISOString().split("T")[0],
+        ...(post.cover_image && {
+          images: [{
+            loc: post.cover_image,
+            title: post.title,
+          }],
+        }),
+      }))
+    } catch (err) {
+      console.warn("[sitemap] Failed to fetch blog posts:", err)
+    }
+
+    // ── Combine all pages ──────────────────────────────────────────────
+    const allPages = [...staticPages, ...blogPages]
+    const xml = buildXml(allPages)
 
     return new NextResponse(xml, {
       status: 200,

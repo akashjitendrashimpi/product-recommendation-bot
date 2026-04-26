@@ -130,7 +130,7 @@ export function DashboardHome({ userId }: DashboardHomeProps) {
   // ── Loading skeleton ──────────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="animate-pulse space-y-4 max-w-2xl mx-auto lg:max-w-none">
+      <div className="space-y-4 max-w-2xl mx-auto lg:max-w-none animate-shimmer">
         <div className="h-6 bg-gray-200 rounded w-40" />
         <div className="h-48 bg-gray-200 rounded-3xl" />
         <div className="grid grid-cols-2 gap-3">
@@ -161,7 +161,7 @@ export function DashboardHome({ userId }: DashboardHomeProps) {
   }
 
   return (
-    <div className="space-y-5 max-w-2xl mx-auto lg:max-w-none">
+    <div className="space-y-5 max-w-2xl mx-auto lg:max-w-none animate-fade-up-1">
 
       {/* Greeting */}
       <div>
@@ -199,9 +199,9 @@ export function DashboardHome({ userId }: DashboardHomeProps) {
               { label: "Today", value: `₹${data.dailyEarnings.toFixed(0)}`, icon: Zap },
               { label: "Tasks Done", value: String(data.tasksCompleted), icon: CheckCircle2 },
             ].map((s, i) => (
-              <div key={i} className="bg-white/10 rounded-2xl p-2.5 text-center">
-                <p className="text-white/90 text-sm font-black">{s.value}</p>
-                <p className="text-blue-200 text-[10px] font-medium mt-0.5">{s.label}</p>
+              <div key={i} className="bg-white/10 rounded-2xl p-2.5 text-center transition-all hover:bg-white/20 active:scale-95">
+                <p className="text-white text-sm font-black">{s.value}</p>
+                <p className="text-blue-100 text-[10px] font-medium mt-0.5">{s.label}</p>
               </div>
             ))}
           </div>

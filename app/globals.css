@@ -1,7 +1,5 @@
 @import "tailwindcss";
 
-@custom-variant dark (&:is(.dark *));
-
 :root {
   --background: oklch(0.98 0.005 260);
   --foreground: oklch(0.12 0.02 260);
@@ -37,6 +35,11 @@
   --sidebar-accent-foreground: oklch(0.2 0.02 260);
   --sidebar-border: oklch(0.88 0.01 260);
   --sidebar-ring: oklch(0.45 0.2 250);
+
+  /* Branded blues */
+  --blue-600: #2563eb;
+  --blue-700: #1d4ed8;
+  --purple-700: #7e22ce;
 }
 
 .dark {
@@ -59,73 +62,24 @@
   --border: oklch(0.25 0.02 260);
   --input: oklch(0.25 0.02 260);
   --ring: oklch(0.6 0.22 250);
-  --chart-1: oklch(0.6 0.22 250);
-  --chart-2: oklch(0.65 0.18 200);
-  --chart-3: oklch(0.7 0.2 80);
-  --chart-4: oklch(0.65 0.22 300);
-  --chart-5: oklch(0.7 0.24 30);
-  --sidebar: oklch(0.16 0.02 260);
-  --sidebar-foreground: oklch(0.95 0.005 260);
-  --sidebar-primary: oklch(0.6 0.22 250);
-  --sidebar-primary-foreground: oklch(0.12 0.02 260);
-  --sidebar-accent: oklch(0.22 0.02 260);
-  --sidebar-accent-foreground: oklch(0.95 0.005 260);
-  --sidebar-border: oklch(0.25 0.02 260);
-  --sidebar-ring: oklch(0.6 0.22 250);
-}
-
-@theme inline {
-  --font-sans: "Geist", "Geist Fallback";
-  --font-mono: "Geist Mono", "Geist Mono Fallback";
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-ring: var(--sidebar-ring);
 }
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    border-color: var(--border);
+    outline-color: color-mix(in srgb, var(--ring), transparent 50%);
   }
+
   body {
-    @apply bg-background text-foreground;
+    background-color: var(--background);
+    color: var(--foreground);
   }
+
   /* Smooth scrolling for anchor links */
   html {
     scroll-behavior: smooth;
   }
+
   /* Focus visible for keyboard navigation */
   :focus-visible {
     outline: 2px solid oklch(0.45 0.2 250);
@@ -135,22 +89,27 @@
 }
 
 @layer utilities {
+
   /* Custom scrollbar */
   .custom-scrollbar::-webkit-scrollbar {
     width: 6px;
     height: 6px;
   }
+
   .custom-scrollbar::-webkit-scrollbar-track {
     background: oklch(0.95 0.01 260);
     border-radius: 4px;
   }
+
   .custom-scrollbar::-webkit-scrollbar-thumb {
     background: oklch(0.7 0.02 260);
     border-radius: 4px;
   }
+
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
     background: oklch(0.5 0.02 260);
   }
+
   .custom-scrollbar {
     scrollbar-width: thin;
     scrollbar-color: oklch(0.7 0.02 260) oklch(0.95 0.01 260);
@@ -168,6 +127,7 @@
     white-space: nowrap;
     border-width: 0;
   }
+
   .focus\:not-sr-only:focus {
     position: static;
     width: auto;
@@ -178,64 +138,149 @@
     clip: auto;
     white-space: normal;
   }
-}
 
-/* Marquee animation */
-@keyframes marquee {
-  0% { transform: translateX(0); }
-  100% { transform: translateX(-50%); }
-}
-.animate-marquee {
-  animation: marquee 25s linear infinite;
-}
+  /* Marquee animation */
+  @keyframes marquee {
+    0% {
+      transform: translateX(0);
+    }
 
-/* FAQ accordion arrow */
-details summary::-webkit-details-marker {
-  display: none;
-}
-
-/* ── Premium UX Animations ────────────────────────────────────────────────────
-   GPU-safe: only animates opacity + transform (no layout reflow).
-   will-change: transform only on elements that actually animate.
-   All durations ≤ 300ms for mobile performance.
-── */
-
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(16px);
+    100% {
+      transform: translateX(-50%);
+    }
   }
-  to {
-    opacity: 1;
-    transform: translateY(0);
+
+  .animate-marquee {
+    animation: marquee 25s linear infinite;
   }
-}
 
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to   { opacity: 1; }
-}
+  /* FAQ accordion arrow */
+  details summary::-webkit-details-marker {
+    display: none;
+  }
 
-/* Utility classes */
-.animate-fade-up {
-  will-change: transform;
-  animation: fadeInUp 0.28s ease-out both;
-}
+  /* ── Premium UX Animations ── */
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(16px);
+    }
 
-.animate-fade-up-1 { animation-delay: 0ms;   will-change: transform; animation: fadeInUp 0.28s ease-out 0ms   both; }
-.animate-fade-up-2 { animation-delay: 80ms;  will-change: transform; animation: fadeInUp 0.28s ease-out 80ms  both; }
-.animate-fade-up-3 { animation-delay: 160ms; will-change: transform; animation: fadeInUp 0.28s ease-out 160ms both; }
-.animate-fade-up-4 { animation-delay: 240ms; will-change: transform; animation: fadeInUp 0.28s ease-out 240ms both; }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
 
-.animate-fade-in {
-  will-change: opacity;
-  animation: fadeIn 0.25s ease-out both;
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+
+    to {
+      opacity: 1;
+    }
+  }
+
+  .animate-fade-up {
+    will-change: transform;
+    animation: fadeInUp 0.28s ease-out both;
+  }
+
+  .animate-fade-up-1 {
+    animation-delay: 0ms;
+    will-change: transform;
+    animation: fadeInUp 0.28s ease-out 0ms both;
+  }
+
+  .animate-fade-up-2 {
+    animation-delay: 80ms;
+    will-change: transform;
+    animation: fadeInUp 0.28s ease-out 80ms both;
+  }
+
+  .animate-fade-up-3 {
+    animation-delay: 160ms;
+    will-change: transform;
+    animation: fadeInUp 0.28s ease-out 160ms both;
+  }
+
+  .animate-fade-up-4 {
+    animation-delay: 240ms;
+    will-change: transform;
+    animation: fadeInUp 0.28s ease-out 240ms both;
+  }
+
+  .animate-fade-in {
+    will-change: opacity;
+    animation: fadeIn 0.25s ease-out both;
+  }
+
+  /* ── Shimmer Loading Effect ── */
+  @keyframes shimmer {
+    0% {
+      transform: translateX(-100%);
+    }
+
+    100% {
+      transform: translateX(100%);
+    }
+  }
+
+  .animate-shimmer {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .animate-shimmer::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    background: linear-gradient(90deg,
+        rgba(255, 255, 255, 0) 0,
+        rgba(255, 255, 255, 0.2) 20%,
+        rgba(255, 255, 255, 0.5) 60%,
+        rgba(255, 255, 255, 0));
+    animation: shimmer 2s infinite;
+    transform: translateX(-100%);
+  }
+
+  /* ── Success Celebration (Confetti) ── */
+  @keyframes confetti-pop {
+    0% {
+      transform: scale(0);
+      opacity: 1;
+    }
+
+    100% {
+      transform: scale(1.5);
+      opacity: 0;
+    }
+  }
+
+  .celebrate-burst {
+    position: absolute;
+    pointer-events: none;
+    animation: confetti-pop 0.6s ease-out forwards;
+  }
+
+  /* ── Branded Gradient Text ── */
+  .text-gradient-primary {
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+    background-image: linear-gradient(to bottom right, var(--blue-600), var(--blue-700), var(--purple-700));
+  }
 }
 
 /* ── prefers-reduced-motion — respect motion sensitivity ─────────────────────
    Disables all animations for users who prefer reduced motion.
 ── */
 @media (prefers-reduced-motion: reduce) {
+
   .animate-fade-up,
   .animate-fade-up-1,
   .animate-fade-up-2,
