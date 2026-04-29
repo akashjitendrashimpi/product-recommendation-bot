@@ -3,13 +3,12 @@
 import { useState, useCallback, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import {
-  Save, Eye, EyeOff, Tag, X, Image, FileText, Loader2, CheckCircle2, AlertCircle,
-  ChevronDown, ChevronUp, Copy, Info, BarChart3, BookOpen
+  Save, Eye, Tag, X, Image, FileText, Loader2, CheckCircle2, AlertCircle,
+  ChevronDown, ChevronUp, Info, BarChart3, BookOpen
 } from "lucide-react"
 import { RichTextEditor } from "./rich-text-editor"
 import {
-  sanitizeHTML, sanitizeInput, validateBlogPost, generateCSRFToken,
-  validateCSRFToken
+  sanitizeHTML, sanitizeInput, validateBlogPost
 } from "@/lib/security/blog-security"
 import {
   generateSlug, generateExcerpt, generateTableOfContents,
@@ -52,7 +51,6 @@ export function EnhancedBlogEditor({ initialData, mode }: BlogEditorProps) {
   // UI state
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
   const [preview, setPreview] = useState(false)
   const [seoOpen, setSeoOpen] = useState(false)
   const [charCount, setCharCount] = useState(0)
@@ -63,10 +61,13 @@ export function EnhancedBlogEditor({ initialData, mode }: BlogEditorProps) {
   const [toc, setToc] = useState<TOCItem[]>([])
   const [csrfToken, setCsrfToken] = useState("")
 
-  // Initialize CSRF token
+  // Initialize CSRF token from cookie
   useEffect(() => {
-    const token = generateCSRFToken()
-    setCsrfToken(token)
+    const getCsrfToken = () => {
+      const match = document.cookie.match(/(?:^|; )csrf_token=([^;]*)/)
+      return match ? match[1] : ""
+    }
+    setCsrfToken(getCsrfToken())
   }, [])
 
   // Unsaved changes warning
@@ -217,10 +218,10 @@ export function EnhancedBlogEditor({ initialData, mode }: BlogEditorProps) {
       })
 
       if (!response.ok) {
-        throw new Error("Failed to save post")
+        const data = await response.json().catch(() => ({}))
+        throw new Error(data.error || "Failed to save post")
       }
 
-      setSuccess("Post saved successfully!")
       toast({ title: "Success", description: "Post saved successfully" })
 
       setTimeout(() => {

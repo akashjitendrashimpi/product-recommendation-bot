@@ -92,7 +92,10 @@ async function handleUpdate(
 
     const post = await updatePost(id, updates)
     return NextResponse.json({ post, success: true })
-  } catch (error) {
+  } catch (error: any) {
+    if (error?.code === "23505") {
+      return NextResponse.json({ error: "A post with this title already exists" }, { status: 409 })
+    }
     console.error("[admin/blog/id/UPDATE] Error:", error)
     return NextResponse.json({ error: "Failed to update post" }, { status: 500 })
   }
