@@ -4,13 +4,14 @@ import { rateLimit } from "@/lib/security/rate-limit"
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { slug: string } }
+  { params }: { params: Promise<{ slug: string }> }
 ) {
   try {
+    const { slug: rawSlug } = await params
     const rateLimitRes = rateLimit(request, 30, 60_000)
     if (rateLimitRes) return rateLimitRes
 
-    const slug = params.slug?.trim().toLowerCase()
+    const slug = rawSlug?.trim().toLowerCase()
     if (!slug || slug.length > 200) {
       return NextResponse.json({ error: "Invalid slug" }, { status: 400 })
     }

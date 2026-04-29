@@ -36,7 +36,7 @@ DB_HOST=localhost
 DB_PORT=3306
 DB_USER=root
 DB_PASSWORD=
-DB_NAME=qrbot
+DB_NAME=qyantra
 NODE_ENV=development
 
 # Email Service

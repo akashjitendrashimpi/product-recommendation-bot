@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import {
   ArrowLeft, Star, ExternalLink, Package, Share2,
-  ShoppingCart, Tag, ChevronRight, Check, Eye
+  ShoppingCart, Check, Eye
 } from "lucide-react"
 
 interface Product {
@@ -29,7 +29,7 @@ interface Product {
   tags: string[] | null
 }
 
-export default function ProductDetailPage({ params }: { params: { id: string } }) {
+export default function ProductDetailPage({ id }: { id: string }) {
   const router = useRouter()
   const [product, setProduct] = useState<Product | null>(null)
   const [similar, setSimilar] = useState<Product[]>([])
@@ -38,11 +38,10 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
 
   useEffect(() => {
     fetchProduct()
-  }, [])
+  }, [id])
 
   const fetchProduct = async () => {
     try {
-      const { id } = await params
       const res = await fetch(`/api/products/${id}`)
       if (res.ok) {
         const data = await res.json()

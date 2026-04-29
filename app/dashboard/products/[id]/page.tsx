@@ -5,7 +5,8 @@ import { getUserById, userToProfile } from "@/lib/db/users"
 import { DashboardLayout } from "@/components/dashboard/dashboard-layout"
 import ProductDetailPage from "@/components/dashboard/product-detail-page"
 
-export default async function ProductPage({ params }: { params: { id: string } }) {
+export default async function ProductPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   const session = await getSession()
   if (!session) redirect("/auth/login")
   const user = await getUserById(session.userId)
@@ -13,7 +14,7 @@ export default async function ProductPage({ params }: { params: { id: string } }
   const profile = userToProfile(user)
   return (
     <DashboardLayout user={{ id: user.id, email: user.email }} profile={profile}>
-      <ProductDetailPage params={params} />
+      <ProductDetailPage id={id} />
     </DashboardLayout>
   )
 }

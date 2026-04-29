@@ -4,7 +4,6 @@ import { notFound } from "next/navigation"
 import { Sparkles, ArrowLeft, Clock, Eye, Calendar } from "lucide-react"
 import { getPostBySlug, incrementViews } from "@/lib/db/blog"
 import { serialize } from "next-mdx-remote/serialize"
-import { BlogContent } from "@/components/blog/blog-content"
 import { BlogShare } from "@/components/blog/blog-share"
 import { BlogPostClient } from "@/components/blog/blog-post-client"
 
@@ -26,6 +25,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       url: `https://www.qyantra.online/blog/${post.slug}`,
       type: "article",
       images: post.cover_image ? [{ url: post.cover_image }] : [],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: post.meta_title || post.title,
+      description: post.meta_description || post.excerpt,
+      images: post.cover_image ? [post.cover_image] : [],
     },
   }
 }
@@ -50,8 +55,40 @@ export default async function BlogPostPage({ params }: Props) {
     day: "numeric", month: "long", year: "numeric",
   })
 
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    "headline": post.title,
+    "description": post.meta_description || post.excerpt,
+    "image": post.cover_image || "",
+    "author": {
+      "@type": "Organization",
+      "name": "Qyantra Team",
+    },
+    "publisher": {
+      "@type": "Organization",
+      "name": "Qyantra",
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://www.qyantra.online/logo.png"
+      }
+    },
+    "datePublished": post.created_at,
+    "dateModified": post.updated_at,
+    "mainEntityOfPage": {
+      "@type": "WebPage",
+      "@id": `https://www.qyantra.online/blog/${post.slug}`
+    }
+  }
+
   return (
     <div className="min-h-screen bg-white">
+      {/* JSON-LD Structured Data */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      
       {/* Header */}
       <header className="bg-white border-b border-gray-100 sticky top-0 z-50 shadow-sm">
         <div className="max-w-4xl mx-auto px-4 h-14 flex items-center justify-between">

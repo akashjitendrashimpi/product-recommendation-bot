@@ -1,6 +1,6 @@
 # API Keys & External Services Setup
 
-This document explains what API keys and external services you'll need for QrBot, whether they're free, and how to obtain them.
+This document explains what API keys and external services you'll need for Qyantra, whether they're free, and how to obtain them.
 
 ## Quick Answer
 

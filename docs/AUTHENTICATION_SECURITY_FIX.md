@@ -263,7 +263,7 @@ RESEND_API_KEY=re_xxxxxxxxxxxxx
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 
 # Database (For non-auth operations)
-DATABASE_URL=postgresql://user:password@localhost:5432/qrbot
+DATABASE_URL=postgresql://user:password@localhost:5432/qyantra
 ```
 
 ---

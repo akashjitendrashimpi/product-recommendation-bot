@@ -11,12 +11,13 @@ export const metadata: Metadata = {
 }
 
 export default async function EditBlogPostPage(
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getSession()
   if (!session?.isAdmin) redirect("/auth/login")
 
-  const id = validateId(params.id)
+  const { id: rawId } = await params
+  const id = validateId(rawId)
   if (!id) notFound()
 
   const post = await getPostById(id)

@@ -5,8 +5,14 @@ import { Geist, Geist_Mono } from "next/font/google"
 import Script from "next/script"
 import "./globals.css"
 
-const _geist = Geist({ subsets: ["latin"] })
-const _geistMono = Geist_Mono({ subsets: ["latin"] })
+const geistSans = Geist({
+  subsets: ["latin"],
+  variable: "--font-geist-sans",
+})
+const geistMono = Geist_Mono({
+  subsets: ["latin"],
+  variable: "--font-geist-mono",
+})
 
 // ── Constants ─────────────────────────────────────────────────────────────
 const ONESIGNAL_APP_ID =
@@ -178,13 +184,6 @@ export default function RootLayout({
   return (
     <html lang="en-IN">
       <head>
-<link
-  rel="preload"
-  as="font"
-  type="font/woff2"
-  href="/_next/static/media/7178b3e590c64307-s.11.cyxs5p-0z~.woff2"
-  crossOrigin="anonymous"
-/>
         {/* ── PWA ── */}
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -432,7 +431,7 @@ export default function RootLayout({
         />
       </head>
 
-      <body className="font-sans antialiased">
+      <body className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased text-gray-900 bg-white`}>
         {children}
 
         <Analytics />
