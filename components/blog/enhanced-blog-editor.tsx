@@ -43,7 +43,7 @@ export function EnhancedBlogEditor({ initialData, mode }: BlogEditorProps) {
   const [content, setContent] = useState(initialData?.content || "")
   const [coverImage, setCoverImage] = useState(initialData?.cover_image || "")
   const [author, setAuthor] = useState(initialData?.author || "Qyantra Team")
-  const [status, setStatus] = useState<"draft" | "published">(initialData?.status || "draft")
+  const [status, setStatus] = useState<"draft" | "published">(initialData?.status || "published")
   const [tags, setTags] = useState<string[]>(initialData?.tags || [])
   const [tagInput, setTagInput] = useState("")
   const [metaTitle, setMetaTitle] = useState(initialData?.meta_title || "")
@@ -68,6 +68,18 @@ export function EnhancedBlogEditor({ initialData, mode }: BlogEditorProps) {
     const token = generateCSRFToken()
     setCsrfToken(token)
   }, [])
+
+  // Unsaved changes warning
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (title || content) {
+        e.preventDefault()
+        e.returnValue = ""
+      }
+    }
+    window.addEventListener("beforeunload", handleBeforeUnload)
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload)
+  }, [title, content])
 
   // Update stats
   useEffect(() => {
@@ -129,9 +141,12 @@ export function EnhancedBlogEditor({ initialData, mode }: BlogEditorProps) {
   }, [title, excerpt, content, csrfToken])
 
   const addTag = useCallback(() => {
-    const sanitized = sanitizeInput(tagInput.trim())
-    if (sanitized && !tags.includes(sanitized) && tags.length < 10) {
-      setTags([...tags, sanitized])
+    const newTags = tagInput
+      .split(",")
+      .map((t) => sanitizeInput(t.trim().toLowerCase()))
+      .filter((t) => t && !tags.includes(t))
+    if (newTags.length > 0) {
+      setTags((prev) => [...prev, ...newTags].slice(0, 10))
       setTagInput("")
     }
   }, [tagInput, tags])
@@ -210,6 +225,7 @@ export function EnhancedBlogEditor({ initialData, mode }: BlogEditorProps) {
 
       setTimeout(() => {
         router.push("/admin/blog")
+        router.refresh()
       }, 1500)
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to save post"
@@ -296,7 +312,10 @@ export function EnhancedBlogEditor({ initialData, mode }: BlogEditorProps) {
               className="w-full px-4 py-3 text-lg font-black text-gray-900 border-none focus:ring-0 placeholder:text-gray-200"
               maxLength={200}
             />
-            <div className="flex justify-end px-3 pb-2">
+            <div className="flex justify-between px-3 pb-2">
+              <p className="text-[10px] font-bold text-gray-400">
+                URL: www.qyantra.online/blog/{title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "post-slug"}
+              </p>
               <span className={`text-[10px] font-bold ${title.length > 180 ? "text-red-500" : "text-gray-300"}`}>
                 {title.length}/200
               </span>
@@ -357,9 +376,12 @@ export function EnhancedBlogEditor({ initialData, mode }: BlogEditorProps) {
 
           {/* Rich Text Editor */}
           <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-            <div className="bg-gray-50/50 px-4 py-3 border-b border-gray-100 flex items-center gap-2">
-              <FileText className="w-4 h-4 text-gray-400" />
-              <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Content Editor</span>
+            <div className="bg-gray-50/50 px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <FileText className="w-4 h-4 text-gray-400" />
+                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Content Editor</span>
+              </div>
+              <span className="text-[10px] font-bold text-gray-400">{wordCount} words</span>
             </div>
             <RichTextEditor value={content} onChange={setContent} />
           </div>
@@ -374,7 +396,7 @@ export function EnhancedBlogEditor({ initialData, mode }: BlogEditorProps) {
                 value={tagInput}
                 onChange={(e) => setTagInput(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && addTag()}
-                placeholder="Add keyword..."
+                placeholder="Add tags separated by commas..."
                 aria-label="Add new tag"
                 className="flex-1 px-4 py-3 bg-gray-50 border border-gray-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium"
               />
@@ -384,6 +406,17 @@ export function EnhancedBlogEditor({ initialData, mode }: BlogEditorProps) {
               >
                 <Tag className="w-4 h-4" /> <span className="hidden sm:inline text-sm font-bold">Add</span>
               </button>
+            </div>
+            <div className="flex flex-wrap gap-1 mt-2">
+              {["earning", "tips", "upi", "apps", "india", "money"].map(tag => (
+                <button
+                  key={tag}
+                  onClick={() => !tags.includes(tag) && setTags(p => [...p, tag])}
+                  className="text-xs bg-gray-100 hover:bg-blue-50 hover:text-blue-600 text-gray-500 px-2 py-0.5 rounded-full transition-colors"
+                >
+                  + {tag}
+                </button>
+              ))}
             </div>
             <div className="flex flex-wrap gap-2">
               {tags.map((tag, i) => (

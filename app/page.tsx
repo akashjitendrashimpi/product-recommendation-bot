@@ -7,6 +7,7 @@ import {
   ChevronDown, CheckCircle
 } from "lucide-react"
 import { HeaderCTA } from "@/components/landing/header-cta"
+import { BlogSection } from "@/components/landing/blog-section"
 
 export default function HomePage() {
   return (
@@ -34,6 +35,7 @@ export default function HomePage() {
           {/* Nav — desktop only */}
           <nav aria-label="Main navigation" className="hidden md:flex items-center gap-6 text-sm font-medium text-gray-700">
             <a href="#how-it-works" className="hover:text-blue-600 transition-colors">How it works</a>
+            <Link href="/blog" className="hover:text-blue-600 transition-colors">Blog</Link>
             <a href="#tasks" className="hover:text-blue-600 transition-colors">Tasks</a>
             <a href="#earnings" className="hover:text-blue-600 transition-colors">Earnings</a>
             <a href="#faq" className="hover:text-blue-600 transition-colors">FAQ</a>
@@ -294,6 +296,9 @@ export default function HomePage() {
             </div>
           </div>
         </section>
+        
+        {/* ── BLOG SECTION ── */}
+        <BlogSection />
 
         {/* ── REFERRAL ── */}
         <section aria-labelledby="referral-heading" className="py-12 sm:py-16 px-4 bg-gradient-to-r from-purple-50 to-blue-50">
@@ -428,6 +433,7 @@ export default function HomePage() {
                 <p className="text-white font-bold mb-3 text-xs uppercase tracking-widest">Platform</p>
                 <ul className="space-y-2.5">
                   <li><a href="#how-it-works" className="hover:text-white transition-colors">How it works</a></li>
+                  <li><Link href="/blog" className="hover:text-white transition-colors">Blog</Link></li>
                   <li><a href="#tasks" className="hover:text-white transition-colors">Tasks</a></li>
                   <li><a href="#earnings" className="hover:text-white transition-colors">Earnings</a></li>
                   <li><a href="#faq" className="hover:text-white transition-colors">FAQ</a></li>
