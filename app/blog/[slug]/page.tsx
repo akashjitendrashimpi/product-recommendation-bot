@@ -1,8 +1,8 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound } from "next/navigation"
-import { Sparkles, ArrowLeft, Clock, Eye, Calendar } from "lucide-react"
-import { getPostBySlug, incrementViews } from "@/lib/db/blog"
+import { Sparkles, ArrowLeft, Clock, Eye, Calendar, ArrowRight } from "lucide-react"
+import { getPostBySlug, incrementViews, getPublishedPosts } from "@/lib/db/blog"
 import { serialize } from "next-mdx-remote/serialize"
 import { BlogShare } from "@/components/blog/blog-share"
 import { BlogPostClient } from "@/components/blog/blog-post-client"
@@ -44,6 +44,10 @@ export default async function BlogPostPage({ params }: Props) {
 
   // Increment views
   await incrementViews(slug).catch(() => {})
+
+  // Fetch more posts for "More from Blog"
+  const allPosts = await getPublishedPosts()
+  const morePosts = allPosts.filter(p => p.slug !== slug).slice(0, 2)
 
   const mdxSource = await serialize(post.content, {
     mdxOptions: {
@@ -158,6 +162,40 @@ export default async function BlogPostPage({ params }: Props) {
 
         {/* Client Component for TOC and Content */}
         <BlogPostClient post={post} mdxSource={mdxSource} />
+
+        {/* More from Blog */}
+        {morePosts.length > 0 && (
+          <div className="mt-20 pt-10 border-t border-gray-100">
+            <div className="flex items-center justify-between mb-8">
+              <h3 className="text-sm font-black text-gray-900 uppercase tracking-widest">Continue Reading</h3>
+              <Link href="/blog" className="text-[10px] font-black text-blue-600 hover:text-blue-700 flex items-center gap-1 group uppercase tracking-widest">
+                Full Catalog <ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
+              </Link>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+              {morePosts.map(p => (
+                <Link 
+                  key={p.id} 
+                  href={`/blog/${p.slug}`}
+                  className="group block"
+                >
+                  <div className="aspect-[16/10] rounded-[1.5rem] overflow-hidden mb-4 bg-gray-50 border border-gray-100 shadow-sm group-hover:shadow-blue-500/10 transition-all">
+                    {p.cover_image && (
+                      <img 
+                        src={p.cover_image} 
+                        alt={p.title} 
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                      />
+                    )}
+                  </div>
+                  <h4 className="text-lg font-black text-gray-900 leading-tight group-hover:text-blue-600 transition-colors line-clamp-2">
+                    {p.title}
+                  </h4>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* CTA */}
         <div className="mt-16 bg-gradient-to-br from-blue-600 to-purple-700 rounded-3xl p-8 text-center text-white">

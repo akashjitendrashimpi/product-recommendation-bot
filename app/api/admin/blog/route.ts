@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { revalidatePath } from "next/cache"
 import { getSession, validateCSRF } from "@/lib/auth/session"
 import { getAllPosts, createPost } from "@/lib/db/blog"
 import { rateLimit } from "@/lib/security/rate-limit"
@@ -75,6 +76,10 @@ export async function POST(request: NextRequest) {
       meta_title: meta_title || null,
       meta_description: meta_description || null,
     })
+
+    // Revalidate public pages
+    revalidatePath("/")
+    revalidatePath("/blog")
 
     return NextResponse.json({ post, success: true }, { status: 201 })
   } catch (error: any) {

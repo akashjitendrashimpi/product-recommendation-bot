@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { revalidatePath } from "next/cache"
 import { getSession, validateCSRF } from "@/lib/auth/session"
 import { getPostById, updatePost, deletePost } from "@/lib/db/blog"
 import { validateId, sanitizeString } from "@/lib/security/validation"
@@ -91,6 +92,12 @@ async function handleUpdate(
     if (meta_description !== undefined) updates.meta_description = meta_description
 
     const post = await updatePost(id, updates)
+
+    // Revalidate public pages
+    revalidatePath("/")
+    revalidatePath("/blog")
+    revalidatePath(`/blog/${post.slug}`)
+
     return NextResponse.json({ post, success: true })
   } catch (error: any) {
     if (error?.code === "23505") {
@@ -120,6 +127,11 @@ export async function DELETE(
     if (!id) return NextResponse.json({ error: "Invalid ID" }, { status: 400 })
 
     await deletePost(id)
+
+    // Revalidate public pages
+    revalidatePath("/")
+    revalidatePath("/blog")
+
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error("[admin/blog/id/DELETE] Error:", error)
